@@ -1,0 +1,2 @@
+DOXYFILE = docs/doxygen/source/doxyhtml.conf
+TAGLINKS =

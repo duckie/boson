@@ -1,0 +1,165 @@
+language: cpp
+sudo: required
+dist: trusty
+
+matrix:
+  include:
+    # 1/ Linux GCC Builds
+    #
+    - compiler: gcc
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-5
+      env: C_COMPILER=gcc-5 CXX_COMPILER=g++-5 BUILD_TYPE='Release' SANITIZER=""
+    #
+    - compiler: gcc
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-5
+      env: C_COMPILER=gcc-5 CXX_COMPILER=g++-5 BUILD_TYPE='Coverage' SANITIZER=""
+    #
+    - compiler: gcc
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-5
+      env: C_COMPILER=gcc-5 CXX_COMPILER=g++-5 BUILD_TYPE='Debug' SANITIZER="address"
+    # Not supported on travis, libtsan is missing
+    #- compiler: gcc
+      #addons:
+        #apt:
+          #sources:
+            #- ubuntu-toolchain-r-test
+          #packages:
+            #- g++-5
+      #env: C_COMPILER=gcc-5 CXX_COMPILER=g++-5 BUILD_TYPE='Debug' SANITIZER="thread"
+    #
+    - compiler: gcc
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-5
+      env: C_COMPILER=gcc-5 CXX_COMPILER=g++-5 BUILD_TYPE='Debug' SANITIZER="undefined"
+
+    # 2/ Linux Clang Builds
+    #
+    - compiler: clang
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-precise-3.8
+          packages:
+            - g++-5
+            - clang-3.8
+      env: C_COMPILER=clang-3.8 CXX_COMPILER=clang++-3.8 BUILD_TYPE='Release' SANITIZER=""
+    #
+    - compiler: clang
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-precise-3.8
+          packages:
+            - g++-5
+            - clang-3.8
+      env: C_COMPILER=clang-3.8 CXX_COMPILER=clang++-3.8 BUILD_TYPE='Debug' SANITIZER="address"
+    # Disabled for now because of false positive and failing blacklist
+    #- compiler: clang
+      #addons:
+        #apt:
+          #sources:
+            #- ubuntu-toolchain-r-test
+            #- llvm-toolchain-precise-3.8
+          #packages:
+            #- clang-3.8
+      #env: C_COMPILER=clang-3.8 CXX_COMPILER=clang++-3.8 BUILD_TYPE='Debug' SANITIZER="memory"
+    #
+    - compiler: clang
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-precise-3.8
+          packages:
+            - g++-5
+            - clang-3.8
+      env: C_COMPILER=clang-3.8 CXX_COMPILER=clang++-3.8 BUILD_TYPE='Debug' SANITIZER="thread"
+    #
+    - compiler: clang
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-precise-3.8
+          packages:
+            - g++-5
+            - clang-3.8
+      env: C_COMPILER=clang-3.8 CXX_COMPILER=clang++-3.8 BUILD_TYPE='Debug' SANITIZER="undefined"
+
+    # 3/ OSX Clang Builds
+    #
+    - os: osx
+      osx_image: xcode8
+      compiler: clang
+      env: C_COMPILER=clang CXX_COMPILER='clang++' BUILD_TYPE='Release' SANITIZER=""
+    #
+    - os: osx
+      osx_image: xcode8
+      compiler: clang
+      env: C_COMPILER=clang CXX_COMPILER='clang++' BUILD_TYPE='Debug' SANITIZER="address"
+    # Currently unsupported
+    #- os: osx
+      #osx_image: xcode8
+      #compiler: clang
+      #env: COMPILER='clang++' BUILD_TYPE='Debug' SANITIZER="memory"
+    #
+    - os: osx
+      osx_image: xcode8
+      compiler: clang
+      env: C_COMPILER=clang CXX_COMPILER='clang++' BUILD_TYPE='Debug' SANITIZER="thread"
+    # Should be supported but fails at link
+    #- os: osx
+      #osx_image: xcode8
+      #compiler: clang
+      #env: C_COMPILER=clang CXX_COMPILER='clang++' BUILD_TYPE='Debug' SANITIZER="undefined"
+
+install:
+  - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
+  - mkdir -p ${DEPS_DIR} && cd ${DEPS_DIR}
+  - |
+    if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
+      echo "Nothin"
+    elif [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
+      brew install cmake
+    fi
+
+before_script:
+  - export CC=${C_COMPILER}
+  - export CXX=${CXX_COMPILER}
+  - cd ${TRAVIS_BUILD_DIR}
+  - mkdir -p Build
+  - cd Build
+  - cmake --version
+  - cmake .. -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPROJECT_BUILD_SANITIZER_TYPE=${SANITIZER}
+
+script:
+  - make -j2
+  - ctest -V
+  - ./bin/runcppproject
+
+after_success:
+  - |
+    if [[ "${BUILD_TYPE}" == "Coverage" ]]; then
+      bash <(curl -s https://codecov.io/bash)
+    fi

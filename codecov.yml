@@ -1,0 +1,6 @@
+coverage:
+  ignore:
+    - "3rdparty/**/*"
+codecov:
+  ci:
+    - "!circleci.com"

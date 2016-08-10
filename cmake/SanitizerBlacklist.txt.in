@@ -1,0 +1,4 @@
+# Ignore issues in std
+fun:std::*
+# Ignore issues in 3rdparty
+src:${PROJECT_SOURCE_DIR}/3rdparty/*
