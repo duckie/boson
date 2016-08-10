@@ -21,7 +21,6 @@ set(LIBRARIES)
 #endif()
 
 # Import configuration options into code
-configure_file(projectlib/config.h.cmake config.h)
 file(GLOB lib_sources src/*.cc)
 add_library(${PROJECT_NAME} ${lib_sources})
 target_link_libraries(${PROJECT_NAME} ${LIBRARIES})
