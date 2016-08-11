@@ -2,28 +2,19 @@
 
 set(LIBRARIES)
 
-## OpenCV support
-#find_package(OpenCV REQUIRED)
-#if(OpenCV_FOUND)
-#    include_directories(${OpenCV_INCLUDE_DIRS})
-#    set(LIBRARIES "${LIBRARIES}" "${OpenCV_LIBS}")
-#endif()
 
-## Boost support
-#find_package(Boost COMPONENTS ${Boost_COMPONENTS} REQUIRED)
-#if(Boost_FOUND)
-# include_directories(${Boost_INCLUDE_DIRS})
-#    if(CMAKE_COMPILER_IS_GNUCXX)
-#        set(LIBRARIES "${LIBRARIES}" "${Boost_LIBRARIES}")
-#    else()
-#        link_directories(${Boost_LIBRARY_DIRS})
-#    endif()
-#endif()
+# TODO: Get platform agnostic
+add_library(boson_fcontext OBJECT
+  src/asm/ontop_x86_64_sysv_elf_gas.S
+  src/asm/make_x86_64_sysv_elf_gas.S 
+  src/asm/jump_x86_64_sysv_elf_gas.S
+  )
 
 # Import configuration options into code
 file(GLOB lib_sources src/*.cc)
-add_library(${PROJECT_NAME} ${lib_sources})
-target_link_libraries(${PROJECT_NAME} ${LIBRARIES})
+add_library(boson ${lib_sources} $<TARGET_OBJECTS:boson_fcontext>)
+target_compile_options(boson PUBLIC -nostdlib)
+target_link_libraries(boson ${LIBRARIES})
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(test)
