@@ -20,8 +20,7 @@ static void foo( boson::context::transfer_t t_) {
 }
 
 size_t measure_time_fc() {
-    stack_allocator<basic_stack_traits<8 *1024 * 1024, 64 * 1024>> stack_alloc;
- 		stack_context sctx = stack_alloc.allocate();
+ 		stack_context sctx = allocate_stack<default_stack_traits>();
     fcontext_t ctx = make_fcontext(
             sctx.sp,
             sctx.size,

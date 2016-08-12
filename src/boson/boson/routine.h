@@ -8,20 +8,21 @@ namespace boson {
  * routine represents a signel unit of execution
  *
  */
-template <class Function>
+template <class Function, class StackTraits = context::default_stack_traits>
 class routine {
-  Function task_;
+  Function func_;
+  stack_context
 
 public:
-  routine();
-  routine(routine const&) = delete;
-  routine(routine&&) = default;
-  routine& operator=(routine const&) = delete;
-  routine& operator=(routine&&) = default;
+ routine(Function&& func) : func_(std::forward<Function>(func)) {
+ }
 
+ routine(routine const&) = delete;
+ routine(routine&&) = default;
+ routine& operator=(routine const&) = delete;
+ routine& operator=(routine&&) = default;
 
-
-
+ void resume();
 };
 
 };
