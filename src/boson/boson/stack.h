@@ -21,12 +21,14 @@ extern "C" {
 #endif
 
 namespace boson {
-namespace context {
+namespace stack {
 
 struct stack_context {
   std::size_t size{0};
   void* sp{nullptr};
+#if defined(BOSON_USE_VALGRIND)
   unsigned valgrind_stack_id{0};
+#endif
 };
 
 template <std::size_t Size, std::size_t PageSize, std::size_t LockedSize = 0, bool Protected = false>
@@ -41,7 +43,7 @@ struct basic_stack_traits {
 using default_stack_traits = basic_stack_traits<8*1024*1024,64*1024,8*1024>;
 
 template <class Traits> 
-stack_context allocate_stack() {
+stack_context allocate() {
 #if defined(MAP_ANON)
   void* vp = ::mmap(0, Traits::stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
 #else

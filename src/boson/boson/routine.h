@@ -11,7 +11,7 @@ namespace boson {
 template <class Function, class StackTraits = context::default_stack_traits>
 class routine {
   Function func_;
-  stack_context
+  stack_context stack_;
 
 public:
  routine(Function&& func) : func_(std::forward<Function>(func)) {

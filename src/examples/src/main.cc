@@ -10,6 +10,7 @@
 #include "boson/fcontext.h"
 
 using namespace std::chrono;
+using namespace boson::stack;
 using namespace boson::context;
 
 static void foo( boson::context::transfer_t t_) {
@@ -20,7 +21,7 @@ static void foo( boson::context::transfer_t t_) {
 }
 
 size_t measure_time_fc() {
- 		stack_context sctx = allocate_stack<default_stack_traits>();
+ 		stack_context sctx = allocate<default_stack_traits>();
     fcontext_t ctx = make_fcontext(
             sctx.sp,
             sctx.size,
