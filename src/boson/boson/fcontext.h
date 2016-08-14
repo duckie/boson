@@ -57,7 +57,7 @@
 namespace boson {
 namespace context {
 
-typedef void* fcontext_t;
+using fcontext_t = void*;
 
 struct transfer_t {
   fcontext_t fctx;

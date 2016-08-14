@@ -13,5 +13,8 @@ endif()
 file(GLOB srcs *.cc)
 list(REMOVE_ITEM srcs "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cc")
 
-add_executable(run${PROJECT_NAME} src/main.cc ${srcs})
+add_executable(run${PROJECT_NAME} src/main.cc)
 target_link_libraries(run${PROJECT_NAME} boson ${LIBRARIES})
+
+add_executable(basic_loop src/basic_loop.cc)
+target_link_libraries(basic_loop boson ${LIBRARIES})
