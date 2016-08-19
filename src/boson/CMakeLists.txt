@@ -2,6 +2,8 @@
 
 set(LIBRARIES)
 
+Find_Package(Threads REQUIRED)
+set(LIBRARIES "${LIBRARIES}" ${CMAKE_THREAD_LIBS_INIT})
 
 # TODO: Get platform agnostic
 add_library(boson_fcontext OBJECT

@@ -1,3 +1,5 @@
+set(LIBRARIES "${LIBRARIES}" ${CMAKE_THREAD_LIBS_INIT})
+
 set(catch_exe_source_list)
 add_custom_target(build-test)
 macro(add_project_test name)
@@ -12,7 +14,8 @@ macro(add_project_test name)
 endmacro()
 
 # Reference test sources
-add_project_test(test1 CATCH)
+#add_project_test(test1 CATCH)
+add_project_test(queues_weakrb CATCH)
 
 # Create main test executable
 add_executable(unit_tests ${catch_exe_source_list})
