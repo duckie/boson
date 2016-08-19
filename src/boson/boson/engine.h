@@ -2,12 +2,20 @@
 #define BOSON_ENGINE_H_
 #pragma once
 
-#include <list>
+#include <vector>
 #include <memory>
 #include <iostream>
+#include <tuple>
+#include <thread>
+#include <future>
 #include "routine.h"
+#include "thread.h"
 
 namespace boson {
+
+namespace context {
+}
+
 
 /**
  * engine encapsulates an instance of the boson runtime
@@ -16,10 +24,37 @@ namespace boson {
 template <class StackTraits = stack::default_stack_traits>
 class engine {
   using routine_t = routine<StackTraits>;
-  std::list<std::unique_ptr<routine_t>> scheduled_routines_;
+  using thread_t = context::thread<StackTraits>;
+  using proxy_t = context::engine_proxy<StackTraits>;
+  using thread_view_t = thread_t;
+  using thread_list_t = std::vector<thread_view_t>;
+  using thread_id_t = size_t;
+
+  friend class context::engine_proxy<StackTraits>;
+
+  thread_list_t threads_;
+  size_t max_nb_cores_;
+  thread_id_t current_thread_id_{0};
+
+  /**
+   * Registers a new thread
+   *
+   * This function is called from any new thread which 
+   * is in creation state. The goal here is to get a numerical
+   * id to avoid paying for a std::[unordered_]map find or a 
+   * vector lookup. This price will be paid with a thread_local
+   * id
+   */
+  thread_id_t register_thread_id() {
+    auto new_id = ++current_thread_id_;
+    return new_id;
+  }
 
 public:
-  engine() = default;
+  engine(size_t max_nb_cores = 1) : max_nb_cores_{max_nb_cores} {
+    threads_.reserve(max_nb_cores + 1);
+    // Start all threads directly
+  }
   engine(engine const&) = delete;
   engine(engine&&) = default;
   engine& operator=(engine const&) = delete;
@@ -30,20 +65,9 @@ public:
   };
 
   template <class Function> void start(Function&& function) {
-    scheduled_routines_.emplace_back(new routine<StackTraits>(std::forward<Function>(function)));
   };
 
   void loop() {
-    while(!scheduled_routines_.empty()) {
-      // For now; we schedule them in order
-      std::unique_ptr<routine_t> current_routine{scheduled_routines_.front().release()};
-      scheduled_routines_.pop_front();
-      current_routine->resume();
-      if (routine_status::finished != current_routine->status()) {
-        // If not finished, then we reschedule it
-        scheduled_routines_.emplace_back(std::move(current_routine));
-      }
-    }
   }
 
 };
