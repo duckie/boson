@@ -48,6 +48,7 @@ project_enable_documentation()
 include_directories(${MANUAL_INCLUDE_DIRS})
 
 project_add_3rdparty(catch)
+project_add_3rdparty(json_backbone)
 
 # By default we put binaries into this directory
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)

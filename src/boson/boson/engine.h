@@ -4,12 +4,13 @@
 
 #include <vector>
 #include <memory>
-#include <iostream>
 #include <tuple>
 #include <thread>
 #include <future>
+#include <atomic>
 #include "routine.h"
 #include "thread.h"
+#include <iostream>
 
 namespace boson {
 
@@ -25,10 +26,20 @@ template <class StackTraits = stack::default_stack_traits>
 class engine {
   using routine_t = routine<StackTraits>;
   using thread_t = context::thread<StackTraits>;
+  using command_t = context::thread_command<StackTraits>;
   using proxy_t = context::engine_proxy<StackTraits>;
-  using thread_view_t = thread_t;
-  using thread_list_t = std::vector<thread_view_t>;
-  using thread_id_t = size_t;
+
+  struct thread_view {
+    thread_t thread;
+    std::thread std_thread;
+
+    thread_view(engine& engine) : thread{engine} {
+    }
+  };
+
+  using thread_view_t = thread_view;
+  using thread_list_t = std::vector<std::unique_ptr<thread_view_t>>;
+  using thread_id_t = std::atomic<std::size_t>;
 
   friend class context::engine_proxy<StackTraits>;
 
@@ -45,15 +56,21 @@ class engine {
    * vector lookup. This price will be paid with a thread_local
    * id
    */
-  thread_id_t register_thread_id() {
+  size_t register_thread_id() {
     auto new_id = ++current_thread_id_;
     return new_id;
   }
 
+
 public:
   engine(size_t max_nb_cores = 1) : max_nb_cores_{max_nb_cores} {
-    threads_.reserve(max_nb_cores + 1);
     // Start all threads directly
+    threads_.reserve(max_nb_cores);
+    for (size_t index = 0; index < max_nb_cores_; ++index) {
+      threads_.emplace_back(new thread_view_t(*this));
+      auto& created_thread = threads_.back();
+      threads_.back()->std_thread = std::thread([&created_thread]() { created_thread->thread(); });
+    }
   }
   engine(engine const&) = delete;
   engine(engine&&) = default;
@@ -61,15 +78,19 @@ public:
   engine& operator=(engine&&) = default;
 
   ~engine() {
-    loop();
+    command_t command { context::thread_command_type::finish, nullptr };
+    threads_[0]->thread.push_command(command);
+    threads_[0]->thread.execute_commands();
+
+    threads_[0]->std_thread.join();
   };
 
   template <class Function> void start(Function&& function) {
+    // Select a thread
+    command_t command { context::thread_command_type::add_routine, nullptr };
+    threads_[0]->thread.push_command(command);
+    threads_[0]->thread.execute_commands();
   };
-
-  void loop() {
-  }
-
 };
 
 };

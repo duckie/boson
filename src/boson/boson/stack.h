@@ -14,8 +14,6 @@ extern "C" {
 #include <new>
 #include <cassert>
 
-
-#define BOSON_USE_VALGRIND
 #if defined(BOSON_USE_VALGRIND)
 #include <valgrind/valgrind.h>
 #endif
