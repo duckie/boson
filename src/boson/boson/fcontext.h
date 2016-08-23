@@ -62,6 +62,10 @@ using fcontext_t = void*;
 struct transfer_t {
   fcontext_t fctx;
   void* data;
+
+  operator bool() const {
+    return fctx != nullptr;
+  }
 };
 
 extern "C" BOSON_CONTEXT_DECL transfer_t BOSON_CONTEXT_CALLDECL jump_fcontext(fcontext_t const to,

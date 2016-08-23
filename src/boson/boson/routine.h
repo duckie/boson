@@ -14,7 +14,7 @@ namespace boson {
  * to know about what is runniung them. But it will avoid too much load/store
  * from a thread_local variable since it implies a look in a map
  */
-thread_local context::transfer_t* current_thread_context = nullptr;
+thread_local context::transfer_t current_thread_context = { nullptr, nullptr };
 
 enum class routine_status {
   is_new,   // Routine has been created bbut never started
@@ -36,12 +36,20 @@ class routine_context {
   }
 };
 
+void yield() {
+  context::jump_fcontext(current_thread_context.fctx,nullptr);
+}
+
 namespace detail {
 template <class StackTraits>
 void resume_routine(context::transfer_t transfered_context) {
   using routine_t = routine<StackTraits>;
   routine_context rcontext{transfered_context};
   auto current_routine = reinterpret_cast<routine_t*>(transfered_context.data);
+  auto& current_thread_context_ref = current_thread_context;
+  if (!current_thread_context_ref) {
+    current_thread_context_ref = transfered_context;
+  }
   (*current_routine->func_)(rcontext);
   current_routine->status_ = routine_status::finished;
   context::jump_fcontext(transfered_context.fctx, transfered_context.data);
