@@ -54,6 +54,10 @@ project_add_3rdparty(json_backbone)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 
+if (BOSON_USE_VALGRIND)
+  add_definitions(-DBOSON_USE_VALGRIND)
+endif()
+
 project_add_module(test)
 project_add_module(boson)
 project_add_module(examples)

@@ -7,6 +7,15 @@
 
 namespace boson {
 
+/**
+ * Store the local thread context
+ *
+ * The usage of this breaks encapsulation sinces routines are not supposed
+ * to know about what is runniung them. But it will avoid too much load/store
+ * from a thread_local variable since it implies a look in a map
+ */
+thread_local context::transfer_t* current_thread_context = nullptr;
+
 enum class routine_status {
   is_new,   // Routine has been created bbut never started
   started,  // Routine started
@@ -35,7 +44,7 @@ void resume_routine(context::transfer_t transfered_context) {
   auto current_routine = reinterpret_cast<routine_t*>(transfered_context.data);
   (*current_routine->func_)(rcontext);
   current_routine->status_ = routine_status::finished;
-  context::jump_fcontext(transfered_context.fctx, nullptr);
+  context::jump_fcontext(transfered_context.fctx, transfered_context.data);
 }
 
 struct function_holder {

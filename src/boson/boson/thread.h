@@ -30,7 +30,7 @@ enum class thread_command_type {
 };
 
 template <class StackTraits>
-using thread_command_data = json_backbone::variant<std::nullptr_t, routine<StackTraits>>;
+using thread_command_data = json_backbone::variant<std::nullptr_t, std::unique_ptr<routine<StackTraits>>>;
 
 template <class StackTraits>
 struct thread_command {
@@ -70,39 +70,53 @@ class engine_proxy {
 template <class StackTraits>
 class thread {
   using routine_t = routine<StackTraits>;
+  using routine_ptr_t = std::unique_ptr<routine_t>;
   using engine_t = engine<StackTraits>;
   using engine_proxy_t = engine_proxy<StackTraits>;
   using command_t = thread_command<StackTraits>;
   using engine_queue_t = queues::weakrb<command_t, 100>;
 
   engine_proxy_t engine_proxy_;
-  //std::vector<std::unique_ptr<routine_t>> scheduled_routines_;
+  std::vector<routine_ptr_t> scheduled_routines_;
   thread_status status_{thread_status::idle};
   uv_loop_t uv_loop_;
 
   engine_queue_t engine_queue_;
   uv_async_t engine_async_handle_;
+  uv_async_t self_handle_;
 
   // C style callback shim
   static void handle_engine_async_send(uv_async_t* handle) {
     reinterpret_cast<thread*>(handle->data)->handle_engine_async_send();
   };
 
-  // Member function called by its matching C-Stymle callbacl
+  // Member function called by its matching C-Style callbacl
   void handle_engine_async_send() {
-    std::cout << "Yay\n";
     command_t received_command;
     while (engine_queue_.pop(received_command)) {
       switch (received_command.type) {
         case thread_command_type::add_routine:
-          std::cout << "yay\n";
+          scheduled_routines_.emplace_back(received_command.data.template get<routine_ptr_t>().release());
           break;
         case thread_command_type::finish:
-          std::cout << "Finish him\n";
-          uv_close(reinterpret_cast<uv_handle_t*>(&engine_async_handle_),nullptr);
+          status_ = thread_status::finished;
           break;
       }
     }
+    execute_scheduled_routines();
+  }
+
+  static void handle_self_send(uv_async_t* handle) {
+    reinterpret_cast<thread*>(handle->data)->handle_self_send();
+  };
+
+  void handle_self_send() {
+    execute_scheduled_routines();
+  }
+
+  void close_handles() {
+    uv_close(reinterpret_cast<uv_handle_t*>(&engine_async_handle_),nullptr);
+    uv_close(reinterpret_cast<uv_handle_t*>(&self_handle_),nullptr);
   }
 
  public:
@@ -126,6 +140,8 @@ class thread {
     uv_loop_init(&uv_loop_);
     uv_async_init(&uv_loop_, &engine_async_handle_, thread::handle_engine_async_send);
     engine_async_handle_.data = this; 
+    uv_async_init(&uv_loop_, &self_handle_, thread::handle_engine_async_send);
+    self_handle_.data = this;
   }
 
   ~thread() {
@@ -135,15 +151,26 @@ class thread {
 
   void execute_scheduled_routines() {
     //while (!scheduled_routines_.empty()) {
-      //// For now; we schedule them in order
-      //std::unique_ptr<routine_t> current_routine{scheduled_routines_.front().release()};
-      //scheduled_routines_.pop_front();
-      //current_routine->resume();
-      //if (routine_status::finished != current_routine->status()) {
-        //// If not finished, then we reschedule it
-        //scheduled_routines_.emplace_back(std::move(current_routine));
-      //}
-    //}
+    std::vector<routine_ptr_t> next_scheduled_routines;
+    next_scheduled_routines.reserve(scheduled_routines_.size());
+    for(auto& routine : scheduled_routines_) {
+      // For now; we schedule them in order
+      routine->resume();
+      if (routine_status::finished != routine->status()) {
+        // If not finished, then we reschedule it
+        next_scheduled_routines.emplace_back(routine.release());
+      }
+    }
+    scheduled_routines_ = std::move(next_scheduled_routines);
+
+    // If finished and no more routines, exit
+    if (0 == scheduled_routines_.size() && thread_status::finished == status_) {
+      close_handles();
+    }
+    else {
+      // Re schedule a loop
+      uv_async_send(&self_handle_);
+    }
   }
 
   void loop() {
@@ -167,7 +194,6 @@ class thread {
           //break;
       //}
     //} while(thread_status::finished != status_);
-    std::cout << "Yay\n";
     uv_run(&uv_loop_, UV_RUN_DEFAULT);
   }
 

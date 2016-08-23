@@ -4,9 +4,6 @@ set(LIBRARIES json_backbone)
 
 Find_Package(Threads REQUIRED)
 set(LIBRARIES "${LIBRARIES}" ${CMAKE_THREAD_LIBS_INIT})
-if (BOSON_USE_VALGRIND)
-  add_definitions(-DBOSON_USE_VALGRIND)
-endif()
 
 # TODO: Get platform agnostic
 add_library(boson_fcontext OBJECT

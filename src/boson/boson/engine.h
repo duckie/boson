@@ -87,7 +87,7 @@ public:
 
   template <class Function> void start(Function&& function) {
     // Select a thread
-    command_t command { context::thread_command_type::add_routine, nullptr };
+    command_t command {context::thread_command_type::add_routine, new routine_t{std::forward<Function>(function)}};
     threads_[0]->thread.push_command(command);
     threads_[0]->thread.execute_commands();
   };
