@@ -50,13 +50,15 @@ void resume_routine(context::transfer_t transfered_context) {
   if (!current_thread_context_ref) {
     current_thread_context_ref = transfered_context;
   }
-  (*current_routine->func_)(rcontext);
+  //(*current_routine->func_)(rcontext);
+  (*current_routine->func_)();
   current_routine->status_ = routine_status::finished;
   context::jump_fcontext(transfered_context.fctx, transfered_context.data);
 }
 
 struct function_holder {
-  virtual void operator() (routine_context&) = 0;
+  //virtual void operator() (routine_context&) = 0;
+  virtual void operator() () = 0;
 };
 
 template <class Function> class function_holder_impl : public function_holder {
@@ -64,8 +66,8 @@ template <class Function> class function_holder_impl : public function_holder {
 
   public:
   function_holder_impl(Function&& func) : func_{std::move(func)} {}
-  void operator() (routine_context& context) override {
-    func_(context);
+  void operator() () override {
+    func_();
   }
 };
 }  // nemesapce detail
