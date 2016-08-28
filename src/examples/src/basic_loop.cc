@@ -3,7 +3,7 @@
 
 int main( int argc, char * argv[])
 {
-  boson::engine<> instance;
+  boson::engine<> instance(1);
   instance.start([]() {
     for (int i = 0; i < 10; ++i) {
       std::cout << "A: " << i << "\n";

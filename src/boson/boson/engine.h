@@ -39,13 +39,17 @@ class engine {
 
   using thread_view_t = thread_view;
   using thread_list_t = std::vector<std::unique_ptr<thread_view_t>>;
-  using thread_id_t = std::atomic<std::size_t>;
 
   friend class context::engine_proxy<StackTraits>;
 
   thread_list_t threads_;
   size_t max_nb_cores_;
-  thread_id_t current_thread_id_{0};
+  std::atomic<thread_id> current_thread_id_{0};
+
+  // This is used to add routines from the external main thread
+  //
+  // Should not be used a lot.
+  thread_id next_scheduled_thread_{0};
 
   /**
    * Registers a new thread
@@ -56,7 +60,7 @@ class engine {
    * vector lookup. This price will be paid with a thread_local
    * id
    */
-  size_t register_thread_id() {
+  thread_id register_thread_id() {
     auto new_id = ++current_thread_id_;
     return new_id;
   }
@@ -78,19 +82,32 @@ public:
   engine& operator=(engine&&) = default;
 
   ~engine() {
-    command_t command { context::thread_command_type::finish, nullptr };
-    threads_[0]->thread.push_command(command);
-    threads_[0]->thread.execute_commands();
+    // Send a request to thread to finish when they can
+    for(auto& thread : threads_) {
+      command_t command { context::thread_command_type::finish, nullptr };
+      thread->thread.push_command(command);
+      thread->thread.execute_commands();
+    }
 
-    threads_[0]->std_thread.join();
+    // Join everyone
+    for(auto& thread : threads_) {
+      thread->std_thread.join();
+    }
+  };
+
+  template <class Function> void start(thread_id id, Function&& function) {
+    // Select a thread
+    command_t command {context::thread_command_type::add_routine, new routine_t{std::forward<Function>(function)}};
+    threads_.at(id)->thread.push_command(command);
+    threads_.at(id)->thread.execute_commands();
   };
 
   template <class Function> void start(Function&& function) {
     // Select a thread
-    command_t command {context::thread_command_type::add_routine, new routine_t{std::forward<Function>(function)}};
-    threads_[0]->thread.push_command(command);
-    threads_[0]->thread.execute_commands();
+    this->start(next_scheduled_thread_, std::forward<Function>(function));
+    next_scheduled_thread_ = (next_scheduled_thread_ + 1) % max_nb_cores_;
   };
+
 };
 
 };

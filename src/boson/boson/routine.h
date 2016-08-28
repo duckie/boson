@@ -36,9 +36,6 @@ class routine_context {
   }
 };
 
-void yield() {
-  context::jump_fcontext(current_thread_context.fctx,nullptr);
-}
 
 namespace detail {
 template <class StackTraits>
@@ -46,10 +43,7 @@ void resume_routine(context::transfer_t transfered_context) {
   using routine_t = routine<StackTraits>;
   routine_context rcontext{transfered_context};
   auto current_routine = reinterpret_cast<routine_t*>(transfered_context.data);
-  auto& current_thread_context_ref = current_thread_context;
-  if (!current_thread_context_ref) {
-    current_thread_context_ref = transfered_context;
-  }
+  current_thread_context = transfered_context;
   //(*current_routine->func_)(rcontext);
   (*current_routine->func_)();
   current_routine->status_ = routine_status::finished;
@@ -71,7 +65,6 @@ template <class Function> class function_holder_impl : public function_holder {
   }
 };
 }  // nemesapce detail
-
 
 /**
  * routine represents a signel unit of execution
@@ -135,6 +128,12 @@ class routine {
     }
   }
 };
+
+void yield() {
+  context::jump_fcontext(current_thread_context.fctx,nullptr);
+}
+
+
 }
 
 #endif  // BOSON_ROUTINE_H_

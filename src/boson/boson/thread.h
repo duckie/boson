@@ -15,6 +15,7 @@
 namespace boson {
 
 template <class StackTraits> class engine;
+using thread_id = std::size_t;
 
 namespace context {
 
@@ -50,7 +51,7 @@ class engine_proxy {
 
   // Use a pointer here to get free move ctor and operator
   engine_t* engine_;
-  size_t current_thread_id_;
+  thread_id current_thread_id_;
 
  public:
   engine_proxy(engine_t& engine) 
@@ -90,7 +91,7 @@ class thread {
     reinterpret_cast<thread*>(handle->data)->handle_engine_async_send();
   };
 
-  // Member function called by its matching C-Style callbacl
+  // Member function called by its matching C-Style callback
   void handle_engine_async_send() {
     command_t received_command;
     while (engine_queue_.pop(received_command)) {
