@@ -17,6 +17,7 @@ endmacro()
 #add_project_test(test1 CATCH)
 add_project_test(queues_weakrb CATCH)
 add_project_test(event_loop CATCH)
+add_project_test(memory_sparse_vector CATCH)
 
 # Create main test executable
 add_executable(unit_tests ${catch_exe_source_list})

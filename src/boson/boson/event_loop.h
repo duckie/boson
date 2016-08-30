@@ -41,7 +41,6 @@ class event_loop {
    * a handler which will stay the same over the loop
    * lifespan
    *
-   *
    */
   event_loop(event_handler& handler,std::size_t max_nb_events);
 
@@ -57,6 +56,8 @@ class event_loop {
   //request_write(int fd, void* data = nullptr);
   //
   void send_event(int event, std::size_t value);
+
+  void loop();
 };
 
 

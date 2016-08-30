@@ -11,8 +11,14 @@ namespace boson {
 using epoll_event_t = struct epoll_event;
 
 class event_loop_impl {
+  struct event_data {
+    int fd;
+    void* data;
+  };
+
   event_handler& handler_;
   int loop_fd_{-1};
+  std::vector<event_data> events_data_;
   std::vector<epoll_event_t> events_;
 
  public:
@@ -30,6 +36,8 @@ class event_loop_impl {
   //request_write(int fd, void* data = nullptr);
   //
   void send_event(int event, std::size_t value);
+
+  void loop();
 };
 }
 

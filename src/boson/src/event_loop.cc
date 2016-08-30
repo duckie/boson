@@ -16,4 +16,8 @@ void event_loop::send_event(int event, std::size_t value) {
   loop_impl_->send_event(event,value);
 }
 
+void event_loop::loop() {
+  loop_impl_->loop();
+}
+
 }  // namespace boson
