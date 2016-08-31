@@ -2,10 +2,10 @@
 #define BOSON_EVENTLOOPIMPL_H_
 #pragma once
 
-#include "event_loop.h"
 #include <sys/epoll.h>
 #include <vector>
-
+#include "event_loop.h"
+#include "memory/sparse_vector.h"
 
 namespace boson {
 using epoll_event_t = struct epoll_event;
@@ -18,11 +18,11 @@ class event_loop_impl {
 
   event_handler& handler_;
   int loop_fd_{-1};
-  std::vector<event_data> events_data_;
+  memory::sparse_vector<event_data> events_data_;
   std::vector<epoll_event_t> events_;
 
  public:
-  event_loop_impl(event_handler& handler,std::size_t max_nb_events);
+  event_loop_impl(event_handler& handler);
 
   /**
    * Registers for a long running event listening
@@ -35,9 +35,9 @@ class event_loop_impl {
   //request_read(int fd, void* data = nullptr);
   //request_write(int fd, void* data = nullptr);
   //
-  void send_event(int event, std::size_t value);
+  void send_event(int event);
 
-  void loop();
+  void loop(int max_iter = -1);
 };
 }
 

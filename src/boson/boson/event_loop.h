@@ -8,7 +8,7 @@
 namespace boson {
 
 struct event_handler {
-  virtual void event(int event_id, std::size_t value, void* data) = 0;
+  virtual void event(int event_id, void* data) = 0;
   virtual void read(int fd, void* data) = 0;
   virtual void write(int fd, void* data) = 0;
 };
@@ -33,6 +33,8 @@ class event_loop {
   std::unique_ptr<event_loop_impl> loop_impl_;
 
  public:
+  ~event_loop();
+
   /**
    * Creates an event loop
    *
@@ -42,7 +44,7 @@ class event_loop {
    * lifespan
    *
    */
-  event_loop(event_handler& handler,std::size_t max_nb_events);
+  event_loop(event_handler& handler);
 
   /**
    * Registers for a long running event listening
@@ -55,9 +57,9 @@ class event_loop {
   //request_read(int fd, void* data = nullptr);
   //request_write(int fd, void* data = nullptr);
   //
-  void send_event(int event, std::size_t value);
+  void send_event(int event);
 
-  void loop();
+  void loop(int max_iter = -1);
 };
 
 

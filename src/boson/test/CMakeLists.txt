@@ -1,4 +1,4 @@
-set(LIBRARIES "${LIBRARIES}" ${CMAKE_THREAD_LIBS_INIT})
+set(LIBRARIES "${LIBRARIES}" ${CMAKE_THREAD_LIBS_INIT} boson)
 
 set(catch_exe_source_list)
 add_custom_target(build-test)
