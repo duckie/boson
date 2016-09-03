@@ -58,6 +58,7 @@ template <class Function> class function_holder_impl : public function_holder {
  */
 class routine {
   friend void detail::resume_routine(context::transfer_t);
+  friend void yield();
   std::unique_ptr<detail::function_holder> func_;
   stack::stack_context stack_;
   routine_status status_;

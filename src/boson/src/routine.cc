@@ -31,6 +31,8 @@ void resume_routine(context::transfer_t transfered_context) {
 void yield() {
   context::transfer_t& main_context = current_thread_context;
   //context::jump_fcontext(main_context.fctx,nullptr);
+  routine* current_routine = static_cast<routine*>(main_context.data);
+  current_routine->status_ = routine_status::yielding;
   main_context = context::jump_fcontext(main_context.fctx,nullptr);
 }
 }  // namespace boson
