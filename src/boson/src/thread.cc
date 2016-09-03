@@ -69,6 +69,7 @@ void thread::execute_commands() {
 void thread::execute_scheduled_routines() {
   // while (!scheduled_routines_.empty()) {
   decltype(scheduled_routines_) next_scheduled_routines;
+  std::list<std::tuple<size_t, routine_ptr_t>> new_timed_routines_;
   while(!scheduled_routines_.empty()) {
     // For now; we schedule them in order
     auto& routine = scheduled_routines_.front();
@@ -85,7 +86,10 @@ void thread::execute_scheduled_routines() {
         // If not finished, then we reschedule it
         next_scheduled_routines.emplace_back(routine.release());
       } break;
-      case routine_status::wait_timer:
+      case routine_status::wait_timer: {
+        auto target_data = routine->waiting_data().get<size_t>();
+        timed_routines_[target_data].emplace_back(routine.release());
+      } break;
       case routine_status::wait_sys_read:
       case routine_status::wait_sys_write:
       case routine_status::wait_channel_read:
@@ -96,7 +100,13 @@ void thread::execute_scheduled_routines() {
     };
     scheduled_routines_.pop_front();
   }
+
+  // Yielded routines are immediately scheduled
   scheduled_routines_ = std::move(next_scheduled_routines);
+
+  // Timed routines are added in the timer list
+  // This is made in two step to limit the syscall to get the current date
+  
 
   // If finished and no more routines, exit
   if (scheduled_routines_.empty() && thread_status::finishing == status_) {

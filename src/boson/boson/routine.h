@@ -38,7 +38,7 @@ enum class routine_status {
  * When a routine yields to wait on a timer, a fd or a channel, it needs
  * tell its running thread what it is about.
  */
-using waiting_data = json_backbone::variant<std::nullptr_t,size_t>;
+using routine_waiting_data = json_backbone::variant<std::nullptr_t,size_t>;
 
 class routine;
 
@@ -72,7 +72,7 @@ class routine {
   std::unique_ptr<detail::function_holder> func_;
   stack::stack_context stack_;
   routine_status status_;
-  waiting_data waiting_data_;
+  routine_waiting_data waiting_data_;
   context::transfer_t context_;
 
  public:
@@ -94,6 +94,7 @@ class routine {
    * Returns the current status
    */
   inline routine_status status();
+  inline routine_waiting_data const& waiting_data() const;
 
   /**
    * Starts or resume the routine
@@ -116,10 +117,11 @@ void yield();
  */
 template <class Duration> void sleep(Duration&& duration) {
   // Compute the time in ms
-  size_t duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+  using namespace std::chrono;
+  //size_t duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
   context::transfer_t& main_context = current_thread_context;
   routine* current_routine = static_cast<routine*>(main_context.data);
-  current_routine->waiting_data_ = duration_ms;
+  current_routine->waiting_data_ = duration_cast<milliseconds>(high_resolution_clock::now() + duration).count();
   current_routine->status_ = routine_status::wait_timer;
   main_context = context::jump_fcontext(main_context.fctx, nullptr);
 }
@@ -129,6 +131,10 @@ template <class Duration> void sleep(Duration&& duration) {
 routine_status routine::status() {
   return status_;
 }
+
+routine_waiting_data const& routine::waiting_data() const {
+  return waiting_data_;
+  }
 }
 
 #endif  // BOSON_ROUTINE_H_
