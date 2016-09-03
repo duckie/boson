@@ -70,7 +70,7 @@ public:
     for (size_t index = 0; index < max_nb_cores_; ++index) {
       threads_.emplace_back(new thread_view_t(*this));
       auto& created_thread = threads_.back();
-      threads_.back()->std_thread = std::thread([&created_thread]() { created_thread->thread(); });
+      threads_.back()->std_thread = std::thread([&created_thread]() { created_thread->thread.loop(); });
     }
   }
   engine(engine const&) = delete;
