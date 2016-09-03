@@ -2,6 +2,7 @@
 #define BOSON_ROUTINE_H_
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include "fcontext.h"
 #include "stack.h"
@@ -12,10 +13,11 @@ enum class routine_status {
   is_new,              // Routine has been created bbut never started
   running,             // Routine started
   yielding,            // Routine yielded and waiths to be resumed
+  wait_timer,          // Routine waits  for a timer to expire
   wait_sys_read,       // Routine waits for a FD to be ready for read
   wait_sys_write,      // Routine waits for a FD to be readu for write
   wait_channel_read,   // Routines waits for a sync or empty channel to have an element
-  wait_channel_write,  // Routine waiths for a full channel to have space or a sync channel to have
+  wait_channel_write,  // Routine waits for a full channel to have space or a sync channel to have
                        // a reader
   finished             // Routine finished execution
 };
@@ -86,6 +88,16 @@ class routine {
 };
 
 void yield();
+
+/**
+ * Suspend the routine for the givent duration
+ *
+ * Thougn this is a genric duration, timers have the system clock
+ * granularity and cannot be more accurate than 1 millisecond
+ */
+template <class Duration>
+void sleep(Duration&& duration) {
+}
 
 // Inline implementations
 

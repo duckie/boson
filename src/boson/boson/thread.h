@@ -62,12 +62,9 @@ class thread : public event_handler {
   engine_proxy engine_proxy_;
   std::vector<routine_ptr_t> scheduled_routines_;
   thread_status status_{thread_status::idle};
-  // uv_loop_t uv_loop_;
   event_loop loop_;
 
   engine_queue_t engine_queue_;
-  // uv_async_t engine_async_handle_;
-  // uv_async_t self_handle_;
   int engine_event_id_;
   int self_event_id_;
 
