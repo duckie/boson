@@ -21,12 +21,10 @@ namespace context {
  * engine encapsulates an instance of the boson runtime
  *
  */
-template <class StackTraits = stack::default_stack_traits>
 class engine {
-  using routine_t = routine<StackTraits>;
-  using thread_t = context::thread<StackTraits>;
-  using command_t = context::thread_command<StackTraits>;
-  using proxy_t = context::engine_proxy<StackTraits>;
+  using thread_t = context::thread;
+  using command_t = context::thread_command;
+  using proxy_t = context::engine_proxy;
 
   struct thread_view {
     thread_t thread;
@@ -39,7 +37,7 @@ class engine {
   using thread_view_t = thread_view;
   using thread_list_t = std::vector<std::unique_ptr<thread_view_t>>;
 
-  friend class context::engine_proxy<StackTraits>;
+  friend class context::engine_proxy;
 
   thread_list_t threads_;
   size_t max_nb_cores_;
@@ -96,7 +94,7 @@ public:
 
   template <class Function> void start(thread_id id, Function&& function) {
     // Select a thread
-    command_t command {context::thread_command_type::add_routine, new routine_t{std::forward<Function>(function)}};
+    command_t command {context::thread_command_type::add_routine, new routine{std::forward<Function>(function)}};
     threads_.at(id)->thread.push_command(command);
     threads_.at(id)->thread.execute_commands();
   };

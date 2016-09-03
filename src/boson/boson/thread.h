@@ -5,7 +5,7 @@
 #include <list>
 #include <memory>
 #include <thread>
-#include <uv.h>
+#include <vector>
 #include <json_backbone.hpp>
 #include <cassert>
 #include "routine.h"
@@ -14,7 +14,7 @@
 
 namespace boson {
 
-template <class StackTraits> class engine;
+class engine;
 using thread_id = std::size_t;
 
 namespace context {
@@ -31,13 +31,11 @@ enum class thread_command_type {
   finish
 };
 
-template <class StackTraits>
-using thread_command_data = json_backbone::variant<std::nullptr_t, std::unique_ptr<routine<StackTraits>>>;
+using thread_command_data = json_backbone::variant<std::nullptr_t, std::unique_ptr<routine>>;
 
-template <class StackTraits>
 struct thread_command {
   thread_command_type type;
-  thread_command_data<StackTraits> data;
+  thread_command_data data;
 };
 
 /**
@@ -46,22 +44,17 @@ struct thread_command {
  * It encapsulates the semantics for the thread to identify
  * on the engine. currently, this semantics is an id. 
  */
-template <class StackTraits> 
 class engine_proxy {
-  using engine_t = engine<StackTraits>;
-
   // Use a pointer here to get free move ctor and operator
-  engine_t* engine_;
+  engine* engine_;
   thread_id current_thread_id_;
 
  public:
-  engine_proxy(engine_t& engine) 
+  engine_proxy(engine& engine) 
     : engine_(&engine) 
   {}
 
-  void set_id() {
-    current_thread_id_ = engine_->register_thread_id();
-  }
+  void set_id();
 };
 
 
@@ -69,16 +62,11 @@ class engine_proxy {
  * Thread encapsulates an instance of an real thread
  *
  */
-template <class StackTraits>
 class thread : public event_handler {
-  using routine_t = routine<StackTraits>;
-  using routine_ptr_t = std::unique_ptr<routine_t>;
-  using engine_t = engine<StackTraits>;
-  using engine_proxy_t = engine_proxy<StackTraits>;
-  using command_t = thread_command<StackTraits>;
-  using engine_queue_t = queues::weakrb<command_t, 100>;
+  using routine_ptr_t = std::unique_ptr<routine>;
+  using engine_queue_t = queues::weakrb<thread_command, 100>;
 
-  engine_proxy_t engine_proxy_;
+  engine_proxy engine_proxy_;
   std::vector<routine_ptr_t> scheduled_routines_;
   thread_status status_{thread_status::idle};
   //uv_loop_t uv_loop_;
@@ -92,7 +80,7 @@ class thread : public event_handler {
 
   // Member function called by its matching C-Style callback
   void handle_engine_event() {
-    command_t received_command;
+    thread_command received_command;
     while (engine_queue_.pop(received_command)) {
       switch (received_command.type) {
         case thread_command_type::add_routine:
@@ -134,7 +122,7 @@ class thread : public event_handler {
   }
 
   // callaed by engine
-  bool push_command(command_t& command) {
+  bool push_command(thread_command& command) {
     return engine_queue_.push(command);
   };
 
@@ -143,7 +131,7 @@ class thread : public event_handler {
     loop_.send_event(engine_event_id_);
   }
 
-  thread(engine_t& engine) : engine_proxy_(engine), loop_(*this) {
+  thread(engine& parent_engine) : engine_proxy_(parent_engine), loop_(*this) {
     engine_event_id_ = loop_.register_event(&engine_event_id_);
     self_event_id_ = loop_.register_event(&self_event_id_);
   }
