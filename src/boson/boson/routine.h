@@ -4,10 +4,20 @@
 
 #include <chrono>
 #include <memory>
+#include <json_backbone.hpp>
 #include "fcontext.h"
 #include "stack.h"
 
 namespace boson {
+
+/**
+ * Store the local thread context
+ *
+ * The usage of this breaks encapsulation sinces routines are not supposed
+ * to know about what is runniung them. But it will avoid too much load/store
+ * from a thread_local variable since it implies a look in a map
+ */
+static thread_local context::transfer_t current_thread_context = {nullptr, nullptr};
 
 enum class routine_status {
   is_new,              // Routine has been created bbut never started
@@ -21,6 +31,14 @@ enum class routine_status {
                        // a reader
   finished             // Routine finished execution
 };
+
+/**
+ * Data published to parent threads about waiting reasons
+ *
+ * When a routine yields to wait on a timer, a fd or a channel, it needs
+ * tell its running thread what it is about.
+ */
+using waiting_data = json_backbone::variant<std::nullptr_t,size_t>;
 
 class routine;
 
@@ -54,6 +72,7 @@ class routine {
   std::unique_ptr<detail::function_holder> func_;
   stack::stack_context stack_;
   routine_status status_;
+  waiting_data waiting_data_;
   context::transfer_t context_;
 
  public:
@@ -95,8 +114,14 @@ void yield();
  * Thougn this is a genric duration, timers have the system clock
  * granularity and cannot be more accurate than 1 millisecond
  */
-template <class Duration>
-void sleep(Duration&& duration) {
+template <class Duration> void sleep(Duration&& duration) {
+  // Compute the time in ms
+  size_t duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+  context::transfer_t& main_context = current_thread_context;
+  routine* current_routine = static_cast<routine*>(main_context.data);
+  current_routine->waiting_data_ = duration_ms;
+  current_routine->status_ = routine_status::wait_timer;
+  main_context = context::jump_fcontext(main_context.fctx, nullptr);
 }
 
 // Inline implementations

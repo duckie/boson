@@ -1,16 +1,8 @@
 #include "routine.h"
 #include "exception.h"
+#include <cassert>
 
 namespace boson {
-
-/**
- * Store the local thread context
- *
- * The usage of this breaks encapsulation sinces routines are not supposed
- * to know about what is runniung them. But it will avoid too much load/store
- * from a thread_local variable since it implies a look in a map
- */
-thread_local context::transfer_t current_thread_context = {nullptr, nullptr};
 
 namespace detail {
 void resume_routine(context::transfer_t transfered_context) {
@@ -45,7 +37,8 @@ void routine::resume() {
       break;
     }
     case routine_status::finished: {
-      throw exception("Boson internal error: called routine::resume on a finished routine.");
+      // Not supposed to happen
+      assert(false);
       break;
     }
   }

@@ -5,12 +5,19 @@
 #include <cassert>
 #include <json_backbone.hpp>
 #include <list>
+#include <map>
 #include <memory>
 #include <thread>
 #include <vector>
 #include "event_loop.h"
 #include "queues/weakrb.h"
 #include "routine.h"
+
+namespace json_backbone {
+template <> struct is_small_type<std::unique_ptr<boson::routine>> {
+  constexpr static bool const value = true;
+};
+}
 
 namespace boson {
 
@@ -27,6 +34,7 @@ enum class thread_status {
 };
 
 enum class thread_command_type { add_routine, finish };
+
 
 using thread_command_data = json_backbone::variant<std::nullptr_t, std::unique_ptr<routine>>;
 
@@ -60,13 +68,21 @@ class thread : public event_handler {
   using engine_queue_t = queues::weakrb<thread_command, 100>;
 
   engine_proxy engine_proxy_;
-  std::vector<routine_ptr_t> scheduled_routines_;
+  std::list<routine_ptr_t> scheduled_routines_;
   thread_status status_{thread_status::idle};
   event_loop loop_;
 
   engine_queue_t engine_queue_;
   int engine_event_id_;
   int self_event_id_;
+  
+  /**
+   * This map stores the timers
+   *
+   * The idea here is to avoid additional fd creation just for timers, so we can create
+   * a whole lot of them without consuming the fd limit per process
+   */
+  std::map<size_t, std::list<routine*>> timers_;
 
   /**
    * React to a request from tje main scheduler

@@ -1,6 +1,7 @@
 #include "thread.h"
 #include "engine.h"
 #include "routine.h"
+#include <cassert>
 
 namespace boson {
 namespace context {
@@ -67,20 +68,38 @@ void thread::execute_commands() {
 
 void thread::execute_scheduled_routines() {
   // while (!scheduled_routines_.empty()) {
-  std::vector<routine_ptr_t> next_scheduled_routines;
-  next_scheduled_routines.reserve(scheduled_routines_.size());
-  for (auto& routine : scheduled_routines_) {
+  decltype(scheduled_routines_) next_scheduled_routines;
+  while(!scheduled_routines_.empty()) {
     // For now; we schedule them in order
+    auto& routine = scheduled_routines_.front();
     routine->resume();
-    if (routine_status::finished != routine->status()) {
-      // If not finished, then we reschedule it
-      next_scheduled_routines.emplace_back(routine.release());
-    }
+    switch (routine->status()) {
+      case routine_status::is_new: {
+        // later man
+      } break;
+      case routine_status::running:
+          // Not supposed to happen
+          assert(false);
+          break;
+      case routine_status::yielding: {
+        // If not finished, then we reschedule it
+        next_scheduled_routines.emplace_back(routine.release());
+      } break;
+      case routine_status::wait_timer:
+      case routine_status::wait_sys_read:
+      case routine_status::wait_sys_write:
+      case routine_status::wait_channel_read:
+      case routine_status::wait_channel_write:
+      case routine_status::finished:
+        // Nothing to do, the routine can die in the next pop
+        break;
+    };
+    scheduled_routines_.pop_front();
   }
   scheduled_routines_ = std::move(next_scheduled_routines);
 
   // If finished and no more routines, exit
-  if (0 == scheduled_routines_.size() && thread_status::finishing == status_) {
+  if (scheduled_routines_.empty() && thread_status::finishing == status_) {
     unregister_all_events();
     status_ = thread_status::finished;
   } else {
