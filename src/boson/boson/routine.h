@@ -22,23 +22,10 @@ enum class routine_status {
 
 class routine;
 
-class routine_context {
-  context::transfer_t context_;
-
- public:
-  routine_context(context::transfer_t context) : context_{context} {
-  }
-
-  inline void yield() {
-    context_ = context::jump_fcontext(context_.fctx, context_.data);
-  }
-};
-
 namespace detail {
 void resume_routine(context::transfer_t transfered_context);
 
 struct function_holder {
-  // virtual void operator() (routine_context&) = 0;
   virtual void operator()() = 0;
 };
 
@@ -80,16 +67,12 @@ class routine {
   routine& operator=(routine const&) = delete;
   routine& operator=(routine&&) = default;
 
-  ~routine() {
-    stack::deallocate(stack_);
-  }
+  ~routine();
 
   /**
    * Returns the current status
    */
-  routine_status status() {
-    return status_;
-  }
+  inline routine_status status();
 
   /**
    * Starts or resume the routine
@@ -99,26 +82,16 @@ class routine {
    * context execution will hang when the routine executes
    *
    */
-  void resume() {
-    switch (status_) {
-      case routine_status::is_new: {
-        context_.fctx = context::make_fcontext(stack_.sp, stack_.size, detail::resume_routine);
-        context_ = context::jump_fcontext(context_.fctx, this);
-        break;
-      }
-      case routine_status::yielding: {
-        context_ = context::jump_fcontext(context_.fctx, this);
-        break;
-      }
-      case routine_status::finished: {
-        // TODO: Maybe we should raise a critical error here
-        break;
-      }
-    }
-  }
+  void resume();
 };
 
 void yield();
+
+// Inline implementations
+
+routine_status routine::status() {
+  return status_;
+}
 }
 
 #endif  // BOSON_ROUTINE_H_

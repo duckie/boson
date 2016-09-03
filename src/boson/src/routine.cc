@@ -13,11 +13,9 @@ thread_local context::transfer_t current_thread_context = {nullptr, nullptr};
 
 namespace detail {
 void resume_routine(context::transfer_t transfered_context) {
-  routine_context rcontext{transfered_context};
   auto current_routine = static_cast<routine*>(transfered_context.data);
   context::transfer_t& main_context = current_thread_context;
   main_context = transfered_context;
-  //(*current_routine->func_)(rcontext);
   current_routine->status_ = routine_status::running;
   (*current_routine->func_)();
   current_routine->status_ = routine_status::finished;
@@ -27,6 +25,32 @@ void resume_routine(context::transfer_t transfered_context) {
   context::jump_fcontext(main_context.fctx, main_context.data);
 }
 }
+
+// class routine;
+
+routine::~routine() {
+  stack::deallocate(stack_);
+}
+
+void routine::resume() {
+  switch (status_) {
+    case routine_status::is_new: {
+      context_.fctx = context::make_fcontext(stack_.sp, stack_.size, detail::resume_routine);
+      context_ = context::jump_fcontext(context_.fctx, this);
+      break;
+    }
+    case routine_status::yielding: {
+      context_ = context::jump_fcontext(context_.fctx, this);
+      break;
+    }
+    case routine_status::finished: {
+      // TODO: Maybe we should raise a critical error here
+      break;
+    }
+  }
+}
+
+// Free functions
 
 void yield() {
   context::transfer_t& main_context = current_thread_context;
