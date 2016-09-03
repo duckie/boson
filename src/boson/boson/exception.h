@@ -7,7 +7,7 @@ namespace boson {
 
 class exception : public std::exception {
   std::string message_;
- 
+
  public:
   exception(std::string const& message);
   exception(std::string&& message);
@@ -16,10 +16,9 @@ class exception : public std::exception {
   exception& operator=(exception const&) = default;
   exception& operator=(exception&&) = default;
 
-  char const * what() const noexcept override;
+  char const* what() const noexcept override;
 };
 
 }  // namespace boson
-
 
 #endif  // BOSON_EXCEPTION_H_

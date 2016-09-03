@@ -9,10 +9,10 @@ extern "C" {
 #include <unistd.h>
 }
 
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <new>
-#include <cassert>
 
 #if defined(BOSON_USE_VALGRIND)
 #include <valgrind/valgrind.h>
@@ -29,7 +29,8 @@ struct stack_context {
 #endif
 };
 
-template <std::size_t Size, std::size_t PageSize, std::size_t LockedSize = 0, bool Protected = false>
+template <std::size_t Size, std::size_t PageSize, std::size_t LockedSize = 0,
+          bool Protected = false>
 struct basic_stack_traits {
   static constexpr std::size_t stack_size = Size;
   static constexpr std::size_t page_size = PageSize;
@@ -38,9 +39,9 @@ struct basic_stack_traits {
 };
 
 // TODO: Those are unix specifics, to be defined elsewhere
-using default_stack_traits = basic_stack_traits<8*1024*1024,64*1024,8*1024>;
+using default_stack_traits = basic_stack_traits<8 * 1024 * 1024, 64 * 1024, 8 * 1024>;
 
-template <class Traits> 
+template <class Traits>
 stack_context allocate() {
 #if defined(MAP_ANON)
   void* vp = ::mmap(0, Traits::stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
@@ -53,10 +54,10 @@ stack_context allocate() {
   // Will make use of C++17 constexpr if
   if (Traits::is_protected) {
 #ifdef NDEBUG
-    ::mprotect( vp, Traits::page_size, PROT_NONE) 
+    ::mprotect(vp, Traits::page_size, PROT_NONE)
 #else
-     const int result( ::mprotect( vp, Traits::page_size, PROT_NONE) );
-     assert( 0 == result);
+    const int result(::mprotect(vp, Traits::page_size, PROT_NONE));
+    assert(0 == result);
 #endif
   }
 
@@ -80,7 +81,6 @@ stack_context allocate() {
 };
 
 void deallocate(stack_context& sctx) noexcept;
-
 }
 }
 

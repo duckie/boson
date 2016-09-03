@@ -1,8 +1,7 @@
-#include "boson/engine.h"
 #include <iostream>
+#include "boson/engine.h"
 
-int main( int argc, char * argv[])
-{
+int main(int argc, char* argv[]) {
   boson::engine instance(1);
   instance.start([]() {
     for (int i = 0; i < 10; ++i) {

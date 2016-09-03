@@ -1,20 +1,19 @@
 #include "event_loop_impl.h"
 #include <sys/eventfd.h>
 #include <unistd.h>
-#include <cstring>
 #include <cassert>
+#include <cstring>
 #include "exception.h"
 
 namespace boson {
 
-event_loop_impl::event_loop_impl(event_handler& handler) :
-  handler_{handler}, loop_fd_{epoll_create1(0)}
-{
+event_loop_impl::event_loop_impl(event_handler& handler)
+    : handler_{handler}, loop_fd_{epoll_create1(0)} {
 }
 
-int event_loop_impl::register_event(void *data) {
+int event_loop_impl::register_event(void* data) {
   // Creates an eventfd
-  int event_fd = ::eventfd(0,0);
+  int event_fd = ::eventfd(0, 0);
 
   // Creates users data
   size_t event_id = static_cast<int>(events_data_.allocate());
@@ -22,10 +21,9 @@ int event_loop_impl::register_event(void *data) {
   events_data_[event_id].data = data;
 
   // Register in epoll loop
-  epoll_event_t new_event { EPOLLIN, {} };
+  epoll_event_t new_event{EPOLLIN, {}};
   new_event.data.u64 = event_id;
-  if(events_.size() < events_data_.data().size())
-    events_.resize(events_data_.data().size());
+  if (events_.size() < events_data_.data().size()) events_.resize(events_data_.data().size());
   int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, event_fd, &new_event);
 
   if (return_code < 0) {
@@ -40,14 +38,13 @@ void* event_loop_impl::unregister_event(int event_id) {
   auto& event_data = events_data_[event_id];
   int event_fd = event_data.fd;
   void* data = event_data.data;
-  epoll_event_t stale_event { 0, {} };  // For compatibilityu with 2.6
+  epoll_event_t stale_event{0, {}};  // For compatibilityu with 2.6
   int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_DEL, event_fd, &stale_event);
   if (return_code < 0) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
   events_data_.free(event_id);
   return data;
-  
 }
 
 void event_loop_impl::send_event(int event) {
@@ -61,13 +58,13 @@ void event_loop_impl::send_event(int event) {
 
 void event_loop_impl::loop(int max_iter) {
   bool forever = (-1 == max_iter);
-  for(size_t index = 0; index < static_cast<size_t>(max_iter) || forever; ++index) {
+  for (size_t index = 0; index < static_cast<size_t>(max_iter) || forever; ++index) {
     int return_code = ::epoll_wait(loop_fd_, events_.data(), events_.size(), -1);
     if (return_code < 0) {
       throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
     }
 
-    for(int index = 0; index < return_code; ++index) {
+    for (int index = 0; index < return_code; ++index) {
       auto& epoll_event = events_[index];
       auto& event_data = events_data_[epoll_event.data.u64];
       size_t buffer{0};
@@ -77,5 +74,4 @@ void event_loop_impl::loop(int max_iter) {
     }
   }
 }
-
 }

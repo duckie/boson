@@ -1,7 +1,7 @@
 #ifndef BOSON_QUEUES_WEAKRB_H_
 #define BOSON_QUEUES_WEAKRB_H_
-#include <cstdint>
 #include <atomic>
+#include <cstdint>
 #include <type_traits>
 
 namespace boson {
@@ -44,9 +44,9 @@ class weakrb {
 
   weakrb() noexcept(std::is_nothrow_default_constructible<ContentType>()) = default;
   weakrb(weakrb const&) = delete;
-  weakrb(weakrb &&) noexcept(false) = default;
+  weakrb(weakrb&&) noexcept(false) = default;
   weakrb& operator=(weakrb const&) = delete;
-  weakrb& operator=(weakrb &&) noexcept(false) = default;
+  weakrb& operator=(weakrb&&) noexcept(false) = default;
   ~weakrb() = default;
 
   bool push(content_type& element) {

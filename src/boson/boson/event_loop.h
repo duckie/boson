@@ -52,22 +52,20 @@ class event_loop {
    * Unlike read and writes, resgister_event does not work like
    * a one shot request but will live until unregistered
    */
-  int register_event(void *data);
+  int register_event(void* data);
 
   /**
    * Unregister the event and give back its data
    */
   void* unregister_event(int event_id);
 
-  //request_read(int fd, void* data = nullptr);
-  //request_write(int fd, void* data = nullptr);
+  // request_read(int fd, void* data = nullptr);
+  // request_write(int fd, void* data = nullptr);
   //
   void send_event(int event);
 
   void loop(int max_iter = -1);
 };
-
-
 };
 
 #endif  // BOSON_EVENTLOOP_H_

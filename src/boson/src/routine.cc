@@ -9,7 +9,7 @@ namespace boson {
  * to know about what is runniung them. But it will avoid too much load/store
  * from a thread_local variable since it implies a look in a map
  */
-thread_local context::transfer_t current_thread_context = { nullptr, nullptr };
+thread_local context::transfer_t current_thread_context = {nullptr, nullptr};
 
 namespace detail {
 void resume_routine(context::transfer_t transfered_context) {
@@ -30,9 +30,9 @@ void resume_routine(context::transfer_t transfered_context) {
 
 void yield() {
   context::transfer_t& main_context = current_thread_context;
-  //context::jump_fcontext(main_context.fctx,nullptr);
+  // context::jump_fcontext(main_context.fctx,nullptr);
   routine* current_routine = static_cast<routine*>(main_context.data);
   current_routine->status_ = routine_status::yielding;
-  main_context = context::jump_fcontext(main_context.fctx,nullptr);
+  main_context = context::jump_fcontext(main_context.fctx, nullptr);
 }
 }  // namespace boson

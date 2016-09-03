@@ -1,7 +1,6 @@
-#include "catch.hpp"
 #include "boson/event_loop.h"
 #include <thread>
-
+#include "catch.hpp"
 
 struct handler01 : public boson::event_handler {
   int last_id{0};
@@ -22,10 +21,8 @@ TEST_CASE("Event Loop - Event notification", "[eventloop][notif]") {
 
   boson::event_loop loop(handler_instance);
   int event_id = loop.register_event(nullptr);
-  
-  std::thread t1{[&loop]() {
-    loop.loop(1);
-  }};
+
+  std::thread t1{[&loop]() { loop.loop(1); }};
 
   loop.send_event(event_id);
   t1.join();

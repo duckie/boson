@@ -6,19 +6,16 @@ namespace boson {
 event_loop::~event_loop() {
 }
 
-event_loop::event_loop(event_handler& handler) :
-  loop_impl_{new event_loop_impl{handler}}
-{
+event_loop::event_loop(event_handler& handler) : loop_impl_{new event_loop_impl{handler}} {
 }
 
-int event_loop::register_event(void *data) {
+int event_loop::register_event(void* data) {
   return loop_impl_->register_event(data);
 }
 
 void* event_loop::unregister_event(int event_id) {
   return loop_impl_->unregister_event(event_id);
 }
-
 
 void event_loop::send_event(int event) {
   loop_impl_->send_event(event);

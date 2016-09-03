@@ -12,6 +12,5 @@ void deallocate(stack_context& sctx) noexcept {
   // conform to POSIX.4 (POSIX.1b-1993, _POSIX_C_SOURCE=199309L)
   ::munmap(vp, sctx.size);
 }
-
 }
 }

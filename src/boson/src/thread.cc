@@ -1,6 +1,6 @@
 #include "thread.h"
-#include "routine.h"
 #include "engine.h"
+#include "routine.h"
 
 namespace boson {
 namespace context {
@@ -114,6 +114,5 @@ void thread::loop() {
     loop_.loop(1);
   }
 }
-
 }
 }  // namespace boson
