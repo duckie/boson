@@ -6,11 +6,11 @@
 #include <memory>
 #include <thread>
 #include <uv.h>
-#include <iostream>
 #include <json_backbone.hpp>
 #include <cassert>
 #include "routine.h"
 #include "queues/weakrb.h"
+#include "event_loop.h"
 
 namespace boson {
 
@@ -20,9 +20,10 @@ using thread_id = std::size_t;
 namespace context {
 
 enum class thread_status {
-  idle,     // Thread waits to be unlocked
-  busy,     // Thread executes a routine
-  finished  // Thread no longer executes a routine and is not required to wait
+  idle,       // Thread waits to be unlocked
+  busy,       // Thread executes a routine
+  finishing,  // Thread no longer executes a routine and is not required to wait
+  finished    // Thread no longer executes a routine and is not required to wait
 };
 
 enum class thread_command_type {
@@ -69,7 +70,7 @@ class engine_proxy {
  *
  */
 template <class StackTraits>
-class thread {
+class thread : public event_handler {
   using routine_t = routine<StackTraits>;
   using routine_ptr_t = std::unique_ptr<routine_t>;
   using engine_t = engine<StackTraits>;
@@ -80,19 +81,17 @@ class thread {
   engine_proxy_t engine_proxy_;
   std::vector<routine_ptr_t> scheduled_routines_;
   thread_status status_{thread_status::idle};
-  uv_loop_t uv_loop_;
+  //uv_loop_t uv_loop_;
+  event_loop loop_;
 
   engine_queue_t engine_queue_;
-  uv_async_t engine_async_handle_;
-  uv_async_t self_handle_;
-
-  // C style callback shim
-  static void handle_engine_async_send(uv_async_t* handle) {
-    reinterpret_cast<thread*>(handle->data)->handle_engine_async_send();
-  };
+  //uv_async_t engine_async_handle_;
+  //uv_async_t self_handle_;
+  int engine_event_id_;
+  int self_event_id_;
 
   // Member function called by its matching C-Style callback
-  void handle_engine_async_send() {
+  void handle_engine_event() {
     command_t received_command;
     while (engine_queue_.pop(received_command)) {
       switch (received_command.type) {
@@ -100,24 +99,16 @@ class thread {
           scheduled_routines_.emplace_back(received_command.data.template get<routine_ptr_t>().release());
           break;
         case thread_command_type::finish:
-          status_ = thread_status::finished;
+          status_ = thread_status::finishing;
           break;
       }
     }
     execute_scheduled_routines();
   }
 
-  static void handle_self_send(uv_async_t* handle) {
-    reinterpret_cast<thread*>(handle->data)->handle_self_send();
-  };
-
-  void handle_self_send() {
-    execute_scheduled_routines();
-  }
-
   void close_handles() {
-    uv_close(reinterpret_cast<uv_handle_t*>(&engine_async_handle_),nullptr);
-    uv_close(reinterpret_cast<uv_handle_t*>(&self_handle_),nullptr);
+    loop_.unregister_event(engine_event_id_);
+    loop_.unregister_event(self_event_id_);
   }
 
  public:
@@ -126,28 +117,38 @@ class thread {
   thread& operator=(thread const&) = delete;
   thread& operator=(thread&&) = default;
 
+
+  // Event handler interface
+  void event(int event_id, void* data) override {
+    if (event_id == engine_event_id_) {
+      handle_engine_event();
+    }
+    else if (event_id == self_event_id_)
+      execute_scheduled_routines();
+  }
+
+  void read(int fd, void* data) override {
+  }
+
+  void write(int fd, void* data) override {
+  }
+
   // callaed by engine
   bool push_command(command_t& command) {
     return engine_queue_.push(command);
-    //return true;
   };
 
   // called by engine
   void execute_commands() {
-    uv_async_send(&engine_async_handle_);
+    loop_.send_event(engine_event_id_);
   }
 
-  thread(engine_t& engine) : engine_proxy_(engine) {
-    uv_loop_init(&uv_loop_);
-    uv_async_init(&uv_loop_, &engine_async_handle_, thread::handle_engine_async_send);
-    engine_async_handle_.data = this; 
-    uv_async_init(&uv_loop_, &self_handle_, thread::handle_engine_async_send);
-    self_handle_.data = this;
+  thread(engine_t& engine) : engine_proxy_(engine), loop_(*this) {
+    engine_event_id_ = loop_.register_event(&engine_event_id_);
+    self_event_id_ = loop_.register_event(&self_event_id_);
   }
 
   ~thread() {
-    auto rc = uv_loop_close(&uv_loop_);
-    //assert(0 == rc);
   };
 
   void execute_scheduled_routines() {
@@ -165,12 +166,13 @@ class thread {
     scheduled_routines_ = std::move(next_scheduled_routines);
 
     // If finished and no more routines, exit
-    if (0 == scheduled_routines_.size() && thread_status::finished == status_) {
+    if (0 == scheduled_routines_.size() && thread_status::finishing == status_) {
       close_handles();
+      status_ = thread_status::finished;
     }
     else {
       // Re schedule a loop
-      uv_async_send(&self_handle_);
+      loop_.send_event(self_event_id_);
     }
   }
 
@@ -195,7 +197,9 @@ class thread {
           //break;
       //}
     //} while(thread_status::finished != status_);
-    uv_run(&uv_loop_, UV_RUN_DEFAULT);
+    while(status_ != thread_status::finished) {
+      loop_.loop(1);
+    }
   }
 
   inline void operator()() {

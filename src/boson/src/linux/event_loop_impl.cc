@@ -1,8 +1,8 @@
 #include "event_loop_impl.h"
 #include <sys/eventfd.h>
 #include <unistd.h>
-#include <iostream>
 #include <cstring>
+#include <cassert>
 #include "exception.h"
 
 namespace boson {
@@ -36,6 +36,20 @@ int event_loop_impl::register_event(void *data) {
   return event_id;
 }
 
+void* event_loop_impl::unregister_event(int event_id) {
+  auto& event_data = events_data_[event_id];
+  int event_fd = event_data.fd;
+  void* data = event_data.data;
+  epoll_event_t stale_event { 0, {} };  // For compatibilityu with 2.6
+  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_DEL, event_fd, &stale_event);
+  if (return_code < 0) {
+    throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
+  }
+  events_data_.free(event_id);
+  return data;
+  
+}
+
 void event_loop_impl::send_event(int event) {
   auto& data = events_data_[static_cast<size_t>(event)];
   size_t buffer{1};
@@ -56,6 +70,9 @@ void event_loop_impl::loop(int max_iter) {
     for(int index = 0; index < return_code; ++index) {
       auto& epoll_event = events_[index];
       auto& event_data = events_data_[epoll_event.data.u64];
+      size_t buffer{0};
+      ssize_t nb_bytes = ::read(event_data.fd, &buffer, 8u);
+      assert(nb_bytes == 8);
       handler_.event(static_cast<int>(epoll_event.data.u64), event_data.data);
     }
   }

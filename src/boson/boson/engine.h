@@ -10,7 +10,6 @@
 #include <atomic>
 #include "routine.h"
 #include "thread.h"
-#include <iostream>
 
 namespace boson {
 

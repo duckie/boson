@@ -32,12 +32,18 @@ class event_loop_impl {
    */
   int register_event(void *data);
 
+  /**
+   * Unregister the vent and give back its data
+   */
+  void* unregister_event(int event_id);
+
   //request_read(int fd, void* data = nullptr);
   //request_write(int fd, void* data = nullptr);
   //
   void send_event(int event);
 
   void loop(int max_iter = -1);
+
 };
 }
 

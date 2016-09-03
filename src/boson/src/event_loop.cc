@@ -15,6 +15,11 @@ int event_loop::register_event(void *data) {
   return loop_impl_->register_event(data);
 }
 
+void* event_loop::unregister_event(int event_id) {
+  return loop_impl_->unregister_event(event_id);
+}
+
+
 void event_loop::send_event(int event) {
   loop_impl_->send_event(event);
 }

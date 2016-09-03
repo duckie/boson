@@ -43,11 +43,15 @@ void resume_routine(context::transfer_t transfered_context) {
   using routine_t = routine<StackTraits>;
   routine_context rcontext{transfered_context};
   auto current_routine = reinterpret_cast<routine_t*>(transfered_context.data);
-  current_thread_context = transfered_context;
+  context::transfer_t& main_context = current_thread_context;
+  main_context = transfered_context;
   //(*current_routine->func_)(rcontext);
   (*current_routine->func_)();
   current_routine->status_ = routine_status::finished;
-  context::jump_fcontext(transfered_context.fctx, transfered_context.data);
+  // It is paramount to use reference to the thread local variable here
+  // since it can be updated during ping/ping context jumps during the routine
+  // execution
+  context::jump_fcontext(main_context.fctx, main_context.data);
 }
 
 struct function_holder {
@@ -130,7 +134,9 @@ class routine {
 };
 
 void yield() {
-  context::jump_fcontext(current_thread_context.fctx,nullptr);
+  context::transfer_t& main_context = current_thread_context;
+  //context::jump_fcontext(main_context.fctx,nullptr);
+  main_context = context::jump_fcontext(main_context.fctx,nullptr);
 }
 
 

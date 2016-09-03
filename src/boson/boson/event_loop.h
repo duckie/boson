@@ -24,7 +24,7 @@ class event_loop_impl;
 /**
  * event_loop is the class encapsulating the asynchronous I/O loop
  *
- * Since implementation of this loop is implmentation dependent
+ * Since implementation of this loop is platform dependent
  * it must be outside other classes to ease platform specific
  * code integration.
  *
@@ -53,6 +53,11 @@ class event_loop {
    * a one shot request but will live until unregistered
    */
   int register_event(void *data);
+
+  /**
+   * Unregister the event and give back its data
+   */
+  void* unregister_event(int event_id);
 
   //request_read(int fd, void* data = nullptr);
   //request_write(int fd, void* data = nullptr);
