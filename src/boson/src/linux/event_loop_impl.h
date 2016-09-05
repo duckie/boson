@@ -42,7 +42,7 @@ class event_loop_impl {
   //
   void send_event(int event);
 
-  void loop(int max_iter = -1);
+  loop_end_reason loop(int max_iter = -1, int timeout_ms = -1);
 };
 }
 

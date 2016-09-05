@@ -1,7 +1,9 @@
 #include "thread.h"
 #include "engine.h"
 #include "routine.h"
+#include "exception.h"
 #include <cassert>
+#include <chrono>
 
 namespace boson {
 namespace context {
@@ -87,7 +89,7 @@ void thread::execute_scheduled_routines() {
         next_scheduled_routines.emplace_back(routine.release());
       } break;
       case routine_status::wait_timer: {
-        auto target_data = routine->waiting_data().get<size_t>();
+        auto target_data = routine->waiting_data().get<routine_time_point>();
         timed_routines_[target_data].emplace_back(routine.release());
       } break;
       case routine_status::wait_sys_read:
@@ -119,28 +121,32 @@ void thread::execute_scheduled_routines() {
 }
 
 void thread::loop() {
+  using namespace std::chrono;
   engine_proxy_.set_id();  // Tells the engine which thread id we got
-  // do {
-  // switch (status_) {
-  // case thread_status::idle:
-  //{
-  // status_ = thread_status::busy;
-  // if (thread_command::finish == command) {
-  // status_ = thread_status::finished;
-  //}
-  //}
-  // break;
-  // case thread_status::busy:
-  // execute_scheduled_routines();
-  // status_ = thread_status::idle;
-  // break;
-  // case thread_status::finished:
-  // execute_scheduled_routines();
-  // break;
-  //}
-  //} while(thread_status::finished != status_);
   while (status_ != thread_status::finished) {
-    loop_.loop(1);
+    // Check if we should have a time out
+    int timeout_ms = -1;
+    auto first_timed_routines = begin(timed_routines_);
+    if (!timed_routines_.empty()) {
+      // Compute next timeout
+      timeout_ms = (first_timed_routines->first.time_since_epoch() -
+                    high_resolution_clock::now().time_since_epoch())
+                       .count();
+    }
+    auto return_code = loop_.loop(1, timeout_ms);
+    switch (return_code) {
+      case loop_end_reason::max_iter_reached:
+        continue;
+      case loop_end_reason::timed_out:
+        // Shcedule routines that timed out
+        for (auto& timed_routine : first_timed_routines->second) {
+          scheduled_routines_.emplace_back(timed_routine.release());
+        }
+      case loop_end_reason::error_occured:
+      default:
+       throw exception("Boson unknown error");
+        return;
+    }
   }
 }
 }

@@ -18,3 +18,6 @@ target_link_libraries(run${PROJECT_NAME} boson ${LIBRARIES})
 
 add_executable(basic_loop src/basic_loop.cc)
 target_link_libraries(basic_loop boson ${LIBRARIES})
+
+add_executable(timed_loop src/timed_loop.cc)
+target_link_libraries(timed_loop boson ${LIBRARIES})

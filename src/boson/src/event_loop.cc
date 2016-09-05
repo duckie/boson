@@ -21,8 +21,8 @@ void event_loop::send_event(int event) {
   loop_impl_->send_event(event);
 }
 
-void event_loop::loop(int max_iter) {
-  loop_impl_->loop(max_iter);
+loop_end_reason event_loop::loop(int max_iter, int timeout_ms) {
+  loop_impl_->loop(max_iter, timeout_ms);
 }
 
 }  // namespace boson

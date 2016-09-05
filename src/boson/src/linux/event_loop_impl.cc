@@ -56,14 +56,21 @@ void event_loop_impl::send_event(int event) {
   }
 }
 
-void event_loop_impl::loop(int max_iter) {
+loop_end_reason event_loop_impl::loop(int max_iter, int timeout_ms) {
   bool forever = (-1 == max_iter);
   for (size_t index = 0; index < static_cast<size_t>(max_iter) || forever; ++index) {
-    int return_code = ::epoll_wait(loop_fd_, events_.data(), events_.size(), -1);
-    if (return_code < 0) {
-      throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
+    int return_code = ::epoll_wait(loop_fd_, events_.data(), events_.size(), timeout_ms);
+    switch (return_code) {
+      case EINTR:
+        return loop_end_reason::timed_out;
+      case EBADF:
+      case EFAULT:
+      case EINVAL:
+        throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
+      default:
+        break;
     }
-
+    // Success, get on on with dispatching events
     for (int index = 0; index < return_code; ++index) {
       auto& epoll_event = events_[index];
       auto& event_data = events_data_[epoll_event.data.u64];
@@ -73,5 +80,6 @@ void event_loop_impl::loop(int max_iter) {
       handler_.event(static_cast<int>(epoll_event.data.u64), event_data.data);
     }
   }
+  return loop_end_reason::max_iter_reached;
 }
 }

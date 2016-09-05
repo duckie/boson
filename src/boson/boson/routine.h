@@ -32,13 +32,16 @@ enum class routine_status {
   finished             // Routine finished execution
 };
 
+using routine_time_point =
+    std::chrono::time_point<std::chrono::high_resolution_clock, std::chrono::milliseconds>;
+
 /**
  * Data published to parent threads about waiting reasons
  *
  * When a routine yields to wait on a timer, a fd or a channel, it needs
  * tell its running thread what it is about.
  */
-using routine_waiting_data = json_backbone::variant<std::nullptr_t,size_t>;
+using routine_waiting_data = json_backbone::variant<std::nullptr_t, size_t, routine_time_point>;
 
 class routine;
 
@@ -69,6 +72,7 @@ class function_holder_impl : public function_holder {
 class routine {
   friend void detail::resume_routine(context::transfer_t);
   friend void yield();
+  template <class Duration> friend void sleep(Duration&&);
   std::unique_ptr<detail::function_holder> func_;
   stack::stack_context stack_;
   routine_status status_;
@@ -121,7 +125,7 @@ template <class Duration> void sleep(Duration&& duration) {
   //size_t duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
   context::transfer_t& main_context = current_thread_context;
   routine* current_routine = static_cast<routine*>(main_context.data);
-  current_routine->waiting_data_ = duration_cast<milliseconds>(high_resolution_clock::now() + duration).count();
+  current_routine->waiting_data_ = high_resolution_clock::now() + duration;
   current_routine->status_ = routine_status::wait_timer;
   main_context = context::jump_fcontext(main_context.fctx, nullptr);
 }

@@ -9,6 +9,7 @@
 #include <memory>
 #include <thread>
 #include <vector>
+#include <chrono>
 #include "event_loop.h"
 #include "queues/weakrb.h"
 #include "routine.h"
@@ -82,7 +83,7 @@ class thread : public event_handler {
    * The idea here is to avoid additional fd creation just for timers, so we can create
    * a whole lot of them without consuming the fd limit per process
    */
-  std::map<size_t, std::list<routine_ptr_t>> timed_routines_;
+  std::map<routine_time_point, std::list<routine_ptr_t>> timed_routines_;
 
   /**
    * React to a request from tje main scheduler
