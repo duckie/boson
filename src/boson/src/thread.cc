@@ -32,7 +32,7 @@ void thread::handle_engine_event() {
         break;
     }
   }
-  execute_scheduled_routines();
+  //execute_scheduled_routines();
 }
 
 void thread::unregister_all_events() {
@@ -48,8 +48,9 @@ thread::thread(engine& parent_engine) : engine_proxy_(parent_engine), loop_(*thi
 void thread::event(int event_id, void* data) {
   if (event_id == engine_event_id_) {
     handle_engine_event();
-  } else if (event_id == self_event_id_)
-    execute_scheduled_routines();
+  } else if (event_id == self_event_id_) {
+    //execute_scheduled_routines();
+  }
 }
 
 void thread::read(int fd, void* data) {
@@ -111,12 +112,14 @@ void thread::execute_scheduled_routines() {
   
 
   // If finished and no more routines, exit
-  if (scheduled_routines_.empty() && thread_status::finishing == status_) {
+  bool no_more_routines = scheduled_routines_.empty() && timed_routines_.empty();
+  if (no_more_routines && thread_status::finishing == status_) {
     unregister_all_events();
     status_ = thread_status::finished;
   } else {
-    // Re schedule a loop
-    loop_.send_event(self_event_id_);
+    // If some routines already are scheduled, then throw an event to force a loop execution
+    if (!scheduled_routines_.empty())
+      loop_.send_event(self_event_id_);
   }
 }
 
@@ -129,24 +132,28 @@ void thread::loop() {
     auto first_timed_routines = begin(timed_routines_);
     if (!timed_routines_.empty()) {
       // Compute next timeout
-      timeout_ms = (first_timed_routines->first.time_since_epoch() -
-                    high_resolution_clock::now().time_since_epoch())
+      timeout_ms = duration_cast<milliseconds>(first_timed_routines->first -
+                    high_resolution_clock::now())
                        .count();
     }
     auto return_code = loop_.loop(1, timeout_ms);
     switch (return_code) {
       case loop_end_reason::max_iter_reached:
-        continue;
+        break;
       case loop_end_reason::timed_out:
         // Shcedule routines that timed out
         for (auto& timed_routine : first_timed_routines->second) {
+          timed_routine->expected_event_happened();
           scheduled_routines_.emplace_back(timed_routine.release());
         }
+        timed_routines_.erase(first_timed_routines);
+        break;
       case loop_end_reason::error_occured:
       default:
        throw exception("Boson unknown error");
         return;
     }
+    execute_scheduled_routines();
   }
 }
 }

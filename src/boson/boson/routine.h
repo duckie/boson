@@ -73,6 +73,7 @@ class routine {
   friend void detail::resume_routine(context::transfer_t);
   friend void yield();
   template <class Duration> friend void sleep(Duration&&);
+  friend void sleep(std::chrono::milliseconds);
   std::unique_ptr<detail::function_holder> func_;
   stack::stack_context stack_;
   routine_status status_;
@@ -109,26 +110,22 @@ class routine {
    *
    */
   void resume();
+
+  /**
+   * Tells the routine it can be executed
+   *
+   * When the wait is over, the routine must be informed it can
+   * execute by putting its status to "yielding"
+   */
+  inline void expected_event_happened();
 };
 
 void yield();
 
 /**
- * Suspend the routine for the givent duration
- *
- * Thougn this is a genric duration, timers have the system clock
- * granularity and cannot be more accurate than 1 millisecond
+ * Suspends the routine for the given duration
  */
-template <class Duration> void sleep(Duration&& duration) {
-  // Compute the time in ms
-  using namespace std::chrono;
-  //size_t duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-  context::transfer_t& main_context = current_thread_context;
-  routine* current_routine = static_cast<routine*>(main_context.data);
-  current_routine->waiting_data_ = high_resolution_clock::now() + duration;
-  current_routine->status_ = routine_status::wait_timer;
-  main_context = context::jump_fcontext(main_context.fctx, nullptr);
-}
+void sleep(std::chrono::milliseconds duration);
 
 // Inline implementations
 
@@ -138,7 +135,12 @@ routine_status routine::status() {
 
 routine_waiting_data const& routine::waiting_data() const {
   return waiting_data_;
-  }
+}
+
+void routine::expected_event_happened() {
+  status_ = routine_status::yielding;
+}
+
 }
 
 #endif  // BOSON_ROUTINE_H_

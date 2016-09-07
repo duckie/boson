@@ -61,8 +61,9 @@ loop_end_reason event_loop_impl::loop(int max_iter, int timeout_ms) {
   for (size_t index = 0; index < static_cast<size_t>(max_iter) || forever; ++index) {
     int return_code = ::epoll_wait(loop_fd_, events_.data(), events_.size(), timeout_ms);
     switch (return_code) {
-      case EINTR:
+      case 0:
         return loop_end_reason::timed_out;
+      case EINTR:
       case EBADF:
       case EFAULT:
       case EINVAL:
