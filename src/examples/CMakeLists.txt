@@ -21,3 +21,6 @@ target_link_libraries(basic_loop boson ${LIBRARIES})
 
 add_executable(timed_loop src/timed_loop.cc)
 target_link_libraries(timed_loop boson ${LIBRARIES})
+
+add_executable(rw_loop src/rw_loop.cc)
+target_link_libraries(rw_loop boson ${LIBRARIES})

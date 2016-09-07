@@ -4,11 +4,16 @@
 #include <cassert>
 #include <cstring>
 #include "exception.h"
+#include "system.h"
 
 namespace boson {
 
 event_loop_impl::event_loop_impl(event_handler& handler)
     : handler_{handler}, loop_fd_{epoll_create1(0)} {
+}
+
+event_loop_impl::~event_loop_impl() {
+  ::close(loop_fd_);
 }
 
 int event_loop_impl::register_event(void* data) {
@@ -41,7 +46,7 @@ void* event_loop_impl::unregister_event(int event_id) {
   int event_fd = event_data.fd;
   void* data = event_data.data;
   epoll_event_t stale_event{0, {}};  // For compatibility with 2.6
-  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_DEL, event_fd, &stale_event);
+  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_MOD, event_fd, &stale_event);
   if (return_code < 0) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
@@ -70,7 +75,10 @@ void event_loop_impl::request_read(int fd, void* data) {
   epoll_event_t new_event{EPOLLIN | EPOLLONESHOT, {}};
   new_event.data.u64 = event_id;
   if (events_.size() < events_data_.data().size()) events_.resize(events_data_.data().size());
-  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, fd, &new_event);
+  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_MOD, fd, &new_event);
+  if (return_code < 0 && ENOENT == errno) {
+    return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, fd, &new_event);
+  }
   if (return_code < 0) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
@@ -88,7 +96,10 @@ void event_loop_impl::request_write(int fd, void* data) {
   epoll_event_t new_event{EPOLLOUT | EPOLLONESHOT, {}};
   new_event.data.u64 = event_id;
   if (events_.size() < events_data_.data().size()) events_.resize(events_data_.data().size());
-  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, fd, &new_event);
+  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_MOD, fd, &new_event);
+  if (return_code < 0 && ENOENT == errno) {
+    return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, fd, &new_event);
+  }
   if (return_code < 0) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }

@@ -37,6 +37,7 @@ class event_loop_impl {
 
  public:
   event_loop_impl(event_handler& handler);
+  ~event_loop_impl();
   int register_event(void* data);
   void* unregister_event(int event_id);
   void send_event(int event);

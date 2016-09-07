@@ -86,6 +86,15 @@ class thread : public event_handler {
   std::map<routine_time_point, std::list<routine_ptr_t>> timed_routines_;
 
   /**
+   * Stores the number of suspended routines
+   *
+   * This number contains the number of suspended routines stored 
+   * in the event loop. The event loop holds the routines waiting for
+   * events of its FDs.
+   */
+  size_t suspended_routines_ {0};
+
+  /**
    * React to a request from tje main scheduler
    */
   void handle_engine_event();

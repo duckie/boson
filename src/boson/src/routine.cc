@@ -56,11 +56,29 @@ void yield() {
 void sleep(std::chrono::milliseconds duration) {
   // Compute the time in ms
   using namespace std::chrono;
-  //size_t duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
   context::transfer_t& main_context = current_thread_context;
   routine* current_routine = static_cast<routine*>(main_context.data);
   current_routine->waiting_data_ = time_point_cast<milliseconds>(high_resolution_clock::now() + duration);
   current_routine->status_ = routine_status::wait_timer;
   main_context = context::jump_fcontext(main_context.fctx, nullptr);
 }
+
+ssize_t read(int fd, void *buf, size_t count) {
+  context::transfer_t& main_context = current_thread_context;
+  routine* current_routine = static_cast<routine*>(main_context.data);
+  current_routine->waiting_data_ = fd;
+  current_routine->status_ = routine_status::wait_sys_read;
+  main_context = context::jump_fcontext(main_context.fctx, nullptr);
+  return ::read(fd,buf,count);
+}
+
+ssize_t write(int fd, const void *buf, size_t count) {
+  context::transfer_t& main_context = current_thread_context;
+  routine* current_routine = static_cast<routine*>(main_context.data);
+  current_routine->waiting_data_ = fd;
+  current_routine->status_ = routine_status::wait_sys_write;
+  main_context = context::jump_fcontext(main_context.fctx, nullptr);
+  return ::write(fd,buf,count);
+}
+
 }  // namespace boson

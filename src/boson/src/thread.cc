@@ -54,9 +54,17 @@ void thread::event(int event_id, void* data) {
 }
 
 void thread::read(int fd, void* data) {
+  routine* target_routine = static_cast<routine*>(data); 
+  target_routine->expected_event_happened();
+  --suspended_routines_;
+  scheduled_routines_.emplace_back(target_routine);
 }
 
 void thread::write(int fd, void* data) {
+  routine* target_routine = static_cast<routine*>(data); 
+  target_routine->expected_event_happened();
+  --suspended_routines_;
+  scheduled_routines_.emplace_back(target_routine);
 }
 
 // callaed by engine
@@ -93,8 +101,16 @@ void thread::execute_scheduled_routines() {
         auto target_data = routine->waiting_data().get<routine_time_point>();
         timed_routines_[target_data].emplace_back(routine.release());
       } break;
-      case routine_status::wait_sys_read:
-      case routine_status::wait_sys_write:
+      case routine_status::wait_sys_read: {
+        auto target_fd = routine->waiting_data().get<int>();
+        ++suspended_routines_;
+        loop_.request_read(target_fd, routine.release());
+      } break;
+      case routine_status::wait_sys_write: {
+        auto target_fd = routine->waiting_data().get<int>();
+        ++suspended_routines_;
+        loop_.request_write(target_fd, routine.release());
+      } break;
       case routine_status::wait_channel_read:
       case routine_status::wait_channel_write:
       case routine_status::finished:
@@ -112,7 +128,7 @@ void thread::execute_scheduled_routines() {
   
 
   // If finished and no more routines, exit
-  bool no_more_routines = scheduled_routines_.empty() && timed_routines_.empty();
+  bool no_more_routines = scheduled_routines_.empty() && timed_routines_.empty() && 0 == suspended_routines_;
   if (no_more_routines && thread_status::finishing == status_) {
     unregister_all_events();
     status_ = thread_status::finished;

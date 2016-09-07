@@ -5,6 +5,7 @@
 #include <chrono>
 #include <memory>
 #include <json_backbone.hpp>
+#include "system.h"
 #include "fcontext.h"
 #include "stack.h"
 
@@ -20,10 +21,10 @@ namespace boson {
 static thread_local context::transfer_t current_thread_context = {nullptr, nullptr};
 
 enum class routine_status {
-  is_new,              // Routine has been created bbut never started
-  running,             // Routine started
-  yielding,            // Routine yielded and waiths to be resumed
-  wait_timer,          // Routine waits  for a timer to expire
+  is_new,              // Routine has been created but never started
+  running,             // Routine is currently running 
+  yielding,            // Routine yielded and waits to be resumed
+  wait_timer,          // Routine waits for a timer to expire
   wait_sys_read,       // Routine waits for a FD to be ready for read
   wait_sys_write,      // Routine waits for a FD to be readu for write
   wait_channel_read,   // Routines waits for a sync or empty channel to have an element
@@ -41,7 +42,7 @@ using routine_time_point =
  * When a routine yields to wait on a timer, a fd or a channel, it needs
  * tell its running thread what it is about.
  */
-using routine_waiting_data = json_backbone::variant<std::nullptr_t, size_t, routine_time_point>;
+using routine_waiting_data = json_backbone::variant<std::nullptr_t, int, size_t, routine_time_point>;
 
 class routine;
 
@@ -63,17 +64,19 @@ class function_holder_impl : public function_holder {
     func_();
   }
 };
-}  // nemesapce detail
+}  // nemespace detail
 
 /**
- * routine represents a signel unit of execution
+ * routine represents a single unit of execution
  *
  */
 class routine {
   friend void detail::resume_routine(context::transfer_t);
   friend void yield();
-  template <class Duration> friend void sleep(Duration&&);
   friend void sleep(std::chrono::milliseconds);
+  friend ssize_t read(int fd, void* buf, size_t count);
+  friend ssize_t write(int fd, const void* buf, size_t count);
+
   std::unique_ptr<detail::function_holder> func_;
   stack::stack_context stack_;
   routine_status status_;
@@ -126,6 +129,16 @@ void yield();
  * Suspends the routine for the given duration
  */
 void sleep(std::chrono::milliseconds duration);
+
+/**
+ * Boson equivalent to POSIX read system call
+ */
+ssize_t read(int fd, void *buf, size_t count);
+
+/**
+ * Boson equivalent to POSIX write system call
+ */
+ssize_t write(int fd, const void *buf, size_t count);
 
 // Inline implementations
 
