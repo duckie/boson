@@ -10,9 +10,23 @@
 namespace boson {
 using epoll_event_t = struct epoll_event;
 
+/**
+ * Event loop Linux implementation
+ *
+ * Refer to the event loop interface for member functions
+ * meaning
+ */
 class event_loop_impl {
+
+  enum class event_type {
+    event_fd,
+    read,
+    write
+  };
+
   struct event_data {
     int fd;
+    event_type type;
     void* data;
   };
 
@@ -23,25 +37,11 @@ class event_loop_impl {
 
  public:
   event_loop_impl(event_handler& handler);
-
-  /**
-   * Registers for a long running event listening
-   *
-   * Unlike read and writes, resgister_event does not work like
-   * a one shot request but will live until unregistered
-   */
   int register_event(void* data);
-
-  /**
-   * Unregister the vent and give back its data
-   */
   void* unregister_event(int event_id);
-
-  // request_read(int fd, void* data = nullptr);
-  // request_write(int fd, void* data = nullptr);
-  //
   void send_event(int event);
-
+  void request_read(int fd, void* data);
+  void request_write(int fd, void* data);
   loop_end_reason loop(int max_iter = -1, int timeout_ms = -1);
 };
 }

@@ -20,7 +20,7 @@ enum class loop_end_reason {
 };
 
 /**
- * Platform specifi loop implementation
+ * Platform specific loop implementation
  *
  * We are using a envelop/letter pattern to hide
  * implementation into platform specific code.
@@ -65,10 +65,30 @@ class event_loop {
    */
   void* unregister_event(int event_id);
 
-  // request_read(int fd, void* data = nullptr);
-  // request_write(int fd, void* data = nullptr);
-  //
+  /**
+   * Triggers a registered event
+   */
   void send_event(int event);
+
+  /**
+   * Listen a fd for read
+   *
+   * Those events are one time_events, they must be rearmed each time
+   * It comes from the fact that the routines decide if an FD must
+   * be listened to or not, and there is no way we ask the user to decide
+   * in advance. so every "blocking" sys call in a routine rearms the event.
+   */
+  void request_read(int fd, void* data);
+
+  /**
+   * Listen a fd for write
+   *
+   * Those events are one time_events, they must be rearmed each time
+   * It comes from the fact that the routines decide if an FD must
+   * be listened to or not, and there is no way we ask the user to decide
+   * in advance. so every "blocking" sys call in a routine rearms the event.
+   */
+  void request_write(int fd, void* data);
 
   /**
    * Executes the event loop

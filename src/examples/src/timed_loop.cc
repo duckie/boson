@@ -13,8 +13,8 @@ int main(int argc, char* argv[]) {
     }
   });
   instance.start([]() {
-    for (int i = 0; i < 10; ++i) {
-      boson::sleep(500ms);
+    for (int i = 0; i < 40; ++i) {
+      boson::sleep(250ms);
       std::cout << "B: " << i << "\n";
     }
   });
