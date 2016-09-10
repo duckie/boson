@@ -4,17 +4,16 @@
 #include <iostream>
 #include <stdexcept>
 
-#include "boson/fcontext.h"
-#include "boson/stack.h"
+#include "boson/internal/fcontext.h"
+#include "boson/internal/stack.h"
 
 using namespace std::chrono;
-using namespace boson::stack;
-using namespace boson::context;
+using namespace boson::internal;
 
-static void foo(boson::context::transfer_t t_) {
-  boson::context::transfer_t t = t_;
+static void foo(transfer_t t_) {
+  transfer_t t = t_;
   while (true) {
-    t = boson::context::jump_fcontext(t.fctx, 0);
+    t = jump_fcontext(t.fctx, 0);
   }
 }
 

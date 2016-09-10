@@ -1,7 +1,7 @@
-#include "stack.h"
+#include "internal/stack.h"
 
 namespace boson {
-namespace stack {
+namespace internal {
 
 void deallocate(stack_context& sctx) noexcept {
 #if defined(BOSON_USE_VALGRIND)

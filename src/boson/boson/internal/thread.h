@@ -10,12 +10,12 @@
 #include <thread>
 #include <vector>
 #include <chrono>
-#include "event_loop.h"
-#include "queues/weakrb.h"
+#include "boson/event_loop.h"
+#include "boson/queues/weakrb.h"
 #include "routine.h"
 
 namespace json_backbone {
-template <> struct is_small_type<std::unique_ptr<boson::routine>> {
+template <> struct is_small_type<std::unique_ptr<boson::internal::routine>> {
   constexpr static bool const value = true;
 };
 }
@@ -25,7 +25,7 @@ namespace boson {
 class engine;
 using thread_id = std::size_t;
 
-namespace context {
+namespace internal {
 
 enum class thread_status {
   idle,       // Thread waits to be unlocked
@@ -127,7 +127,7 @@ class thread : public event_handler {
   void loop();
 };
 
-}  // namespace context
+}  // namespace internal 
 }  // namespace boson
 
 #endif  // BOSON_THREAD_H_

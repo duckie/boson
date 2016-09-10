@@ -1,5 +1,5 @@
 #include <iostream>
-#include "boson/engine.h"
+#include "boson/boson.h"
 
 int main(int argc, char* argv[]) {
   boson::engine instance(1);

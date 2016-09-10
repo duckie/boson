@@ -1,3 +1,6 @@
+/***
+ * Header to include platform specific system calls
+ */
 #ifndef BOSON_SYSTEM_H_
 #define BOSON_SYSTEM_H_
 

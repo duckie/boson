@@ -23,7 +23,7 @@ engine::engine(size_t max_nb_cores) : max_nb_cores_{max_nb_cores} {
 engine::~engine() {
   // Send a request to thread to finish when they can
   for (auto& thread : threads_) {
-    command_t command{context::thread_command_type::finish, nullptr};
+    command_t command{internal::thread_command_type::finish, nullptr};
     thread->thread.push_command(command);
     thread->thread.execute_commands();
   }

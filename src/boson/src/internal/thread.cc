@@ -1,12 +1,12 @@
-#include "thread.h"
-#include "engine.h"
-#include "routine.h"
-#include "exception.h"
+#include "internal/thread.h"
 #include <cassert>
 #include <chrono>
+#include "engine.h"
+#include "exception.h"
+#include "internal/routine.h"
 
 namespace boson {
-namespace context {
+namespace internal {
 
 // class engine_proxy;
 
@@ -172,5 +172,5 @@ void thread::loop() {
     execute_scheduled_routines();
   }
 }
-}
+}  // namespace internal
 }  // namespace boson

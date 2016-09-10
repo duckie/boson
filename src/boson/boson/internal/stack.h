@@ -19,7 +19,7 @@ extern "C" {
 #endif
 
 namespace boson {
-namespace stack {
+namespace internal {
 
 struct stack_context {
   std::size_t size{0};
@@ -81,7 +81,8 @@ stack_context allocate() {
 };
 
 void deallocate(stack_context& sctx) noexcept;
-}
-}
+
+}  // namespace internal
+}  // namespace boson
 
 #endif  // BOSON_STACK_H_

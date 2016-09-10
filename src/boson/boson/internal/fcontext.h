@@ -55,7 +55,7 @@
 #include <cstdint>
 
 namespace boson {
-namespace context {
+namespace internal {
 
 using fcontext_t = void*;
 
@@ -76,7 +76,8 @@ make_fcontext(void* sp, std::size_t size, void (*fn)(transfer_t));
 // based on an idea of Giovanni Derreta
 extern "C" BOSON_CONTEXT_DECL transfer_t BOSON_CONTEXT_CALLDECL
 ontop_fcontext(fcontext_t const to, void* vp, transfer_t (*fn)(transfer_t));
-}
-}
+
+}  // namespace internal
+}  // namespace boson
 
 #endif  // BOSON_FCONTEXT_H_

@@ -5,11 +5,12 @@
 #include <chrono>
 #include <memory>
 #include <json_backbone.hpp>
-#include "system.h"
 #include "fcontext.h"
 #include "stack.h"
+#include "boson/syscalls.h"
 
 namespace boson {
+namespace internal {
 
 /**
  * Store the local thread context
@@ -18,7 +19,7 @@ namespace boson {
  * to know about what is runniung them. But it will avoid too much load/store
  * from a thread_local variable since it implies a look in a map
  */
-static thread_local context::transfer_t current_thread_context = {nullptr, nullptr};
+static thread_local transfer_t current_thread_context = {nullptr, nullptr};
 
 enum class routine_status {
   is_new,              // Routine has been created but never started
@@ -47,7 +48,7 @@ using routine_waiting_data = json_backbone::variant<std::nullptr_t, int, size_t,
 class routine;
 
 namespace detail {
-void resume_routine(context::transfer_t transfered_context);
+void resume_routine(transfer_t transfered_context);
 
 struct function_holder {
   virtual void operator()() = 0;
@@ -71,23 +72,23 @@ class function_holder_impl : public function_holder {
  *
  */
 class routine {
-  friend void detail::resume_routine(context::transfer_t);
-  friend void yield();
-  friend void sleep(std::chrono::milliseconds);
-  friend ssize_t read(int fd, void* buf, size_t count);
-  friend ssize_t write(int fd, const void* buf, size_t count);
+  friend void detail::resume_routine(transfer_t);
+  friend void boson::yield();
+  friend void boson::sleep(std::chrono::milliseconds);
+  friend ssize_t boson::read(int fd, void* buf, size_t count);
+  friend ssize_t boson::write(int fd, const void* buf, size_t count);
 
   std::unique_ptr<detail::function_holder> func_;
-  stack::stack_context stack_;
+  stack_context stack_;
   routine_status status_;
   routine_waiting_data waiting_data_;
-  context::transfer_t context_;
+  transfer_t context_;
 
  public:
   template <class Function>
   routine(Function&& func)
       : func_{new detail::function_holder_impl<Function>(std::forward<Function>(func))},
-        stack_{stack::allocate<stack::default_stack_traits>()},
+        stack_{allocate<default_stack_traits>()},
         status_{routine_status::is_new} {
   }
 
@@ -123,22 +124,6 @@ class routine {
   inline void expected_event_happened();
 };
 
-void yield();
-
-/**
- * Suspends the routine for the given duration
- */
-void sleep(std::chrono::milliseconds duration);
-
-/**
- * Boson equivalent to POSIX read system call
- */
-ssize_t read(int fd, void *buf, size_t count);
-
-/**
- * Boson equivalent to POSIX write system call
- */
-ssize_t write(int fd, const void *buf, size_t count);
 
 // Inline implementations
 
@@ -154,6 +139,7 @@ void routine::expected_event_happened() {
   status_ = routine_status::yielding;
 }
 
-}
+}  // namespace internal 
+}  // namespace boson
 
 #endif  // BOSON_ROUTINE_H_

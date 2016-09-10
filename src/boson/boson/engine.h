@@ -8,8 +8,8 @@
 #include <thread>
 #include <tuple>
 #include <vector>
-#include "routine.h"
-#include "thread.h"
+#include "internal/routine.h"
+#include "internal/thread.h"
 
 namespace boson {
 
@@ -18,9 +18,9 @@ namespace boson {
  *
  */
 class engine {
-  using thread_t = context::thread;
-  using command_t = context::thread_command;
-  using proxy_t = context::engine_proxy;
+  using thread_t = internal::thread;
+  using command_t = internal::thread_command;
+  using proxy_t = internal::engine_proxy;
 
   struct thread_view {
     thread_t thread;
@@ -33,7 +33,7 @@ class engine {
   using thread_view_t = thread_view;
   using thread_list_t = std::vector<std::unique_ptr<thread_view_t>>;
 
-  friend class context::engine_proxy;
+  friend class internal::engine_proxy;
 
   thread_list_t threads_;
   size_t max_nb_cores_;
@@ -63,22 +63,37 @@ class engine {
   engine& operator=(engine&&) = default;
   ~engine();
 
+  /***
+   * Starts a routine into the given thread
+   */
   template <class Function>
-  void start(thread_id id, Function&& function) {
-    // Select a thread
-    command_t command{context::thread_command_type::add_routine,
-                      new routine{std::forward<Function>(function)}};
-    threads_.at(id)->thread.push_command(command);
-    threads_.at(id)->thread.execute_commands();
-  };
+  void start(thread_id id, Function&& function);
 
+  /**
+   * Starts a routine in whatever thread the engine sees fit
+   */
   template <class Function>
-  void start(Function&& function) {
-    // Select a thread
-    this->start(next_scheduled_thread_, std::forward<Function>(function));
-    next_scheduled_thread_ = (next_scheduled_thread_ + 1) % max_nb_cores_;
-  };
+  void start(Function&& function);
 };
+
+// Inline/template implementations
+
+template <class Function>
+void engine::start(thread_id id, Function&& function) {
+  // Select a thread
+  command_t command{internal::thread_command_type::add_routine,
+                    new internal::routine{std::forward<Function>(function)}};
+  threads_.at(id)->thread.push_command(command);
+  threads_.at(id)->thread.execute_commands();
 };
+
+template <class Function>
+void engine::start(Function&& function) {
+  // Select a thread
+  this->start(next_scheduled_thread_, std::forward<Function>(function));
+  next_scheduled_thread_ = (next_scheduled_thread_ + 1) % max_nb_cores_;
+};
+
+}  // namespace boson
 
 #endif  // BOSON_ENGINE_H_
