@@ -46,8 +46,8 @@ TEST_CASE("Event Loop - FD Read/Write", "[eventloop][read/write]") {
   ::pipe(pipe_fds);
 
   boson::event_loop loop(handler_instance);
-  loop.request_read(pipe_fds[0],nullptr);
-  loop.request_write(pipe_fds[1],nullptr);
+  loop.register_read(pipe_fds[0],nullptr);
+  loop.register_write(pipe_fds[1],nullptr);
 
   loop.loop(1);
   CHECK(handler_instance.last_fd  == pipe_fds[1]);

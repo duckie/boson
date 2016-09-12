@@ -61,12 +61,10 @@ class event_loop {
   int register_event(void* data);
 
   /**
-   * Unregister the event and give back its data
-   */
-  void* unregister_event(int event_id);
-
-  /**
    * Triggers a registered event
+   *
+   * This can be called from another thread than the main
+   * thread of the loop
    */
   void send_event(int event);
 
@@ -78,7 +76,7 @@ class event_loop {
    * be listened to or not, and there is no way we ask the user to decide
    * in advance. so every "blocking" sys call in a routine rearms the event.
    */
-  void request_read(int fd, void* data);
+  int register_read(int fd, void* data);
 
   /**
    * Listen a fd for write
@@ -88,7 +86,22 @@ class event_loop {
    * be listened to or not, and there is no way we ask the user to decide
    * in advance. so every "blocking" sys call in a routine rearms the event.
    */
-  void request_write(int fd, void* data);
+  int register_write(int fd, void* data);
+
+  /**
+   * disables the event without deleting it
+   */
+  void disable(int event_id);
+
+  /**
+   * re-enables a previosuly disabled event
+   */
+  void enable(int event_it);
+
+  /**
+   * Unregister the event and give back its data
+   */
+  void* unregister(int event_id);
 
   /**
    * Executes the event loop

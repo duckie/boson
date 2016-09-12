@@ -57,6 +57,8 @@ void yield() {
   routine* current_routine = static_cast<routine*>(main_context.data);
   current_routine->status_ = routine_status::yielding;
   main_context = jump_fcontext(main_context.fctx, nullptr);
+  current_routine->previous_status_ = routine_status::yielding;
+  current_routine->status_ = routine_status::running;
 }
 
 void sleep(std::chrono::milliseconds duration) {
@@ -67,23 +69,45 @@ void sleep(std::chrono::milliseconds duration) {
   current_routine->waiting_data_ = time_point_cast<milliseconds>(high_resolution_clock::now() + duration);
   current_routine->status_ = routine_status::wait_timer;
   main_context = jump_fcontext(main_context.fctx, nullptr);
+  current_routine->previous_status_ = routine_status::wait_timer;
+  current_routine->status_ = routine_status::running;
 }
 
 ssize_t read(int fd, void *buf, size_t count) {
   transfer_t& main_context = current_thread_context;
   routine* current_routine = static_cast<routine*>(main_context.data);
-  current_routine->waiting_data_ = fd;
+  routine_io_event new_event{fd,-1,false};
+  if (current_routine->previous_status_is_io_block()) {
+    auto previous_event = current_routine->waiting_data_.raw<routine_io_event>();
+    new_event.event_id = previous_event.event_id;
+    if (previous_event.fd == fd) {
+      new_event.is_same_as_previous_event = true;
+    }
+  }
+  current_routine->waiting_data_ = new_event;
   current_routine->status_ = routine_status::wait_sys_read;
   main_context = jump_fcontext(main_context.fctx, nullptr);
+  current_routine->previous_status_ = routine_status::wait_sys_read;
+  current_routine->status_ = routine_status::running;
   return ::read(fd,buf,count);
 }
 
 ssize_t write(int fd, const void *buf, size_t count) {
   transfer_t& main_context = current_thread_context;
   routine* current_routine = static_cast<routine*>(main_context.data);
-  current_routine->waiting_data_ = fd;
+  routine_io_event new_event{fd,-1,false};
+  if (current_routine->previous_status_is_io_block()) {
+    auto previous_event = current_routine->waiting_data_.raw<routine_io_event>();
+    new_event.event_id = previous_event.event_id;
+    if (previous_event.fd == fd) {
+      new_event.is_same_as_previous_event = true;
+    }
+  }
+  current_routine->waiting_data_ = new_event;
   current_routine->status_ = routine_status::wait_sys_write;
   main_context = jump_fcontext(main_context.fctx, nullptr);
+  current_routine->previous_status_ = routine_status::wait_sys_write;
+  current_routine->status_ = routine_status::running;
   return ::write(fd,buf,count);
 }
 

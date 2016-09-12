@@ -37,13 +37,32 @@ enum class routine_status {
 using routine_time_point =
     std::chrono::time_point<std::chrono::high_resolution_clock, std::chrono::milliseconds>;
 
+struct routine_io_event {
+  int fd;  // The current FD used
+  int event_id;  // The id used for the event loop
+  bool is_same_as_previous_event; // Used to limit system calls in loops
+};
+
+}}
+
+namespace json_backbone {
+template <> struct is_small_type<boson::internal::routine_time_point> {
+  constexpr static bool const value = true;
+};
+template <> struct is_small_type<boson::internal::routine_io_event> {
+  constexpr static bool const value = true;
+};
+}
+
+namespace boson {
+namespace internal {
 /**
  * Data published to parent threads about waiting reasons
  *
  * When a routine yields to wait on a timer, a fd or a channel, it needs
  * tell its running thread what it is about.
  */
-using routine_waiting_data = json_backbone::variant<std::nullptr_t, int, size_t, routine_time_point>;
+using routine_waiting_data = json_backbone::variant<std::nullptr_t, int, size_t, routine_io_event, routine_time_point>;
 
 class routine;
 
@@ -79,17 +98,16 @@ class routine {
   friend ssize_t boson::write(int fd, const void* buf, size_t count);
 
   std::unique_ptr<detail::function_holder> func_;
-  stack_context stack_;
-  routine_status status_;
+  stack_context stack_ = allocate<default_stack_traits>();
+  routine_status previous_status_ = routine_status::is_new;
+  routine_status status_ = routine_status::is_new;
   routine_waiting_data waiting_data_;
   transfer_t context_;
 
  public:
   template <class Function>
   routine(Function&& func)
-      : func_{new detail::function_holder_impl<Function>(std::forward<Function>(func))},
-        stack_{allocate<default_stack_traits>()},
-        status_{routine_status::is_new} {
+      : func_{new detail::function_holder_impl<Function>(std::forward<Function>(func))} {
   }
 
   routine(routine const&) = delete;
@@ -102,7 +120,10 @@ class routine {
   /**
    * Returns the current status
    */
-  inline routine_status status();
+  inline routine_status previous_status() const;
+  inline bool previous_status_is_io_block() const;
+  inline routine_status status() const;
+  inline routine_waiting_data& waiting_data();
   inline routine_waiting_data const& waiting_data() const;
 
   /**
@@ -126,9 +147,20 @@ class routine {
 
 
 // Inline implementations
+routine_status routine::previous_status() const {
+  return previous_status_;
+}
 
-routine_status routine::status() {
+bool routine::previous_status_is_io_block() const {
+  return previous_status_ == routine_status::wait_sys_read || previous_status_ == routine_status::wait_sys_write;
+}
+
+routine_status routine::status() const {
   return status_;
+}
+
+routine_waiting_data& routine::waiting_data() {
+  return waiting_data_;
 }
 
 routine_waiting_data const& routine::waiting_data() const {

@@ -36,8 +36,8 @@ void thread::handle_engine_event() {
 }
 
 void thread::unregister_all_events() {
-  loop_.unregister_event(engine_event_id_);
-  loop_.unregister_event(self_event_id_);
+  loop_.unregister(engine_event_id_);
+  loop_.unregister(self_event_id_);
 }
 
 thread::thread(engine& parent_engine) : engine_proxy_(parent_engine), loop_(*this) {
@@ -77,6 +77,16 @@ void thread::execute_commands() {
   loop_.send_event(engine_event_id_);
 }
 
+namespace {
+  inline void clear_previous_io_event(routine& routine, event_loop& loop) {
+    if (routine.previous_status_is_io_block()) {
+      routine_io_event& target_event = routine.waiting_data().raw<routine_io_event>();
+      if (0 <= target_event.event_id)
+        loop.unregister(target_event.event_id);
+    }
+  }
+}
+
 void thread::execute_scheduled_routines() {
   // while (!scheduled_routines_.empty()) {
   decltype(scheduled_routines_) next_scheduled_routines;
@@ -87,7 +97,8 @@ void thread::execute_scheduled_routines() {
     routine->resume();
     switch (routine->status()) {
       case routine_status::is_new: {
-        // later man
+        // Not supposed to happen
+        assert(false);
       } break;
       case routine_status::running:
           // Not supposed to happen
@@ -95,28 +106,37 @@ void thread::execute_scheduled_routines() {
           break;
       case routine_status::yielding: {
         // If not finished, then we reschedule it
+        clear_previous_io_event(*routine, loop_);
         next_scheduled_routines.emplace_back(routine.release());
       } break;
       case routine_status::wait_timer: {
-        auto target_data = routine->waiting_data().get<routine_time_point>();
+        clear_previous_io_event(*routine, loop_);
+        auto target_data = routine->waiting_data().raw<routine_time_point>();
         timed_routines_[target_data].emplace_back(routine.release());
       } break;
       case routine_status::wait_sys_read: {
-        auto target_fd = routine->waiting_data().get<int>();
+        routine_io_event& target_event = routine->waiting_data().get<routine_io_event>();
         ++suspended_routines_;
-        loop_.request_read(target_fd, routine.release());
+        if (!target_event.is_same_as_previous_event) {
+          clear_previous_io_event(*routine, loop_);
+          target_event.event_id = loop_.register_read(target_event.fd, routine.release());
+        }
       } break;
       case routine_status::wait_sys_write: {
-        auto target_fd = routine->waiting_data().get<int>();
+        routine_io_event& target_event = routine->waiting_data().get<routine_io_event>();
         ++suspended_routines_;
-        loop_.request_write(target_fd, routine.release());
+        if (!target_event.is_same_as_previous_event) {
+          clear_previous_io_event(*routine, loop_);
+          target_event.event_id = loop_.register_write(target_event.fd, routine.release());
+        }
       } break;
       case routine_status::wait_channel_read:
       case routine_status::wait_channel_write:
       case routine_status::finished:
-        // Nothing to do, the routine can die in the next pop
+        clear_previous_io_event(*routine, loop_);
         break;
     };
+
     scheduled_routines_.pop_front();
   }
 

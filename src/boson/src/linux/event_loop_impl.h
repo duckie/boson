@@ -17,7 +17,6 @@ using epoll_event_t = struct epoll_event;
  * meaning
  */
 class event_loop_impl {
-
   enum class event_type {
     event_fd,
     read,
@@ -26,6 +25,7 @@ class event_loop_impl {
 
   struct event_data {
     int fd;
+    uint32_t events;
     event_type type;
     void* data;
   };
@@ -39,10 +39,12 @@ class event_loop_impl {
   event_loop_impl(event_handler& handler);
   ~event_loop_impl();
   int register_event(void* data);
-  void* unregister_event(int event_id);
   void send_event(int event);
-  void request_read(int fd, void* data);
-  void request_write(int fd, void* data);
+  int register_read(int fd, void* data);
+  int register_write(int fd, void* data);
+  void disable(int event_id);
+  void enable(int event_it);
+  void* unregister(int event_id);
   loop_end_reason loop(int max_iter = -1, int timeout_ms = -1);
 };
 }
