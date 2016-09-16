@@ -38,7 +38,7 @@ void* event_loop::unregister(int event_id) {
 }
 
 loop_end_reason event_loop::loop(int max_iter, int timeout_ms) {
-  loop_impl_->loop(max_iter, timeout_ms);
+  return loop_impl_->loop(max_iter, timeout_ms);
 }
 
 

@@ -4,6 +4,7 @@
 #include <thread>
 #include "boson/queues/weakrb.h"
 #include "catch.hpp"
+#include "folly/MPMCQueue.h"
 
 TEST_CASE("Queues - WeakRB - serial random integers", "[queues][weakrb]") {
   constexpr size_t const sample_size = 1e5;
@@ -48,4 +49,10 @@ TEST_CASE("Queues - WeakRB - serial random integers", "[queues][weakrb]") {
   t2.join();
 
   CHECK(sample == destination);
+
+  folly::MPMCQueue<int> test(10);
+  test.write(1);
+  int result = 0;
+  test.read(result);
+  CHECK(result == 1);
 }

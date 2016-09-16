@@ -48,6 +48,10 @@ project_enable_documentation()
 include_directories(${MANUAL_INCLUDE_DIRS})
 
 project_add_3rdparty(catch)
+project_add_3rdparty(boost)
+project_add_3rdparty(double-conversion)
+project_add_3rdparty(glog)
+project_add_3rdparty(folly)
 project_add_3rdparty(json_backbone)
 
 # By default we put binaries into this directory
