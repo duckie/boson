@@ -68,8 +68,8 @@ void thread::write(int fd, void* data) {
 }
 
 // callaed by engine
-bool thread::push_command(thread_command& command) {
-  return engine_queue_.push(command);
+bool thread::push_command(thread_command&& command) {
+  return engine_queue_.push(std::move(command));
 };
 
 // called by engine

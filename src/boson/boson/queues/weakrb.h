@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdint>
 #include <type_traits>
+#include <vector>
 
 namespace boson {
 namespace queues {
@@ -15,10 +16,10 @@ namespace queues {
  * TODO: add url of the pdf
  *
  */
-template <class ContentType, std::size_t Size = 1>
+template <class ContentType>
 class weakrb {
   using content_t = ContentType;
-  using content_array_t = std::array<ContentType, Size>;
+  using content_array_t = std::vector<ContentType>;
   using index_t = std::atomic<std::size_t>;
 
 #if defined(BOSON_USE_VALGRIND)
@@ -36,27 +37,30 @@ class weakrb {
   std::size_t pfront_ = {0};
   index_t back_ = {0};
   std::size_t cback_ = {0};
-  content_array_t data_ = {};
+  size_t const size_;
+  content_array_t data_;
 
  public:
   using content_type = ContentType;
-  static constexpr std::size_t const size = Size;
 
-  weakrb() noexcept(std::is_nothrow_default_constructible<ContentType>()) = default;
+  weakrb(size_t capacity = 1) noexcept(std::is_nothrow_default_constructible<ContentType>()) 
+    : size_{capacity}, data_(capacity)
+  {}
   weakrb(weakrb const&) = delete;
   weakrb(weakrb&&) noexcept(false) = default;
   weakrb& operator=(weakrb const&) = delete;
   weakrb& operator=(weakrb&&) noexcept(false) = default;
   ~weakrb() = default;
 
-  bool push(content_type& element) {
+  template <class ... Args>
+  bool push(Args&& ... args) {
     size_t back, front;
     back = back_.load(order_relaxed);
-    if (pfront_ + Size - back < 1) {
+    if (pfront_ + size_ - back < 1) {
       pfront_ = front_.load(order_acquire);
-      if (pfront_ + Size - back < 1) return false;
+      if (pfront_ + size_ - back < 1) return false;
     }
-    data_[back % Size] = std::move(element);
+    data_[back % size_] = content_t(std::forward<Args>(args)...);
     back_.store(back + 1, order_release);
     return true;
   };
@@ -68,7 +72,7 @@ class weakrb {
       cback_ = back_.load(order_acquire);
       if (cback_ - front < 1) return false;
     }
-    element = std::move(data_[front % Size]);
+    element = std::move(data_[front % size_]);
     front_.store(front + 1, order_release);
     return true;
   };

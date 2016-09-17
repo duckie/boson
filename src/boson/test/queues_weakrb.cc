@@ -4,7 +4,6 @@
 #include <thread>
 #include "boson/queues/weakrb.h"
 #include "catch.hpp"
-#include "folly/MPMCQueue.h"
 
 TEST_CASE("Queues - WeakRB - serial random integers", "[queues][weakrb]") {
   constexpr size_t const sample_size = 1e5;
@@ -22,12 +21,13 @@ TEST_CASE("Queues - WeakRB - serial random integers", "[queues][weakrb]") {
   std::vector<int> destination;
   destination.reserve(sample_size);
 
-  boson::queues::weakrb<int, 1> queue;
+  boson::queues::weakrb<int> queue(1);
 
   std::thread t1([&sample, &queue]() {
     for (auto v : sample) {
       bool success = false;
       int value = v;
+      // Ugly spin lock, osef
       while (!success) {
         success = queue.push(value);
       }
@@ -38,6 +38,7 @@ TEST_CASE("Queues - WeakRB - serial random integers", "[queues][weakrb]") {
     for (size_t index = 0; index < sample_size; ++index) {
       bool success = false;
       int result{};
+      // Ugly spin lock, osef
       while (!success) {
         success = queue.pop(result);
       }
@@ -49,10 +50,4 @@ TEST_CASE("Queues - WeakRB - serial random integers", "[queues][weakrb]") {
   t2.join();
 
   CHECK(sample == destination);
-
-  folly::MPMCQueue<int> test(10);
-  test.write(1);
-  int result = 0;
-  test.read(result);
-  CHECK(result == 1);
 }
