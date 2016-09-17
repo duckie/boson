@@ -16,7 +16,7 @@ endmacro()
 # Reference test sources
 #add_project_test(test1 CATCH)
 add_project_test(queues_weakrb CATCH)
-add_project_test(queues_folly_mpmc CATCH)
+add_project_test(queues_mpmc CATCH)
 add_project_test(event_loop CATCH)
 add_project_test(memory_sparse_vector CATCH)
 add_project_test(memory_flat_unordered_set CATCH)
