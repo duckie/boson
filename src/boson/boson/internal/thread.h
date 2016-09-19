@@ -12,6 +12,7 @@
 #include <chrono>
 #include "boson/event_loop.h"
 #include "boson/queues/weakrb.h"
+#include "boson/queues/mpmc.h"
 #include "routine.h"
 
 namespace json_backbone {
@@ -66,14 +67,14 @@ class engine_proxy {
  */
 class thread : public event_handler {
   using routine_ptr_t = std::unique_ptr<routine>;
-  using engine_queue_t = queues::weakrb<thread_command>;
+  using engine_queue_t = queues::unbounded_mpmc<thread_command>;
 
   engine_proxy engine_proxy_;
   std::list<routine_ptr_t> scheduled_routines_;
   thread_status status_{thread_status::idle};
   event_loop loop_;
 
-  engine_queue_t engine_queue_{100};
+  engine_queue_t engine_queue_{10};
   int engine_event_id_;
   int self_event_id_;
   
@@ -118,7 +119,7 @@ class thread : public event_handler {
   void write(int fd, void* data) override;
 
   // callaed by engine
-  bool push_command(thread_command&& command);
+  void push_command(thread_command&& command);
 
   // called by engine
   void execute_commands();

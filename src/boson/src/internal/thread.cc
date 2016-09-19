@@ -67,15 +67,15 @@ void thread::write(int fd, void* data) {
   scheduled_routines_.emplace_back(target_routine);
 }
 
-// callaed by engine
-bool thread::push_command(thread_command&& command) {
-  return engine_queue_.push(std::move(command));
+// called by engine
+void thread::push_command(thread_command&& command) {
+  engine_queue_.push(std::move(command));
+  loop_.send_event(engine_event_id_);
 };
 
 // called by engine
-void thread::execute_commands() {
-  loop_.send_event(engine_event_id_);
-}
+//void thread::execute_commands() {
+//}
 
 namespace {
   inline void clear_previous_io_event(routine& routine, event_loop& loop) {

@@ -84,7 +84,7 @@ void engine::start(thread_id id, Function&& function) {
   threads_.at(id)->thread.push_command(
   command_t{internal::thread_command_type::add_routine,
                     new internal::routine{std::forward<Function>(function)}});
-  threads_.at(id)->thread.execute_commands();
+  //threads_.at(id)->thread.execute_commands();
 };
 
 template <class Function>
