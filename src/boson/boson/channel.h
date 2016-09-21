@@ -34,14 +34,14 @@ class channel_impl {
   bool push(Args&& ... args) {
     bool success = queue_.write(std::forward<Args>(args)...);
     if (!success) {
-      internal::transfer_t& main_context = internal::current_thread_context;
-      internal::routine* current_routine = static_cast<internal::routine*>(main_context.data);
-      current_routine->status_ = internal::routine_status::wait_channel_write;
-      writers_.push(current_routine);
-
-      main_context = jump_fcontext(main_context.fctx, nullptr);
-      current_routine->previous_status_ = routine_status::wait_channel_write;
-      current_routine->status_ = routine_status::running;
+      //internal::transfer_t& main_context = internal::current_thread_context;
+      //internal::routine* current_routine = static_cast<internal::routine*>(main_context.data);
+      //current_routine->status_ = internal::routine_status::wait_channel_write;
+      //writers_.push(current_routine);
+//
+      //main_context = jump_fcontext(main_context.fctx, nullptr);
+      //current_routine->previous_status_ = routine_status::wait_channel_write;
+      //current_routine->status_ = routine_status::running;
     }
 
   };

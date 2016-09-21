@@ -66,12 +66,38 @@ class engine_proxy {
  *
  */
 class thread : public event_handler {
+  friend void detail::resume_routine(transfer_t);
+  friend void boson::yield();
+  friend void boson::sleep(std::chrono::milliseconds);
+  friend ssize_t boson::read(int fd, void* buf, size_t count);
+  friend ssize_t boson::write(int fd, const void* buf, size_t count);
+  template <class ContentType> friend class channel;
+
+  friend class boson::semaphore;
   using routine_ptr_t = std::unique_ptr<routine>;
   using engine_queue_t = queues::unbounded_mpmc<thread_command>;
 
   engine_proxy engine_proxy_;
   std::list<routine_ptr_t> scheduled_routines_;
   thread_status status_{thread_status::idle};
+
+  /**
+   * Execution context used to jump betweent thread and its routines
+   *
+   * Useful to get it from the TLS
+   */
+  transfer_t context_;
+
+  /**
+   * Holds a pointer to the currently runninf routine
+   *
+   * Useful to get it from the TLS
+   */
+  routine* running_routine_;
+
+  /**
+   * Event loop managing interruptions
+   */
   event_loop loop_;
 
   engine_queue_t engine_queue_{10};
@@ -92,11 +118,13 @@ class thread : public event_handler {
    * This number contains the number of suspended routines stored 
    * in the event loop. The event loop holds the routines waiting for
    * events of its FDs.
+   *
+   * This also counts routines waiting in a semaphore waiters list.
    */
   size_t suspended_routines_ {0};
 
   /**
-   * React to a request from tje main scheduler
+   * React to a request from the main scheduler
    */
   void handle_engine_event();
 
@@ -104,6 +132,9 @@ class thread : public event_handler {
    * Close event handlers to free the event loop
    */
   void unregister_all_events();
+
+  inline transfer_t& context(); 
+  inline routine* running_routine(); 
 
  public:
   thread(engine& parent_engine);
@@ -118,15 +149,31 @@ class thread : public event_handler {
   void read(int fd, void* data) override;
   void write(int fd, void* data) override;
 
-  // callaed by engine
+  // called by engine
   void push_command(thread_command&& command);
 
   // called by engine
   //void execute_commands();
 
   void execute_scheduled_routines();
+
+  /**
+   * Executes the boson::thread
+   *
+   * loop() is executed in a std::thread dedicated to this object
+   */
   void loop();
 };
+
+static thread_local thread* current_thread = nullptr;
+
+transfer_t& thread::context() {
+  return context_;
+}
+
+routine* thread::running_routine() {
+  return running_routine_;
+}
 
 }  // namespace internal 
 }  // namespace boson

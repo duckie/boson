@@ -48,7 +48,7 @@ global_flags = [
 '.',
 '-I./src/boson/boson',
 '-I./3rdparty/catch',
-'-I./3rdparty/json_backbone',
+'-I./3rdparty/json_backbone/include',
 '-I./3rdparty/folly',
 '-I./3rdparty/boost/include',
 '-I./3rdparty/double-conversion'

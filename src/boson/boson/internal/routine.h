@@ -12,6 +12,8 @@
 namespace boson {
 namespace internal {
 
+class thread;
+
 /**
  * Store the local thread context
  *
@@ -19,7 +21,7 @@ namespace internal {
  * to know about what is runniung them. But it will avoid too much load/store
  * from a thread_local variable since it implies a look in a map
  */
-static thread_local transfer_t current_thread_context = {nullptr, nullptr};
+//static thread_local transfer_t current_thread_context = {nullptr, nullptr};
 
 enum class routine_status {
   is_new,              // Routine has been created but never started
@@ -28,9 +30,7 @@ enum class routine_status {
   wait_timer,          // Routine waits for a timer to expire
   wait_sys_read,       // Routine waits for a FD to be ready for read
   wait_sys_write,      // Routine waits for a FD to be readu for write
-  wait_channel_read,   // Routines waits for a sync or empty channel to have an element
-  wait_channel_write,  // Routine waits for a full channel to have space or a sync channel to have
-                       // a reader
+  wait_sema_wait,      // Routine waits to get a boson::semaphore
   finished             // Routine finished execution
 };
 
@@ -55,6 +55,9 @@ template <> struct is_small_type<boson::internal::routine_io_event> {
 }
 
 namespace boson {
+
+class semaphore;
+
 namespace internal {
 /**
  * Data published to parent threads about waiting reasons
@@ -97,6 +100,7 @@ class routine {
   friend ssize_t boson::read(int fd, void* buf, size_t count);
   friend ssize_t boson::write(int fd, const void* buf, size_t count);
   template <class ContentType> friend class channel;
+  friend class boson::semaphore;
 
   std::unique_ptr<detail::function_holder> func_;
   stack_context stack_ = allocate<default_stack_traits>();

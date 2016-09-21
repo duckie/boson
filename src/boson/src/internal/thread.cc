@@ -100,10 +100,10 @@ void thread::execute_scheduled_routines() {
         // Not supposed to happen
         assert(false);
       } break;
-      case routine_status::running:
+      case routine_status::running: {
           // Not supposed to happen
           assert(false);
-          break;
+      } break;
       case routine_status::yielding: {
         // If not finished, then we reschedule it
         clear_previous_io_event(*routine, loop_);
@@ -130,11 +130,13 @@ void thread::execute_scheduled_routines() {
           target_event.event_id = loop_.register_write(target_event.fd, routine.release());
         }
       } break;
-      case routine_status::wait_channel_read:
-      case routine_status::wait_channel_write:
-      case routine_status::finished:
+      case routine_status::wait_sema_wait: {
         clear_previous_io_event(*routine, loop_);
-        break;
+        ++suspended_routines_;
+      } break;
+      case routine_status::finished: {
+        clear_previous_io_event(*routine, loop_);
+      } break;
     };
 
     scheduled_routines_.pop_front();
@@ -162,6 +164,8 @@ void thread::execute_scheduled_routines() {
 void thread::loop() {
   using namespace std::chrono;
   engine_proxy_.set_id();  // Tells the engine which thread id we got
+  current_thread = this;
+
   while (status_ != thread_status::finished) {
     // Check if we should have a time out
     int timeout_ms = -1;
@@ -191,6 +195,9 @@ void thread::loop() {
     }
     execute_scheduled_routines();
   }
+
+  // Should not be useful, but a lil discipline does not hurt
+  //current_thread = nullptr;
 }
 }  // namespace internal
 }  // namespace boson
