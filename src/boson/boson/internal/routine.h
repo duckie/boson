@@ -96,6 +96,7 @@ class routine {
   friend void boson::sleep(std::chrono::milliseconds);
   friend ssize_t boson::read(int fd, void* buf, size_t count);
   friend ssize_t boson::write(int fd, const void* buf, size_t count);
+  template <class ContentType> friend class channel;
 
   std::unique_ptr<detail::function_holder> func_;
   stack_context stack_ = allocate<default_stack_traits>();

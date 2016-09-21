@@ -122,7 +122,7 @@ class thread : public event_handler {
   void push_command(thread_command&& command);
 
   // called by engine
-  void execute_commands();
+  //void execute_commands();
 
   void execute_scheduled_routines();
   void loop();

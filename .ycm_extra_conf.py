@@ -31,11 +31,11 @@ import os
 import ycm_core
 import json
 
-flags = [
+this_dir = os.path.dirname( os.path.abspath( __file__ ) )
+global_flags = [
 '-Wall',
 '-Wextra',
 '-Werror',
-'-Wc++98-compat',
 '-Wno-long-long',
 '-Wno-variadic-macros',
 '-fexceptions',
@@ -44,26 +44,14 @@ flags = [
 '-std=c++14',
 '-x',
 'c++',
-'-isystem',
-'../BoostParts',
-'-isystem',
-'/System/Library/Frameworks/Python.framework/Headers',
-'-isystem',
-'../llvm/include',
-'-isystem',
-'../llvm/tools/clang/include',
 '-I',
 '.',
-'-I',
-'./ClangCompleter',
-'-isystem',
-'./tests/gmock/gtest',
-'-isystem',
-'./tests/gmock/gtest/include',
-'-isystem',
-'./tests/gmock',
-'-isystem',
-'./tests/gmock/include',
+'-I./src/boson/boson',
+'-I./3rdparty/catch',
+'-I./3rdparty/json_backbone',
+'-I./3rdparty/folly',
+'-I./3rdparty/boost/include',
+'-I./3rdparty/double-conversion'
 ]
 
 
@@ -91,8 +79,6 @@ if os.path.exists( compilation_database_folder ):
   database = ycm_core.CompilationDatabase( compilation_database_folder )
 
 SOURCE_EXTENSIONS = [ '.cpp', '.cxx', '.cc', '.c', '.m', '.mm' ]
-
-
 
 def MakeRelativePathsInFlagsAbsolute( flags, working_directory ):
   if not working_directory:
@@ -133,6 +119,7 @@ def GetCompilationInfoForFile( filename ):
   # for header files. So we do our best by asking the db for flags for a
   # corresponding source file, if any. If one exists, the flags for that file
   # should be good enough.
+  global global_flags
   if IsHeaderFile( filename ):
     basename = os.path.splitext( filename )[ 0 ]
     for extension in SOURCE_EXTENSIONS:
@@ -147,12 +134,16 @@ def GetCompilationInfoForFile( filename ):
 
 
 def FlagsForFile( filename, **kwargs ):
+  global global_flags
   if database:
     # Bear in mind that compilation_info.compiler_flags_ does NOT return a
     # python list, but a "list-like" StringVec object
     compilation_info = GetCompilationInfoForFile( filename )
     if not compilation_info:
-      return None
+      return {
+        'flags': global_flags,
+        'do_cache': True
+      }
 
     final_flags = MakeRelativePathsInFlagsAbsolute(
       compilation_info.compiler_flags_,
