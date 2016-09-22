@@ -139,7 +139,7 @@ class routine {
    * context execution will hang when the routine executes
    *
    */
-  void resume();
+  void resume(void* context_data);
 
   /**
    * Tells the routine it can be executed

@@ -9,9 +9,12 @@ namespace internal {
 
 namespace detail {
 void resume_routine(transfer_t transfered_context) {
-  auto current_routine = static_cast<routine*>(transfered_context.data);
+  if (!current_thread) {
+    current_thread = static_cast<thread*>(transfered_context.data);
+  }
   thread* this_thread = current_thread;
   this_thread->context() = transfered_context;
+  routine* current_routine = this_thread->running_routine();
   current_routine->status_ = routine_status::running;
   (*current_routine->func_)();
   current_routine->status_ = routine_status::finished;
@@ -28,15 +31,15 @@ routine::~routine() {
   deallocate(stack_);
 }
 
-void routine::resume() {
+void routine::resume(void* context_data) {
   switch (status_) {
     case routine_status::is_new: {
       context_.fctx = make_fcontext(stack_.sp, stack_.size, detail::resume_routine);
-      context_ = jump_fcontext(context_.fctx, this);
+      context_ = jump_fcontext(context_.fctx, context_data);
       break;
     }
     case routine_status::yielding: {
-      context_ = jump_fcontext(context_.fctx, this);
+      context_ = jump_fcontext(context_.fctx, context_data);
       break;
     }
     case routine_status::finished: {

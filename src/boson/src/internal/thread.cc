@@ -94,7 +94,8 @@ void thread::execute_scheduled_routines() {
   while(!scheduled_routines_.empty()) {
     // For now; we schedule them in order
     auto& routine = scheduled_routines_.front();
-    routine->resume();
+    running_routine_ = routine.get();
+    routine->resume(this);
     switch (routine->status()) {
       case routine_status::is_new: {
         // Not supposed to happen
