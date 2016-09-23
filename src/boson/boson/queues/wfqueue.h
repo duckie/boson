@@ -18,7 +18,7 @@ static constexpr size_t CACHE_LINE_SIZE = 64;
  * Algorithm from Chaoran Yang and John Mellor-Crummey
  */
 template <class ContentType>
-class alignas(2*CACHE_LINE_SIZE) wfqueue {
+class alignas(2 * CACHE_LINE_SIZE) wfqueue {
   //#define CACHE_ALIGNED __attribute__((aligned(CACHE_LINE_SIZE)))
   //#define DOUBLE_CACHE_ALIGNED __attribute__((aligned(2 * CACHE_LINE_SIZE)))
   using content_t = ContentType;
@@ -50,10 +50,10 @@ class alignas(2*CACHE_LINE_SIZE) wfqueue {
     alignas(CACHE_LINE_SIZE) cell_t cells[WFQUEUE_NODE_SIZE];
   };
 
-  alignas(2*CACHE_LINE_SIZE) volatile long Ei;
-  alignas(2*CACHE_LINE_SIZE) volatile long Di;
-  alignas(2*CACHE_LINE_SIZE) volatile long Hi;
-  struct _node_t * volatile Hp;
+  alignas(2 * CACHE_LINE_SIZE) volatile long Ei;
+  alignas(2 * CACHE_LINE_SIZE) volatile long Di;
+  alignas(2 * CACHE_LINE_SIZE) volatile long Hi;
+  struct _node_t* volatile Hp;
   long nprocs;
 
  public:
@@ -66,7 +66,6 @@ class alignas(2*CACHE_LINE_SIZE) wfqueue {
   wfqueue& operator=(wfqueue const&) = delete;
   wfqueue& operator=(wfqueue&&) noexcept(false) = default;
   ~wfqueue() = default;
-
 };
 
 };  // namespace queues

@@ -3,11 +3,11 @@
 #pragma once
 
 #include <chrono>
-#include <memory>
 #include <json_backbone.hpp>
+#include <memory>
+#include "boson/syscalls.h"
 #include "fcontext.h"
 #include "stack.h"
-#include "boson/syscalls.h"
 
 namespace boson {
 namespace internal {
@@ -21,35 +21,37 @@ class thread;
  * to know about what is runniung them. But it will avoid too much load/store
  * from a thread_local variable since it implies a look in a map
  */
-//static thread_local transfer_t current_thread_context = {nullptr, nullptr};
+// static thread_local transfer_t current_thread_context = {nullptr, nullptr};
 
 enum class routine_status {
-  is_new,              // Routine has been created but never started
-  running,             // Routine is currently running 
-  yielding,            // Routine yielded and waits to be resumed
-  wait_timer,          // Routine waits for a timer to expire
-  wait_sys_read,       // Routine waits for a FD to be ready for read
-  wait_sys_write,      // Routine waits for a FD to be readu for write
-  wait_sema_wait,      // Routine waits to get a boson::semaphore
-  finished             // Routine finished execution
+  is_new,          // Routine has been created but never started
+  running,         // Routine is currently running
+  yielding,        // Routine yielded and waits to be resumed
+  wait_timer,      // Routine waits for a timer to expire
+  wait_sys_read,   // Routine waits for a FD to be ready for read
+  wait_sys_write,  // Routine waits for a FD to be readu for write
+  wait_sema_wait,  // Routine waits to get a boson::semaphore
+  finished         // Routine finished execution
 };
 
 using routine_time_point =
     std::chrono::time_point<std::chrono::high_resolution_clock, std::chrono::milliseconds>;
 
 struct routine_io_event {
-  int fd;  // The current FD used
-  int event_id;  // The id used for the event loop
-  bool is_same_as_previous_event; // Used to limit system calls in loops
+  int fd;                          // The current FD used
+  int event_id;                    // The id used for the event loop
+  bool is_same_as_previous_event;  // Used to limit system calls in loops
 };
-
-}}
+}
+}
 
 namespace json_backbone {
-template <> struct is_small_type<boson::internal::routine_time_point> {
+template <>
+struct is_small_type<boson::internal::routine_time_point> {
   constexpr static bool const value = true;
 };
-template <> struct is_small_type<boson::internal::routine_io_event> {
+template <>
+struct is_small_type<boson::internal::routine_io_event> {
   constexpr static bool const value = true;
 };
 }
@@ -65,7 +67,8 @@ namespace internal {
  * When a routine yields to wait on a timer, a fd or a channel, it needs
  * tell its running thread what it is about.
  */
-using routine_waiting_data = json_backbone::variant<std::nullptr_t, int, size_t, routine_io_event, routine_time_point>;
+using routine_waiting_data =
+    json_backbone::variant<std::nullptr_t, int, size_t, routine_io_event, routine_time_point>;
 
 class routine;
 
@@ -99,7 +102,8 @@ class routine {
   friend void boson::sleep(std::chrono::milliseconds);
   friend ssize_t boson::read(int fd, void* buf, size_t count);
   friend ssize_t boson::write(int fd, const void* buf, size_t count);
-  template <class ContentType> friend class channel;
+  template <class ContentType>
+  friend class channel;
   friend class boson::semaphore;
 
   std::unique_ptr<detail::function_holder> func_;
@@ -108,6 +112,7 @@ class routine {
   routine_status status_ = routine_status::is_new;
   routine_waiting_data waiting_data_;
   transfer_t context_;
+  thread* thread_;
 
  public:
   template <class Function>
@@ -139,7 +144,7 @@ class routine {
    * context execution will hang when the routine executes
    *
    */
-  void resume(void* context_data);
+  void resume(thread* managing_thread);
 
   /**
    * Tells the routine it can be executed
@@ -150,6 +155,7 @@ class routine {
   inline void expected_event_happened();
 };
 
+static thread_local thread* this_routine = nullptr;
 
 // Inline implementations
 routine_status routine::previous_status() const {
@@ -157,7 +163,8 @@ routine_status routine::previous_status() const {
 }
 
 bool routine::previous_status_is_io_block() const {
-  return previous_status_ == routine_status::wait_sys_read || previous_status_ == routine_status::wait_sys_write;
+  return previous_status_ == routine_status::wait_sys_read ||
+         previous_status_ == routine_status::wait_sys_write;
 }
 
 routine_status routine::status() const {
@@ -176,7 +183,7 @@ void routine::expected_event_happened() {
   status_ = routine_status::yielding;
 }
 
-}  // namespace internal 
+}  // namespace internal
 }  // namespace boson
 
 #endif  // BOSON_ROUTINE_H_

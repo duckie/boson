@@ -8,11 +8,12 @@ namespace boson {
 namespace internal {
 
 namespace detail {
+
+//struct stack_header {
+//};
+//
 void resume_routine(transfer_t transfered_context) {
-  if (!current_thread) {
-    current_thread = static_cast<thread*>(transfered_context.data);
-  }
-  thread* this_thread = current_thread;
+  thread* this_thread = current_thread();
   this_thread->context() = transfered_context;
   routine* current_routine = this_thread->running_routine();
   current_routine->status_ = routine_status::running;
@@ -31,15 +32,29 @@ routine::~routine() {
   deallocate(stack_);
 }
 
-void routine::resume(void* context_data) {
+void routine::resume(thread* managing_thread) {
+  thread_ = managing_thread;
   switch (status_) {
     case routine_status::is_new: {
+      //constexpr std::size_t func_alignment = 64; // alignof( record_t);
+      //constexpr std::size_t func_size = sizeof(detail::stack_header);
+      //// reserve space on stack
+      //void * sp = static_cast< char * >( stack_.sp) - func_size - func_alignment;
+      //// align sp pointer
+      //std::size_t space = func_size + func_alignment;
+      //sp = std::align( func_alignment, func_size, sp, space);
+      //// calculate remaining size
+      //const std::size_t size = stack_.size - ( static_cast< char * >( stack_.sp) - static_cast< char * >( sp) );
+      //// create fast-context
+      //context_.fctx = make_fcontext(sp, size, detail::resume_routine);
+      //// placment new for control structure on context-stack
+      //auto rec = ::new ( sp) detail::stack_header;
       context_.fctx = make_fcontext(stack_.sp, stack_.size, detail::resume_routine);
-      context_ = jump_fcontext(context_.fctx, context_data);
+      context_ = jump_fcontext(context_.fctx, thread_);
       break;
     }
     case routine_status::yielding: {
-      context_ = jump_fcontext(context_.fctx, context_data);
+      context_ = jump_fcontext(context_.fctx, thread_);
       break;
     }
     case routine_status::finished: {
@@ -57,8 +72,8 @@ void routine::resume(void* context_data) {
 using namespace internal;
 
 void yield() {
-  thread* this_thread = current_thread;
-  routine* current_routine = current_thread->running_routine();
+  thread* this_thread = current_thread();
+  routine* current_routine = this_thread->running_routine();
   current_routine->status_ = routine_status::yielding;
   this_thread->context() = jump_fcontext(this_thread->context().fctx, nullptr);
   current_routine->previous_status_ = routine_status::yielding;
@@ -68,19 +83,20 @@ void yield() {
 void sleep(std::chrono::milliseconds duration) {
   // Compute the time in ms
   using namespace std::chrono;
-  thread* this_thread = current_thread;
-  routine* current_routine = current_thread->running_routine();
-  current_routine->waiting_data_ = time_point_cast<milliseconds>(high_resolution_clock::now() + duration);
+  thread* this_thread = current_thread();
+  routine* current_routine = this_thread->running_routine();
+  current_routine->waiting_data_ =
+      time_point_cast<milliseconds>(high_resolution_clock::now() + duration);
   current_routine->status_ = routine_status::wait_timer;
   this_thread->context() = jump_fcontext(this_thread->context().fctx, nullptr);
   current_routine->previous_status_ = routine_status::wait_timer;
   current_routine->status_ = routine_status::running;
 }
 
-ssize_t read(int fd, void *buf, size_t count) {
-  thread* this_thread = current_thread;
-  routine* current_routine = current_thread->running_routine();
-  routine_io_event new_event{fd,-1,false};
+ssize_t read(int fd, void* buf, size_t count) {
+  thread* this_thread = current_thread();
+  routine* current_routine = this_thread->running_routine();
+  routine_io_event new_event{fd, -1, false};
   if (current_routine->previous_status_is_io_block()) {
     auto previous_event = current_routine->waiting_data_.raw<routine_io_event>();
     new_event.event_id = previous_event.event_id;
@@ -93,13 +109,13 @@ ssize_t read(int fd, void *buf, size_t count) {
   this_thread->context() = jump_fcontext(this_thread->context().fctx, nullptr);
   current_routine->previous_status_ = routine_status::wait_sys_read;
   current_routine->status_ = routine_status::running;
-  return ::read(fd,buf,count);
+  return ::read(fd, buf, count);
 }
 
-ssize_t write(int fd, const void *buf, size_t count) {
-  thread* this_thread = current_thread;
-  routine* current_routine = current_thread->running_routine();
-  routine_io_event new_event{fd,-1,false};
+ssize_t write(int fd, const void* buf, size_t count) {
+  thread* this_thread = current_thread();
+  routine* current_routine = this_thread->running_routine();
+  routine_io_event new_event{fd, -1, false};
   if (current_routine->previous_status_is_io_block()) {
     auto previous_event = current_routine->waiting_data_.raw<routine_io_event>();
     new_event.event_id = previous_event.event_id;
@@ -112,7 +128,7 @@ ssize_t write(int fd, const void *buf, size_t count) {
   this_thread->context() = jump_fcontext(this_thread->context().fctx, nullptr);
   current_routine->previous_status_ = routine_status::wait_sys_write;
   current_routine->status_ = routine_status::running;
-  return ::write(fd,buf,count);
+  return ::write(fd, buf, count);
 }
 
 }  // namespace boson

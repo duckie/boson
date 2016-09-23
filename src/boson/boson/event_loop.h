@@ -13,11 +13,7 @@ struct event_handler {
   virtual void write(int fd, void* data) = 0;
 };
 
-enum class loop_end_reason {
-  max_iter_reached,
-  timed_out,
-  error_occured
-};
+enum class loop_end_reason { max_iter_reached, timed_out, error_occured };
 
 /**
  * Platform specific loop implementation
@@ -106,7 +102,7 @@ class event_loop {
   /**
    * Executes the event loop
    *
-   * In fact, we only execute one iteration because the user of this 
+   * In fact, we only execute one iteration because the user of this
    * class (boson::thread) executes private things between each iteration
    */
   loop_end_reason loop(int max_iter = -1, int timeout_ms = -1);

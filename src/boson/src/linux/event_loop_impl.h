@@ -17,11 +17,7 @@ using epoll_event_t = struct epoll_event;
  * meaning
  */
 class event_loop_impl {
-  enum class event_type {
-    event_fd,
-    read,
-    write
-  };
+  enum class event_type { event_fd, read, write };
 
   struct event_data {
     int fd;

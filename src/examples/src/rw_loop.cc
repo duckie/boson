@@ -1,8 +1,8 @@
-#include <iostream>
 #include <unistd.h>
 #include <chrono>
-#include "boson/boson.h"
 #include <iostream>
+#include <iostream>
+#include "boson/boson.h"
 
 using namespace std::literals;
 
@@ -14,6 +14,10 @@ int main(int argc, char* argv[]) {
   ::pipe(a2b);
   int b2a[2];
   ::pipe(b2a);
+  int b2c[2];
+  ::pipe(b2c);
+  int c2b[2];
+  ::pipe(c2b);
 
   {
     // Execute a routine communication through pipes
@@ -35,16 +39,33 @@ int main(int argc, char* argv[]) {
       while (result < nb_iter - 1) {
         // Get data
         boson::read(a2b[0], &result, sizeof(int));
+        // send to C
+        boson::write(b2c[1],&result, sizeof(int));
+        // Wait ack
+        boson::read(c2b[0], &result, sizeof(int));
         // Send ack
         boson::write(b2a[1], &result, sizeof(int));
-        // Display info
-        std::cout << "B received: " << result << "\n";
+        
       }
-
+    });
+    instance.start([&]() {
+      int result = 0;
+      while (result < nb_iter - 1) {
+        // Get data
+        boson::read(b2c[0], &result, sizeof(int));
+        // Send ack
+        boson::write(c2b[1], &result, sizeof(int));
+        // Display info
+        std::cout << "C received: " << result << "\n";
+      }
     });
   }
   ::close(a2b[1]);
   ::close(b2a[0]);
   ::close(a2b[0]);
   ::close(b2a[1]);
+  ::close(b2c[1]);
+  ::close(c2b[0]);
+  ::close(b2c[0]);
+  ::close(c2b[1]);
 }

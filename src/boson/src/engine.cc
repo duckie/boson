@@ -24,7 +24,7 @@ engine::~engine() {
   // Send a request to thread to finish when they can
   for (auto& thread : threads_) {
     thread->thread.push_command(command_t{internal::thread_command_type::finish, nullptr});
-    //thread->thread.execute_commands();
+    // thread->thread.execute_commands();
   }
 
   // Join everyone

@@ -1,10 +1,10 @@
-#ifndef BOSON_CHANNEL_H_
-#define BOSON_CHANNEL_H_
+#ifndef BOSON_SEMAPHORE_H_
+#define BOSON_SEMAPHORE_H_
 
 #include <memory>
 #include "internal/routine.h"
-#include "queues/mpmc.h"
 #include "internal/thread.h"
+#include "queues/mpmc.h"
 
 namespace boson {
 
@@ -32,9 +32,9 @@ class semaphore {
   semaphore(semaphore&&) = default;
   semaphore& operator=(semaphore const&) = delete;
   semaphore& operator=(semaphore&&) = default;
-  ~semaphore() = default;
+  virtual ~semaphore() = default;
 
-  /** 
+  /**
    * Takes a semaphore ticker if it could, otherwise suspend the routine until a ticker is available
    */
   void wait();
@@ -45,10 +45,6 @@ class semaphore {
   void post();
 };
 
-
-
 }  // namespace boson
 
-
-#endif  // BOSON_CHANNEL_H_
-
+#endif  // BOSON_SEMAPHORE_H_

@@ -1,7 +1,7 @@
 #include "boson/event_loop.h"
+#include <unistd.h>
 #include <thread>
 #include "catch.hpp"
-#include <unistd.h>
 
 struct handler01 : public boson::event_handler {
   int last_id{0};
@@ -46,17 +46,17 @@ TEST_CASE("Event Loop - FD Read/Write", "[eventloop][read/write]") {
   ::pipe(pipe_fds);
 
   boson::event_loop loop(handler_instance);
-  loop.register_read(pipe_fds[0],nullptr);
-  loop.register_write(pipe_fds[1],nullptr);
+  loop.register_read(pipe_fds[0], nullptr);
+  loop.register_write(pipe_fds[1], nullptr);
 
   loop.loop(1);
-  CHECK(handler_instance.last_fd  == pipe_fds[1]);
+  CHECK(handler_instance.last_fd == pipe_fds[1]);
   CHECK(handler_instance.last_data == nullptr);
-  
-  size_t data {1};
-  ::write(pipe_fds[1],&data,sizeof(size_t));
+
+  size_t data{1};
+  ::write(pipe_fds[1], &data, sizeof(size_t));
 
   loop.loop(1);
-  CHECK(handler_instance.last_fd  == pipe_fds[0]);
+  CHECK(handler_instance.last_fd == pipe_fds[0]);
   CHECK(handler_instance.last_data == nullptr);
 }

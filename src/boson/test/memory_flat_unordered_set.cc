@@ -1,5 +1,5 @@
-#include <iostream>
 #include <algorithm>
+#include <iostream>
 #include <random>
 #include <unordered_set>
 #include "boson/event_loop.h"
@@ -24,9 +24,9 @@ TEST_CASE("Flat unordered set", "[memory][flat_unordered_set]") {
     }
 
     // Fill up the instance
-    std::uniform_int_distribution<int> dis(0, nb_elements-1);
+    std::uniform_int_distribution<int> dis(0, nb_elements - 1);
     std::unordered_set<int> expected_set;
-    for (int index = 0; index < nb_elements*nb_iterations; ++index) {
+    for (int index = 0; index < nb_elements * nb_iterations; ++index) {
       int value = dis(generator);
       instance.insert(value);
       expected_set.insert(value);
@@ -34,8 +34,8 @@ TEST_CASE("Flat unordered set", "[memory][flat_unordered_set]") {
 
     // copy the result in an unordered_set
     std::unordered_set<int> result_set;
-    for(int value : instance) {
-      result_set.insert(value);  
+    for (int value : instance) {
+      result_set.insert(value);
     }
 
     CHECK(result_set == expected_set);

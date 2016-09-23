@@ -43,17 +43,17 @@ class weakrb {
  public:
   using content_type = ContentType;
 
-  weakrb(size_t capacity = 1) noexcept(std::is_nothrow_default_constructible<ContentType>()) 
-    : size_{capacity}, data_(capacity)
-  {}
+  weakrb(size_t capacity = 1) noexcept(std::is_nothrow_default_constructible<ContentType>())
+      : size_{capacity}, data_(capacity) {
+  }
   weakrb(weakrb const&) = delete;
   weakrb(weakrb&&) noexcept(false) = default;
   weakrb& operator=(weakrb const&) = delete;
   weakrb& operator=(weakrb&&) noexcept(false) = default;
   ~weakrb() = default;
 
-  template <class ... Args>
-  bool push(Args&& ... args) {
+  template <class... Args>
+  bool push(Args&&... args) {
     size_t back, front;
     back = back_.load(order_relaxed);
     if (pfront_ + size_ - back < 1) {

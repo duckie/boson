@@ -1,5 +1,5 @@
 file(GLOB_RECURSE folly_srcs ${CMAKE_CURRENT_SOURCE_DIR}/folly/*.cpp)
 add_library(folly ${folly_srcs})
 target_link_libraries(folly double-conversion boost glog)
-target_compile_definitions(folly PUBLIC -DFOLLY_NO_CONFIG -DFOLLY_HAVE_BITS_FUNCTEXCEPT_H=1)
+target_compile_definitions(folly PUBLIC -DFOLLY_NO_CONFIG -DFOLLY_HAVE_BITS_FUNCTEXCEPT_H=1 -DFOLLY_HAVE_MEMRCHR=1)
 target_include_directories(folly PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

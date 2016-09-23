@@ -1,5 +1,5 @@
-#include <iostream>
 #include <chrono>
+#include <iostream>
 #include "boson/boson.h"
 
 using namespace std::literals;

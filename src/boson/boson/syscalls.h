@@ -1,8 +1,8 @@
 #ifndef BOSON_SYSCALLS_H_
 #define BOSON_SYSCALLS_H_
 
-#include <cstdint>
 #include <chrono>
+#include <cstdint>
 
 namespace boson {
 

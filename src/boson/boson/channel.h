@@ -3,8 +3,8 @@
 
 #include <memory>
 #include "internal/routine.h"
-#include "queues/mpmc.h"
 #include "internal/thread.h"
+#include "queues/mpmc.h"
 
 namespace boson {
 
@@ -24,26 +24,24 @@ class channel_impl {
   {
   }
 
-
   /**
    * Write an element in the channel
    *
    * Returns false only if the channel is closed.
    */
-  template <class ... Args>
-  bool push(Args&& ... args) {
+  template <class... Args>
+  bool push(Args&&... args) {
     bool success = queue_.write(std::forward<Args>(args)...);
     if (!success) {
-      //internal::transfer_t& main_context = internal::current_thread_context;
-      //internal::routine* current_routine = static_cast<internal::routine*>(main_context.data);
-      //current_routine->status_ = internal::routine_status::wait_channel_write;
-      //writers_.push(current_routine);
-//
-      //main_context = jump_fcontext(main_context.fctx, nullptr);
-      //current_routine->previous_status_ = routine_status::wait_channel_write;
-      //current_routine->status_ = routine_status::running;
+      // internal::transfer_t& main_context = internal::current_thread_context;
+      // internal::routine* current_routine = static_cast<internal::routine*>(main_context.data);
+      // current_routine->status_ = internal::routine_status::wait_channel_write;
+      // writers_.push(current_routine);
+      //
+      // main_context = jump_fcontext(main_context.fctx, nullptr);
+      // current_routine->previous_status_ = routine_status::wait_channel_write;
+      // current_routine->status_ = routine_status::running;
     }
-
   };
 };
 
@@ -62,7 +60,7 @@ class channel {
 
   std::shared_ptr<impl_t> channel_;
   size_t capacity;
-  
+
  public:
   using value_type = ContentType;
 
@@ -72,22 +70,12 @@ class channel {
    * == 0 means sync channel
    * > 0 means channel of size capacity
    */
-  channel(size_t capacity = 0) :
-    channel_ { new impl_t(capacity) }  
-  {
+  channel(size_t capacity = 0) : channel_{new impl_t(capacity)} {
   }
-
-
 };
 
 // TODO: add specialization for channel<std::nullptr_t>
 
-
-
-
-
 }  // namespace bosn
 
-
 #endif  // BOSON_CHANNEL_H_
-

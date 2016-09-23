@@ -71,7 +71,7 @@ int event_loop_impl::register_read(int fd, void* data) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
 
-  return event_id; 
+  return event_id;
 }
 
 int event_loop_impl::register_write(int fd, void* data) {
@@ -94,7 +94,7 @@ int event_loop_impl::register_write(int fd, void* data) {
   if (return_code < 0) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
-  
+
   return event_id;
 }
 
@@ -128,7 +128,6 @@ void* event_loop_impl::unregister(int event_id) {
   events_data_.free(event_id);
   return data;
 }
-
 
 loop_end_reason event_loop_impl::loop(int max_iter, int timeout_ms) {
   bool forever = (-1 == max_iter);

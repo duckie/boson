@@ -18,11 +18,11 @@ void event_loop::send_event(int event) {
 }
 
 int event_loop::register_read(int fd, void* data) {
-  return loop_impl_->register_read(fd,data);
+  return loop_impl_->register_read(fd, data);
 }
 
 int event_loop::register_write(int fd, void* data) {
-  return loop_impl_->register_write(fd,data);
+  return loop_impl_->register_write(fd, data);
 }
 
 void event_loop::disable(int event_id) {
@@ -40,6 +40,5 @@ void* event_loop::unregister(int event_id) {
 loop_end_reason event_loop::loop(int max_iter, int timeout_ms) {
   return loop_impl_->loop(max_iter, timeout_ms);
 }
-
 
 }  // namespace boson

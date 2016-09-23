@@ -3,20 +3,21 @@
 #pragma once
 
 #include <cassert>
+#include <chrono>
 #include <json_backbone.hpp>
 #include <list>
 #include <map>
 #include <memory>
 #include <thread>
 #include <vector>
-#include <chrono>
 #include "boson/event_loop.h"
-#include "boson/queues/weakrb.h"
 #include "boson/queues/mpmc.h"
+#include "boson/queues/weakrb.h"
 #include "routine.h"
 
 namespace json_backbone {
-template <> struct is_small_type<std::unique_ptr<boson::internal::routine>> {
+template <>
+struct is_small_type<std::unique_ptr<boson::internal::routine>> {
   constexpr static bool const value = true;
 };
 }
@@ -35,8 +36,7 @@ enum class thread_status {
   finished    // Thread no longer executes a routine and is not required to wait
 };
 
-enum class thread_command_type { add_routine, finish };
-
+enum class thread_command_type { add_routine, schedule_waiting_routine, finish };
 
 using thread_command_data = json_backbone::variant<std::nullptr_t, std::unique_ptr<routine>>;
 
@@ -71,7 +71,8 @@ class thread : public event_handler {
   friend void boson::sleep(std::chrono::milliseconds);
   friend ssize_t boson::read(int fd, void* buf, size_t count);
   friend ssize_t boson::write(int fd, const void* buf, size_t count);
-  template <class ContentType> friend class channel;
+  template <class ContentType>
+  friend class channel;
 
   friend class boson::semaphore;
   using routine_ptr_t = std::unique_ptr<routine>;
@@ -103,7 +104,7 @@ class thread : public event_handler {
   engine_queue_t engine_queue_{10};
   int engine_event_id_;
   int self_event_id_;
-  
+
   /**
    * This map stores the timers
    *
@@ -115,13 +116,13 @@ class thread : public event_handler {
   /**
    * Stores the number of suspended routines
    *
-   * This number contains the number of suspended routines stored 
+   * This number contains the number of suspended routines stored
    * in the event loop. The event loop holds the routines waiting for
    * events of its FDs.
    *
    * This also counts routines waiting in a semaphore waiters list.
    */
-  size_t suspended_routines_ {0};
+  size_t suspended_routines_{0};
 
   /**
    * React to a request from the main scheduler
@@ -133,8 +134,8 @@ class thread : public event_handler {
    */
   void unregister_all_events();
 
-  inline transfer_t& context(); 
-  inline routine* running_routine(); 
+  inline transfer_t& context();
+  inline routine* running_routine();
 
  public:
   thread(engine& parent_engine);
@@ -153,7 +154,7 @@ class thread : public event_handler {
   void push_command(thread_command&& command);
 
   // called by engine
-  //void execute_commands();
+  // void execute_commands();
 
   void execute_scheduled_routines();
 
@@ -165,7 +166,15 @@ class thread : public event_handler {
   void loop();
 };
 
-static thread_local thread* current_thread = nullptr;
+/**
+ * Stores current thread in the TLS
+ *
+ * This is not convenient, from a programmatic standpoint, to use
+ * the notion of current_thread, as a current_routine would be better
+ *
+ * But it avoids TLS writes at each context switch
+ */
+thread*& current_thread();
 
 transfer_t& thread::context() {
   return context_;
@@ -175,7 +184,7 @@ routine* thread::running_routine() {
   return running_routine_;
 }
 
-}  // namespace internal 
+}  // namespace internal
 }  // namespace boson
 
 #endif  // BOSON_THREAD_H_
