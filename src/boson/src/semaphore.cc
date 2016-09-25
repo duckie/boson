@@ -1,6 +1,6 @@
 #include "boson/semaphore.h"
+#include "boson/logger.h"
 #include <cassert>
-#include <iostream>
 
 namespace boson {
 
@@ -38,7 +38,7 @@ void semaphore::wait() {
     routine* current_routine = this_thread->running_routine();
     current_routine->waiting_data_ = nullptr;
     current_routine->status_ = routine_status::wait_sema_suspend;
-    std::cout << "Fail " << this_thread->id() << std::flush;
+    debug::log("Fail {}", this_thread->id());
     waiters_.push(current_routine);
     // We give back the spuriously taken ticket
     result = counter_.fetch_add(std::memory_order::memory_order_release);
@@ -50,9 +50,9 @@ void semaphore::wait() {
     }
     if (suspend) {
       // Jump to main context
-      std::cout << "Suspends " << this_thread->id() << std::endl;
+      debug::log("Suspends {}", this_thread->id());
       this_thread->context() = jump_fcontext(this_thread->context().fctx, nullptr);
-      std::cout << "Resumed " << this_thread->id() << std::endl;
+      debug::log("Resumed {}", this_thread->id());
       current_routine->previous_status_ = routine_status::wait_sema_wait;
       current_routine->status_ = routine_status::running;
     }

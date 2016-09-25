@@ -4,7 +4,7 @@
 #include "engine.h"
 #include "exception.h"
 #include "internal/routine.h"
-#include <iostream>
+#include "logger.h"
 
 namespace boson {
 namespace internal {
@@ -36,7 +36,7 @@ void thread::handle_engine_event() {
           case routine_status::wait_sema_suspend:
             // Routine did not have time to suspend, just change its status to yielding
             current_routine->status_ = routine_status::yielding;
-            std::cout << "Dont you yiel " << id() << std::endl;
+            debug::log("Thread {} unlocked before suspension.", id());
             break;
           case routine_status::wait_sema_wait:
             --suspended_routines_;

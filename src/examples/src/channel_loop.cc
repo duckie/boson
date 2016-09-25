@@ -2,16 +2,18 @@
 #include <unistd.h>
 #include <chrono>
 #include <iostream>
-#include <iostream>
 #include "boson/boson.h"
 #include "boson/mutex.h"
+#include "boson/logger.h"
 
 using namespace std::literals;
 
 static constexpr int nb_iter = 1e4;
-static constexpr int nb_threads = 3;
+static constexpr int nb_threads = 8;
 
 int main(int argc, char* argv[]) {
+  boson::debug::logger_instance(&std::cout);
+
   std::vector<int> data;
   {
     // Execute a routine communication through pipes

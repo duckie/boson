@@ -41,12 +41,14 @@ class logger {
 
 namespace debug {
 
-logger& logger_instance(std::ostream* new_stream = nullptr);
+logger* logger_instance(std::ostream* new_stream = nullptr);
 
 template <class ... Args>
 inline void log(char const* fmt, Args&& ... args) {
 #ifndef NDEBUG
-  logger_instance().log(fmt, std::forward<Args>(args)...);
+  auto logger_ptr = logger_instance();
+  if (logger_ptr)
+    logger_ptr->log(fmt, std::forward<Args>(args)...);
 #endif
 }
 

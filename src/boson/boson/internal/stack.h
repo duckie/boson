@@ -54,7 +54,7 @@ stack_context allocate() {
   // Will make use of C++17 constexpr if
   if (Traits::is_protected) {
 #ifdef NDEBUG
-    ::mprotect(vp, Traits::page_size, PROT_NONE)
+    ::mprotect(vp, Traits::page_size, PROT_NONE);
 #else
     const int result(::mprotect(vp, Traits::page_size, PROT_NONE));
     assert(0 == result);
