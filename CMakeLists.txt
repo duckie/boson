@@ -53,6 +53,7 @@ project_add_3rdparty(double-conversion)
 project_add_3rdparty(glog)
 project_add_3rdparty(folly)
 project_add_3rdparty(json_backbone)
+project_add_3rdparty(fmt)
 
 # By default we put binaries into this directory
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
