@@ -77,7 +77,7 @@ class thread : public event_handler {
 
   friend class boson::semaphore;
   using routine_ptr_t = std::unique_ptr<routine>;
-  using engine_queue_t = queues::unbounded_mpmc<thread_command>;
+  using engine_queue_t = queues::bounded_mpmc<thread_command>;
 
   engine_proxy engine_proxy_;
   std::list<routine_ptr_t> scheduled_routines_;
@@ -102,7 +102,7 @@ class thread : public event_handler {
    */
   event_loop loop_;
 
-  engine_queue_t engine_queue_{100};
+  engine_queue_t engine_queue_{1000};
   int engine_event_id_;
   int self_event_id_;
 

@@ -10,6 +10,7 @@
 #include "stack.h"
 
 namespace boson {
+using routine_id = std::size_t;
 namespace internal {
 
 class thread;
@@ -115,11 +116,12 @@ class routine {
   routine_waiting_data waiting_data_;
   transfer_t context_;
   thread* thread_;
+  routine_id id_;
 
  public:
   template <class Function>
-  routine(Function&& func)
-      : func_{new detail::function_holder_impl<Function>(std::forward<Function>(func))} {
+  routine(routine_id id, Function&& func)
+      : func_{new detail::function_holder_impl<Function>(std::forward<Function>(func))},id_{id} {
   }
 
   routine(routine const&) = delete;
@@ -132,6 +134,7 @@ class routine {
   /**
    * Returns the current status
    */
+  inline routine_id id() const;
   inline routine_status previous_status() const;
   inline bool previous_status_is_io_block() const;
   inline routine_status status() const;
@@ -160,6 +163,10 @@ class routine {
 static thread_local thread* this_routine = nullptr;
 
 // Inline implementations
+routine_id routine::id() const {
+  return id_;
+}
+
 routine_status routine::previous_status() const {
   return previous_status_;
 }

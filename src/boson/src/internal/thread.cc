@@ -102,9 +102,9 @@ void thread::execute_scheduled_routines() {
     // For now; we schedule them in order
     auto& routine = scheduled_routines_.front();
     running_routine_ = routine.get();
-    //debug::log("Thread {} resumes {} with status {}.", id(), reinterpret_cast<size_t>(routine.get()),static_cast<int>(routine->status())); 
+    //debug::log("Thread resumes {}:{} with status {}.", id(), routine->id(),static_cast<int>(routine->status())); 
     routine->resume(this);
-    //debug::log("Thread {} finished {} with status {}.", id(), reinterpret_cast<size_t>(routine.get()),static_cast<int>(routine->status())); 
+    //debug::log("Thread finished {}:{} with status {}.", id(), routine->id(),static_cast<int>(routine->status())); 
     switch (routine->status()) {
       case routine_status::is_new: {
         // Not supposed to happen

@@ -38,6 +38,7 @@ class engine {
   thread_list_t threads_;
   size_t max_nb_cores_;
   std::atomic<thread_id> current_thread_id_{0};
+  std::atomic<routine_id> current_routine_id_{0};
 
   // This is used to add routines from the external main thread
   //
@@ -83,7 +84,7 @@ void engine::start(thread_id id, Function&& function) {
   // Select a thread
   threads_.at(id)->thread.push_command(
       command_t{internal::thread_command_type::add_routine,
-                new internal::routine{std::forward<Function>(function)}});
+                new internal::routine{current_routine_id_++, std::forward<Function>(function)}});
   // threads_.at(id)->thread.execute_commands();
 };
 
