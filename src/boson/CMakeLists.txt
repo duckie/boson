@@ -1,4 +1,4 @@
-set(LIBRARIES json_backbone folly)
+set(LIBRARIES json_backbone folly fmt)
 
 Find_Package(Threads REQUIRED)
 set(LIBRARIES "${LIBRARIES}" ${CMAKE_THREAD_LIBS_INIT})

@@ -1,14 +1,17 @@
 #include <unistd.h>
 #include <chrono>
 #include <iostream>
-#include <iostream>
 #include "boson/boson.h"
+#include "boson/logger.h"
 
 using namespace std::literals;
 
 static constexpr int nb_iter = 10;
 
 int main(int argc, char* argv[]) {
+  // Set global logger
+  boson::debug::logger_instance(&std::cout);
+
   // Creates some pipes
   int a2b[2];
   ::pipe(a2b);
@@ -30,7 +33,7 @@ int main(int argc, char* argv[]) {
         // Wait for ack
         boson::read(b2a[0], &ack_result, sizeof(int));
         // display info
-        if (ack_result == i) std::cout << "A: ack succeeded." << std::endl;
+        if (ack_result == i) boson::debug::log("A: ack succeeded.");
       }
 
     });
@@ -56,7 +59,7 @@ int main(int argc, char* argv[]) {
         // Send ack
         boson::write(c2b[1], &result, sizeof(int));
         // Display info
-        std::cout << "C received: " << result << "\n";
+        boson::debug::log("C received: {}", result);
       }
     });
   }

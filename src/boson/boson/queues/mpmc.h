@@ -41,11 +41,13 @@ class bounded_mpmc {
 
   template <class... Args>
   bool blocking_push(Args&&... args) {
-    return queue_.blockingWrite(std::forward<Args>(args)...);
+    queue_.blockingWrite(std::forward<Args>(args)...);
+    return true;
   };
 
   bool blocking_pop(content_type& element) {
-    return queue_.blockingRead(element);
+    queue_.blockingRead(element);
+    return true;
   };
 };
 
@@ -84,7 +86,8 @@ class unbounded_mpmc {
   };
 
   bool blocking_pop(content_type& element) {
-    return queue_.blockingRead(element);
+    queue_.blockingRead(element);
+    return true;
   };
 };
 
