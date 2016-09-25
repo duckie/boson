@@ -59,6 +59,7 @@ class engine_proxy {
  public:
   engine_proxy(engine&);
   void set_id();
+  inline thread_id get_id() const { return current_thread_id_; }
 };
 
 /**
@@ -145,6 +146,8 @@ class thread : public event_handler {
   thread& operator=(thread&&) = default;
   ~thread() = default;
 
+  inline thread_id id() const;
+
   // Event handler interface
   void event(int event_id, void* data) override;
   void read(int fd, void* data) override;
@@ -182,6 +185,11 @@ transfer_t& thread::context() {
 
 routine* thread::running_routine() {
   return running_routine_;
+}
+
+
+thread_id thread::id() const {
+  return engine_proxy_.get_id();
 }
 
 }  // namespace internal

@@ -28,12 +28,25 @@ void thread::handle_engine_event() {
         scheduled_routines_.emplace_back(
             received_command.data.template get<routine_ptr_t>().release());
         break;
-      case thread_command_type::schedule_waiting_routine:
-        std::cout << "Yay schedule me " <<received_command.data.template get<routine_ptr_t>().get() << std::endl;
-        --suspended_routines_;
-        scheduled_routines_.emplace_back(
-            received_command.data.template get<routine_ptr_t>().release());
-        break;
+      case thread_command_type::schedule_waiting_routine: {
+        // std::cout << "Yay schedule me " <<received_command.data.template
+        // get<routine_ptr_t>().get() << std::endl;
+        routine* current_routine = received_command.data.template get<routine_ptr_t>().release();
+        switch (current_routine->status()) {
+          case routine_status::wait_sema_suspend:
+            // Routine did not have time to suspend, just change its status to yielding
+            current_routine->status_ = routine_status::yielding;
+            std::cout << "Dont you yiel " << id() << std::endl;
+            break;
+          case routine_status::wait_sema_wait:
+            --suspended_routines_;
+            scheduled_routines_.emplace_back(current_routine);
+            break;
+          default:
+            assert(false);  // Not susposed to happen
+            break;
+        }
+      } break;
       case thread_command_type::finish:
         status_ = thread_status::finishing;
         break;
@@ -101,7 +114,7 @@ void thread::execute_scheduled_routines() {
     // For now; we schedule them in order
     auto& routine = scheduled_routines_.front();
     running_routine_ = routine.get();
-    std::cout << "Resumes " << running_routine_ << std::endl;
+    //std::cout << "Resumes " << running_routine_ << std::endl;
     routine->resume(this);
     switch (routine->status()) {
       case routine_status::is_new: {
@@ -137,6 +150,12 @@ void thread::execute_scheduled_routines() {
           clear_previous_io_event(*routine, loop_);
           target_event.event_id = loop_.register_write(target_event.fd, routine.release());
         }
+      } break;
+      case routine_status::wait_sema_suspend: {
+        clear_previous_io_event(*routine, loop_);
+        routine->status_ = routine_status::wait_sema_wait; 
+        routine.release();
+        ++suspended_routines_;
       } break;
       case routine_status::wait_sema_wait: {
         clear_previous_io_event(*routine, loop_);
@@ -201,7 +220,7 @@ void thread::loop() {
         throw exception("Boson unknown error");
         return;
     }
-    std::cout << "Come on jojette" << std::endl;
+    //std::cout << "Come on jojette" << std::endl;
     execute_scheduled_routines();
   }
 

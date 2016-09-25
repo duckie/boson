@@ -24,14 +24,15 @@ class thread;
 // static thread_local transfer_t current_thread_context = {nullptr, nullptr};
 
 enum class routine_status {
-  is_new,          // Routine has been created but never started
-  running,         // Routine is currently running
-  yielding,        // Routine yielded and waits to be resumed
-  wait_timer,      // Routine waits for a timer to expire
-  wait_sys_read,   // Routine waits for a FD to be ready for read
-  wait_sys_write,  // Routine waits for a FD to be readu for write
-  wait_sema_wait,  // Routine waits to get a boson::semaphore
-  finished         // Routine finished execution
+  is_new,             // Routine has been created but never started
+  running,            // Routine is currently running
+  yielding,           // Routine yielded and waits to be resumed
+  wait_timer,         // Routine waits for a timer to expire
+  wait_sys_read,      // Routine waits for a FD to be ready for read
+  wait_sys_write,     // Routine waits for a FD to be readu for write
+  wait_sema_suspend,  // Routine is in the semaphore waiter list but not yet suspended
+  wait_sema_wait,     // Routine waits to get a boson::semaphore
+  finished            // Routine finished execution
 };
 
 using routine_time_point =
@@ -104,6 +105,7 @@ class routine {
   friend ssize_t boson::write(int fd, const void* buf, size_t count);
   template <class ContentType>
   friend class channel;
+  friend class thread;
   friend class boson::semaphore;
 
   std::unique_ptr<detail::function_holder> func_;

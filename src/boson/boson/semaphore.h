@@ -23,8 +23,11 @@ class semaphore {
    *
    * This is defered to the thread maintaining said routine. So we might
    * be suspended then unlocked right after.
+   *
+   * Returns true if the poped thread is not the current or if
+   * none could be poped
    */
-  void pop_a_waiter();
+  bool pop_a_waiter(internal::thread* current = nullptr);
 
  public:
   semaphore(int capacity);
