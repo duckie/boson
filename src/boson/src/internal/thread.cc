@@ -29,23 +29,11 @@ void thread::handle_engine_event() {
             received_command.data.template get<routine_ptr_t>().release());
         break;
       case thread_command_type::schedule_waiting_routine: {
-        // std::cout << "Yay schedule me " <<received_command.data.template
-        // get<routine_ptr_t>().get() << std::endl;
         routine* current_routine = received_command.data.template get<routine_ptr_t>().release();
-        switch (current_routine->status()) {
-          case routine_status::wait_sema_suspend:
-            // Routine did not have time to suspend, just change its status to yielding
-            current_routine->status_ = routine_status::yielding;
-            debug::log("Thread {} unlocked before suspension.", id());
-            break;
-          case routine_status::wait_sema_wait:
-            --suspended_routines_;
-            scheduled_routines_.emplace_back(current_routine);
-            break;
-          default:
-            assert(false);  // Not susposed to happen
-            break;
-        }
+        assert(current_routine->status() == routine_status::wait_sema_wait);
+        current_routine->expected_event_happened();
+        --suspended_routines_;
+        scheduled_routines_.emplace_back(current_routine);
       } break;
       case thread_command_type::finish:
         status_ = thread_status::finishing;
@@ -114,8 +102,9 @@ void thread::execute_scheduled_routines() {
     // For now; we schedule them in order
     auto& routine = scheduled_routines_.front();
     running_routine_ = routine.get();
-    //std::cout << "Resumes " << running_routine_ << std::endl;
+    //debug::log("Thread {} resumes {} with status {}.", id(), reinterpret_cast<size_t>(routine.get()),static_cast<int>(routine->status())); 
     routine->resume(this);
+    //debug::log("Thread {} finished {} with status {}.", id(), reinterpret_cast<size_t>(routine.get()),static_cast<int>(routine->status())); 
     switch (routine->status()) {
       case routine_status::is_new: {
         // Not supposed to happen
@@ -220,7 +209,7 @@ void thread::loop() {
         throw exception("Boson unknown error");
         return;
     }
-    //std::cout << "Come on jojette" << std::endl;
+    //debug::log("Thread {} has {} scheduled routines.", id(), scheduled_routines_.size());
     execute_scheduled_routines();
   }
 

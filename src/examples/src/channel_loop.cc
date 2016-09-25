@@ -17,16 +17,13 @@ int main(int argc, char* argv[]) {
   std::vector<int> data;
   {
     // Execute a routine communication through pipes
-    boson::engine instance(nb_threads);
     boson::mutex mut;
+    boson::engine instance(nb_threads);
     for (int i = 0; i < nb_threads; ++i) {
-      //instance.start([&data,&mut]() {
       instance.start([&]() {
-        for (int i = 0; i < nb_iter; ++i) {
-          //boson::free_func(1,nullptr,0);
-          //boson::read(1,nullptr,0);
+        for (int j = 0; j < nb_iter; ++j) {
           mut.lock();
-          //data.push_back(1);
+          data.push_back(1);
           mut.unlock();
         }
       });

@@ -53,7 +53,8 @@ void routine::resume(thread* managing_thread) {
       context_ = jump_fcontext(context_.fctx, thread_);
       break;
     }
-    case routine_status::yielding: {
+    case routine_status::yielding:
+                                 {
       context_ = jump_fcontext(context_.fctx, thread_);
       break;
     }

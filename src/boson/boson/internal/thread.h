@@ -102,7 +102,7 @@ class thread : public event_handler {
    */
   event_loop loop_;
 
-  engine_queue_t engine_queue_{10};
+  engine_queue_t engine_queue_{100};
   int engine_event_id_;
   int self_event_id_;
 
