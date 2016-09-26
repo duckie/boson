@@ -6,6 +6,6 @@
 #include "catch.hpp"
 
 TEST_CASE("Queues - WeakRB - serial random integers", "[queues][wfqueue]") {
-  boson::queues::wfqueue<int> queue();
+  boson::queues::wfqueue<int> queue;
   queue.enqueue(1);
 }
