@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <type_traits>
 #include <cassert>
+#include <unistd.h>
+#include <cstdlib>
+#include <cstring>
 
 namespace boson {
 namespace queues {
@@ -12,9 +15,9 @@ static constexpr std::size_t PAGE_SIZE = 4096;
 static constexpr std::size_t CACHE_LINE_SIZE = 64;
 static constexpr std::size_t MAX_SPIN = 100;
 static constexpr int MAX_PATIENCE = 10;
-static constexpr void * BOT = 0;
+//static constexpr void * BOT = 0;
 //static constexpr void * TOP = reinterpret_cast<void*>(-1);
-//#define BOT ((void *) 0)
+#define BOT ((void *) 0)
 #define TOP ((void *)-1)
 
 /**
@@ -46,7 +49,7 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
 
   struct cell_t {
     std::atomic<ContentType> volatile val;
-    std::atomic<enq_t>* volatile enq;
+    std::atomic<enq_t*> volatile enq;
     std::atomic<deq_t*> volatile deq;
     void* pad[5];
   };
@@ -77,16 +80,6 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
   std::atomic<node_t*> volatile Hp;
   long nprocs;
 
- public:
-  using content_type = ContentType;
-
-  wfqueue() noexcept(std::is_nothrow_default_constructible<ContentType>()) = default;
-  wfqueue(wfqueue const&) = delete;
-  wfqueue(wfqueue&&) noexcept(false) = default;
-  wfqueue& operator=(wfqueue const&) = delete;
-  wfqueue& operator=(wfqueue&&) noexcept(false) = default;
-  ~wfqueue() = default;
-
   void enqueue(handle_t * th, void * v)
   {
     th->Hp = th->Ep.load(std::memory_order::memory_order_relaxed);
@@ -101,9 +94,9 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
 
   inline node_t* new_node() {
     node_t* n = nullptr;
-    int ret = posix_memalign(&n, PAGE_SIZE, sizeof(node_t));
+    int ret = ::posix_memalign(&n, PAGE_SIZE, sizeof(node_t));
     assert(ret == 0);
-    memset(n, 0, sizeof(node_t));
+    std::memset(n, 0, sizeof(node_t));
     return n;
   }
 
@@ -177,8 +170,25 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
                                                std::memory_order::memory_order_relaxed))
         ;
     }
-    c->val.stor(v,std::memory_order_relaxed);
+    c->val.store(v,std::memory_order_relaxed);
   }
+
+ public:
+  using content_type = ContentType;
+
+  class queue_handler {
+    wfqueue& parent_;
+    handle_t
+
+  };
+
+  wfqueue() noexcept(std::is_nothrow_default_constructible<ContentType>()) = default;
+  wfqueue(wfqueue const&) = delete;
+  wfqueue(wfqueue&&) noexcept = default;
+  wfqueue& operator=(wfqueue const&) = delete;
+  wfqueue& operator=(wfqueue&&) noexcept = default;
+  ~wfqueue() = default;
+
 };
 
 };  // namespace queues
