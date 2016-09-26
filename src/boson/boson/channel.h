@@ -13,8 +13,7 @@ class channel_impl {
   using routine_ptr_t = std::unique_ptr<internal::routine>;
 
   queues::bounded_mpmc<ContentType> queue_;
-  queues::unbounded_mpmc<routine_ptr_t> listeners_;
-  queues::unbounded_mpmc<routine_ptr_t> writers_;
+  size_t capacity;
 
  public:
   channel_impl(size_t capacity)
