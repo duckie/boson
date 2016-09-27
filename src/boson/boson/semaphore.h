@@ -56,7 +56,7 @@ class shared_semaphore {
 
  public:
   inline shared_semaphore(int capacity);
-  shared_semaphore(shared_semaphore const&) = default ;
+  shared_semaphore(shared_semaphore const&) = default;
   shared_semaphore(shared_semaphore&&) = default;
   shared_semaphore& operator=(shared_semaphore const&) = default;
   shared_semaphore& operator=(shared_semaphore&&) = default;
@@ -65,7 +65,6 @@ class shared_semaphore {
   inline void wait();
   inline void post();
 };
-
 
 // inline implementations
 

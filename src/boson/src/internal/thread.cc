@@ -140,12 +140,6 @@ void thread::execute_scheduled_routines() {
           target_event.event_id = loop_.register_write(target_event.fd, routine.release());
         }
       } break;
-      case routine_status::wait_sema_suspend: {
-        clear_previous_io_event(*routine, loop_);
-        routine->status_ = routine_status::wait_sema_wait; 
-        routine.release();
-        ++suspended_routines_;
-      } break;
       case routine_status::wait_sema_wait: {
         clear_previous_io_event(*routine, loop_);
         routine.release();

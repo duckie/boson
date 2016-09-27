@@ -1,12 +1,12 @@
 #ifndef BOSON_LOGGER_H_
 #define BOSON_LOGGER_H_
 
-#include <thread>
-#include <string>
 #include <ostream>
-#include "queues/mpmc.h"
+#include <string>
+#include <thread>
 #include "fmt/format.h"
 #include "json_backbone.hpp"
+#include "queues/mpmc.h"
 
 namespace boson {
 
@@ -22,7 +22,7 @@ class logger {
   std::ostream& stream_;
   queues::unbounded_mpmc<thread_message_t> queue_;
   std::thread writer_;
-  
+
   void log_line(std::string line);
 
  public:
@@ -33,8 +33,8 @@ class logger {
   logger& operator=(logger&&) = default;
   ~logger();
 
-  template <class ... Args>
-  void log(char const * line_format, Args&& ... args) {
+  template <class... Args>
+  void log(char const* line_format, Args&&... args) {
     this->log_line(fmt::format(line_format, std::forward<Args>(args)...));
   }
 };
@@ -43,17 +43,15 @@ namespace debug {
 
 logger* logger_instance(std::ostream* new_stream = nullptr);
 
-template <class ... Args>
-inline void log(char const* fmt, Args&& ... args) {
+template <class... Args>
+inline void log(char const* fmt, Args&&... args) {
 #ifndef NDEBUG
   auto logger_ptr = logger_instance();
-  if (logger_ptr)
-    logger_ptr->log(fmt, std::forward<Args>(args)...);
+  if (logger_ptr) logger_ptr->log(fmt, std::forward<Args>(args)...);
 #endif
 }
 
 }  // namespace debug
-
 
 }  // namespace boson
 

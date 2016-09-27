@@ -1,12 +1,12 @@
 #ifndef BOSON_QUEUES_WFQUEUE_H_
 #define BOSON_QUEUES_WFQUEUE_H_
-#include <atomic>
-#include <cstdint>
-#include <type_traits>
-#include <cassert>
 #include <unistd.h>
+#include <atomic>
+#include <cassert>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <type_traits>
 
 namespace boson {
 namespace queues {
@@ -15,10 +15,10 @@ static constexpr std::size_t PAGE_SIZE = 4096;
 static constexpr std::size_t CACHE_LINE_SIZE = 64;
 static constexpr std::size_t MAX_SPIN = 100;
 static constexpr int MAX_PATIENCE = 10;
-//static constexpr void * BOT = 0;
-//static constexpr void * TOP = reinterpret_cast<void*>(-1);
-#define BOT ((void *) 0)
-#define TOP ((void *)-1)
+// static constexpr void * BOT = 0;
+// static constexpr void * TOP = reinterpret_cast<void*>(-1);
+#define BOT ((void*)0)
+#define TOP ((void*)-1)
 
 /**
  * Wfqueue is a wait-free MPMC concurrent queue
@@ -61,16 +61,16 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
   };
 
   struct handle_t {
-    handle_t * next;
+    handle_t* next;
     std::atomic<node_t*> volatile Hp;
     std::atomic<node_t*> volatile Ep;
     std::atomic<node_t*> volatile Dp;
     alignas(CACHE_LINE_SIZE) enq_t Er;
     alignas(CACHE_LINE_SIZE) deq_t Dr;
-    alignas(CACHE_LINE_SIZE) handle_t * Eh;
+    alignas(CACHE_LINE_SIZE) handle_t* Eh;
     long Ei;
-    handle_t * Dh;
-    alignas(CACHE_LINE_SIZE) node_t * spare;
+    handle_t* Dh;
+    alignas(CACHE_LINE_SIZE) node_t* spare;
     int delay;
   };
 
@@ -80,16 +80,15 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
   std::atomic<node_t*> volatile Hp;
   long nprocs;
 
-  void enqueue(handle_t * th, void * v)
-  {
+  void enqueue(handle_t* th, void* v) {
     th->Hp = th->Ep.load(std::memory_order::memory_order_relaxed);
 
     long id;
     int p = MAX_PATIENCE;
-    while (!this->enq_fast(th, v, &id) && p-- > 0);
-    if (p < 0) 
-      this->enq_slow(th, v, id);
-    th->Hp.store(nullptr,std::memory_order_release);
+    while (!this->enq_fast(th, v, &id) && p-- > 0)
+      ;
+    if (p < 0) this->enq_slow(th, v, id);
+    th->Hp.store(nullptr, std::memory_order_release);
   }
 
   inline node_t* new_node() {
@@ -125,11 +124,10 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
     return &curr->cells[i % WFQUEUE_NODE_SIZE];
   }
 
-  int enq_fast(handle_t * th, void * v, long * id)
-  {
-    long i = this->Ei.fetch_add(1,std::memory_order_seq_cst);
-    cell_t * c = find_cell(&th->Ep, i, th);
-    void * cv = BOT;
+  int enq_fast(handle_t* th, void* v, long* id) {
+    long i = this->Ei.fetch_add(1, std::memory_order_seq_cst);
+    cell_t* c = find_cell(&th->Ep, i, th);
+    void* cv = BOT;
 
     if (c->val.compare_exchange_strong(cv, v, std::memory_order::memory_order_relaxed,
                                        std::memory_order::memory_order_relaxed)) {
@@ -141,19 +139,20 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
   }
   void enq_slow(handle_t* th, void* v, long id) {
     enq_t* enq = th->Er.load(std::memory_order::memory_order_relaxed);
-    enq->val.store(v,std::memory_order::memory_order_relaxed);  // hum
-    enq->id.store(id,std::memory_order::memory_order_release);
+    enq->val.store(v, std::memory_order::memory_order_relaxed);  // hum
+    enq->id.store(id, std::memory_order::memory_order_release);
 
     node_t* tail = th->Ep.load(std::memory_order::memory_order_relaxed);
     long i = 0;
     cell_t* c = nullptr;
 
     do {
-      i = this->Ei.fetch_add(1,std::memory_order::memory_order_relaxed);
+      i = this->Ei.fetch_add(1, std::memory_order::memory_order_relaxed);
       c = find_cell(&tail, i, th);
       enq_t* ce = BOT;
 
-      if (c->enq.compare_exchange_strong(ce, enq) && c->val.load(std::memory_order::memory_order_relaxed) != TOP) {
+      if (c->enq.compare_exchange_strong(ce, enq) &&
+          c->val.load(std::memory_order::memory_order_relaxed) != TOP) {
         if (enq->id.compare_exchange_strong(id, -i, std::memory_order::memory_order_relaxed,
                                             std::memory_order::memory_order_relaxed))
           id = -i;
@@ -164,13 +163,13 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
     id = -enq->id;
     c = find_cell(&th->Ep, id, th);
     if (id > i) {
-      long Ei = this->Ei.load(std::memory_order::memory_order_relaxed); // hum
+      long Ei = this->Ei.load(std::memory_order::memory_order_relaxed);  // hum
       while (Ei <= id &&
              !this->Ei.compare_exchange_strong(&Ei, id + 1, std::memory_order::memory_order_relaxed,
                                                std::memory_order::memory_order_relaxed))
         ;
     }
-    c->val.store(v,std::memory_order_relaxed);
+    c->val.store(v, std::memory_order_relaxed);
   }
 
  public:
@@ -179,7 +178,6 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
   class queue_handler {
     wfqueue& parent_;
     handle_t
-
   };
 
   wfqueue() noexcept(std::is_nothrow_default_constructible<ContentType>()) = default;
@@ -188,7 +186,6 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
   wfqueue& operator=(wfqueue const&) = delete;
   wfqueue& operator=(wfqueue&&) noexcept = default;
   ~wfqueue() = default;
-
 };
 
 };  // namespace queues

@@ -25,15 +25,16 @@ class thread;
 // static thread_local transfer_t current_thread_context = {nullptr, nullptr};
 
 enum class routine_status {
-  is_new,             // Routine has been created but never started
-  running,            // Routine is currently running
-  yielding,           // Routine yielded and waits to be resumed
-  wait_timer,         // Routine waits for a timer to expire
-  wait_sys_read,      // Routine waits for a FD to be ready for read
-  wait_sys_write,     // Routine waits for a FD to be readu for write
-  wait_sema_suspend,  // Routine is in the semaphore waiter list but not yet suspended
-  wait_sema_wait,     // Routine waits to get a boson::semaphore
-  finished            // Routine finished execution
+  is_new,          // Routine has been created but never started
+  running,         // Routine is currently running
+  yielding,        // Routine yielded and waits to be resumed
+  wait_timer,      // Routine waits for a timer to expire
+  wait_sys_read,   // Routine waits for a FD to be ready for read
+  wait_sys_write,  // Routine waits for a FD to be readu for write
+  wait_sema_wait,  // Routine waits to get a boson::semaphore
+  //wait_channek_write,
+  //wait_channel_read,
+  finished  // Routine finished execution
 };
 
 using routine_time_point =
@@ -121,7 +122,7 @@ class routine {
  public:
   template <class Function>
   routine(routine_id id, Function&& func)
-      : func_{new detail::function_holder_impl<Function>(std::forward<Function>(func))},id_{id} {
+      : func_{new detail::function_holder_impl<Function>(std::forward<Function>(func))}, id_{id} {
   }
 
   routine(routine const&) = delete;

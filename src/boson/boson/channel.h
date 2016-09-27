@@ -2,26 +2,25 @@
 
 #define BOSON_CHANNEL_H_
 
+#include <list>
 #include <memory>
+#include <mutex>
 #include "internal/routine.h"
 #include "internal/thread.h"
 #include "queues/mpmc.h"
+#include "boson/semaphore.h"
 
 namespace boson {
 
-template <class ContentType>
+template <class ContentType, std::size_t Size>
 class channel_impl {
   using routine_ptr_t = std::unique_ptr<internal::routine>;
-
   queues::bounded_mpmc<ContentType> queue_;
-  size_t capacity;
+  boson::semaphore readers_slots_;
+  boson::semaphore writer_slots_;
 
  public:
-  channel_impl(size_t capacity)
-      : queue_(0 == capacity ? 1 : capacity),
-        listeners_(1),  // TODO: use nb of threads
-        writers_(1)     // TODO: use nb of threads
-  {
+  channel_impl() : queue_(Size), readers_slots_(0), writer_slots_(Size) {
   }
 
   /**
@@ -31,18 +30,57 @@ class channel_impl {
    */
   template <class... Args>
   bool push(Args&&... args) {
-    bool success = queue_.write(std::forward<Args>(args)...);
-    if (!success) {
-      // internal::transfer_t& main_context = internal::current_thread_context;
-      // internal::routine* current_routine = static_cast<internal::routine*>(main_context.data);
-      // current_routine->status_ = internal::routine_status::wait_channel_write;
-      // writers_.push(current_routine);
-      //
-      // main_context = jump_fcontext(main_context.fctx, nullptr);
-      // current_routine->previous_status_ = routine_status::wait_channel_write;
-      // current_routine->status_ = routine_status::running;
-    }
-  };
+    writer_slots_.wait();
+    bool success = queue_.push(std::forward<Args>(args)...);
+    assert(success);
+    readers_slots_.post();
+    return true;
+  }
+
+  bool pop(ContentType& value) {
+    readers_slots_.wait();
+    bool success = queue_.pop(value);
+    assert(success);
+    writer_slots_.post();
+    return true;
+  }
+};
+
+/**
+ * Specialization for the sync channel
+ */
+template <class ContentType>
+class channel_impl<ContentType,0> {
+  using routine_ptr_t = std::unique_ptr<internal::routine>;
+  queues::bounded_mpmc<ContentType> queue_;
+  boson::semaphore readers_slots_;
+  boson::semaphore writer_slots_;
+
+ public:
+  channel_impl() : queue_(1), readers_slots_(0), writer_slots_(1) {
+  }
+
+  /**
+   * Write an element in the channel
+   *
+   * Returns false only if the channel is closed.
+   */
+  template <class... Args>
+  bool push(Args&&... args) {
+    writer_slots_.wait();
+    bool success = queue_.push(std::forward<Args>(args)...);
+    assert(success);
+    readers_slots_.post();
+    return true;
+  }
+
+  bool pop(ContentType& value) {
+    readers_slots_.wait();
+    bool success = queue_.pop(value);
+    assert(success);
+    writer_slots_.post();
+    return true;
+  }
 };
 
 /**
@@ -53,16 +91,16 @@ class channel_impl {
  * never be transmitted to new routines through reference
  * but onl by copy.
  */
-template <class ContentType>
+template <class ContentType, std::size_t Size>
 class channel {
   using value_t = ContentType;
-  using impl_t = channel_impl<value_t>;
+  using impl_t = channel_impl<value_t, Size>;
 
   std::shared_ptr<impl_t> channel_;
-  size_t capacity;
 
  public:
   using value_type = ContentType;
+  static constexpr size_t size = Size;
 
   /**
    * Channel construction determines its behavior
@@ -70,7 +108,16 @@ class channel {
    * == 0 means sync channel
    * > 0 means channel of size capacity
    */
-  channel(size_t capacity = 0) : channel_{new impl_t(capacity)} {
+  channel() : channel_{new impl_t} {
+  }
+
+  template <class... Args>
+  inline bool push(Args&&... args) {
+    return channel_->push(std::forward<Args>(args)...);
+  }
+
+  inline bool pop(ContentType& value) {
+    return channel_->pop(value);
   }
 };
 

@@ -26,10 +26,10 @@ class linear_allocator {
 
  public:
   using value_type = ValueType;
-  //using pointer = ValueType*;
-  //using const_pointer = ValueType const*;
-  //using reference = ValueType&;
-  //using const_reference = ValueType const&;
+  // using pointer = ValueType*;
+  // using const_pointer = ValueType const*;
+  // using reference = ValueType&;
+  // using const_reference = ValueType const&;
 
   linear_allocator(linear_allocator const&) = default;
   linear_allocator(linear_allocator&&) = default;
@@ -42,30 +42,31 @@ class linear_allocator {
       first_free_cell_ = -1;
     } else {
       free_cells_.reserve(initial_size);
-      for (std::size_t index = 0; index < initial_size - 1; ++index) free_cells_.push_back(index + 1);
+      for (std::size_t index = 0; index < initial_size - 1; ++index)
+        free_cells_.push_back(index + 1);
       first_free_cell_ = 0;
       free_cells_.push_back(-1);
     }
   }
 
-  //std::vector<ValueType> const& data() const& {
-    //return data_;
+  // std::vector<ValueType> const& data() const& {
+  // return data_;
   //}
-//
-  //ValueType& operator[](size_t index) {
-    //return data_[index];
+  //
+  // ValueType& operator[](size_t index) {
+  // return data_[index];
   //}
-//
-  //ValueType const& operator[](size_t index) const {
-    //return data_[index];
+  //
+  // ValueType const& operator[](size_t index) const {
+  // return data_[index];
   //}
-//
-  //ValueType& at(size_t index) {
-    //return data_.at(index);
+  //
+  // ValueType& at(size_t index) {
+  // return data_.at(index);
   //}
-//
-  //ValueType const& at(size_t index) const {
-    //return data_.at(index);
+  //
+  // ValueType const& at(size_t index) const {
+  // return data_.at(index);
   //}
 
   /**

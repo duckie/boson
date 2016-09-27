@@ -43,12 +43,11 @@ int main(int argc, char* argv[]) {
         // Get data
         boson::read(a2b[0], &result, sizeof(int));
         // send to C
-        boson::write(b2c[1],&result, sizeof(int));
+        boson::write(b2c[1], &result, sizeof(int));
         // Wait ack
         boson::read(c2b[0], &result, sizeof(int));
         // Send ack
         boson::write(b2a[1], &result, sizeof(int));
-        
       }
     });
     instance.start([&]() {

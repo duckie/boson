@@ -34,7 +34,7 @@ class shared_mutex {
 
  public:
   inline shared_mutex();
-  shared_mutex(shared_mutex const&) = default ;
+  shared_mutex(shared_mutex const&) = default;
   shared_mutex(shared_mutex&&) = default;
   shared_mutex& operator=(shared_mutex const&) = default;
   shared_mutex& operator=(shared_mutex&&) = default;
@@ -43,7 +43,6 @@ class shared_mutex {
   inline void lock();
   inline void unlock();
 };
-
 
 // inline implementations
 

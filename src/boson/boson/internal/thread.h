@@ -59,7 +59,9 @@ class engine_proxy {
  public:
   engine_proxy(engine&);
   void set_id();
-  inline thread_id get_id() const { return current_thread_id_; }
+  inline thread_id get_id() const {
+    return current_thread_id_;
+  }
 };
 
 /**
@@ -186,7 +188,6 @@ transfer_t& thread::context() {
 routine* thread::running_routine() {
   return running_routine_;
 }
-
 
 thread_id thread::id() const {
   return engine_proxy_.get_id();
