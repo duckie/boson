@@ -1,4 +1,3 @@
-#include "boson/channel.h"
 #include <unistd.h>
 #include <chrono>
 #include <iostream>
@@ -15,8 +14,6 @@ static constexpr int nb_iter = 1e4;
 static constexpr int nb_threads = 24;
 
 int main(int argc, char* argv[]) {
-  std::ofstream logfile("/tmp/blog.txt");
-  //boson::debug::logger_instance(&logfile);
   //boson::debug::logger_instance(&std::cout);
 
   //auto t1 = high_resolution_clock::now(); 

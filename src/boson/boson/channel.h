@@ -1,4 +1,5 @@
 #ifndef BOSON_CHANNEL_H_
+
 #define BOSON_CHANNEL_H_
 
 #include <memory>
