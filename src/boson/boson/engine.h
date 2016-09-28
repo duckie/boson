@@ -64,6 +64,8 @@ class engine {
   engine& operator=(engine&&) = default;
   ~engine();
 
+  inline size_t max_nb_cores() const;
+
   /***
    * Starts a routine into the given thread
    */
@@ -78,6 +80,9 @@ class engine {
 };
 
 // Inline/template implementations
+inline size_t engine::max_nb_cores() const {
+  return max_nb_cores_;
+}
 
 template <class Function>
 void engine::start(thread_id id, Function&& function) {

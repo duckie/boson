@@ -1,4 +1,4 @@
-set(LIBRARIES "${LIBRARIES}" ${CMAKE_THREAD_LIBS_INIT} boson)
+set(LIBRARIES "${LIBRARIES}" ${CMAKE_THREAD_LIBS_INIT} boson wfqueue)
 
 set(catch_exe_source_list)
 add_custom_target(build-test)
@@ -24,6 +24,6 @@ add_project_test(memory_flat_unordered_set CATCH)
 
 # Create main test executable
 add_executable(unit_tests ${catch_exe_source_list})
-target_link_libraries(unit_tests ${PROJECT_NAME} testlib catch)
+target_link_libraries(unit_tests ${PROJECT_NAME} testlib catch wfqueue)
 add_dependencies(build-test unit_tests)
 project_add_test(lib${PROJECT_NAME}_unit_tests ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/unit_tests)

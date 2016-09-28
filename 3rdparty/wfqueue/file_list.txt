@@ -1,4 +1,12 @@
 wfqueue.c
 wfqueue.h
+lcrq.c
+lcrq.h
 primitives.h
 align.h
+queue.h
+hzdptr.h
+hzdptr.c
+delay.h
+xxhash.h
+xxhash.c

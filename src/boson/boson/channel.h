@@ -110,6 +110,10 @@ class channel {
    */
   channel() : channel_{new impl_t} {
   }
+  channel(channel const&) = default;
+  channel(channel&&) = default;
+  channel& operator=(channel const&) = default;
+  channel& operator=(channel&&) = default;
 
   template <class... Args>
   inline bool push(Args&&... args) {

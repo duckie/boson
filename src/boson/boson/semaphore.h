@@ -4,7 +4,8 @@
 #include <memory>
 #include "internal/routine.h"
 #include "internal/thread.h"
-#include "queues/mpmc.h"
+#include "queues/wfqueue.h"
+#include <mutex>
 
 namespace boson {
 
@@ -14,9 +15,12 @@ namespace boson {
  * The boson semaphore may only be used from routines.
  */
 class semaphore {
-  using routine_ptr_t = std::unique_ptr<internal::routine>;
-  queues::bounded_mpmc<routine_ptr_t> waiters_;
+  using queue_t = queues::wfqueue<internal::routine*>;
+  std::atomic<queue_t*> waiters_;
   std::atomic<int> counter_;
+  std::mutex mut_; // Only used at initialization
+
+  queue_t* get_queue(internal::thread* current);
 
   /**
    * tries to unlock a waiter

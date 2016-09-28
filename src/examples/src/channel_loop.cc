@@ -15,11 +15,11 @@ int main(int argc, char* argv[]) {
   boson::debug::logger_instance(&std::cout);
 
   // Execute a routine communication through channels
-  boson::engine instance(1);  // 1 is for 1 thread
   boson::channel<int,channel_size> a2b;
   boson::channel<int,channel_size> b2a;
   boson::channel<int,0> b2c;
   boson::channel<int,0> c2b;
+  boson::engine instance(3);  // 1 is for 1 thread
 
   // Start a producing routine
   instance.start([a2b,b2a]() mutable {
