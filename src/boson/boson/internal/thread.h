@@ -11,8 +11,9 @@
 #include <thread>
 #include <vector>
 #include "boson/event_loop.h"
-#include "boson/queues/mpmc.h"
+//#include "boson/queues/mpmc.h"
 #include "boson/queues/weakrb.h"
+#include "boson/queues/wfqueue.h"
 #include "routine.h"
 
 namespace json_backbone {
@@ -82,7 +83,7 @@ class thread : public event_handler {
 
   friend class boson::semaphore;
   using routine_ptr_t = std::unique_ptr<routine>;
-  using engine_queue_t = queues::bounded_mpmc<thread_command>;
+  using engine_queue_t = queues::wfqueue<thread_command*>;
 
   engine_proxy engine_proxy_;
   std::list<routine_ptr_t> scheduled_routines_;
@@ -107,7 +108,7 @@ class thread : public event_handler {
    */
   event_loop loop_;
 
-  engine_queue_t engine_queue_{1000};
+  engine_queue_t engine_queue_;
   int engine_event_id_;
   int self_event_id_;
 
@@ -160,7 +161,7 @@ class thread : public event_handler {
   void write(int fd, void* data) override;
 
   // called by engine
-  void push_command(thread_command&& command);
+  void push_command(thread_command command);
 
   // called by engine
   // void execute_commands();

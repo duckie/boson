@@ -23,15 +23,15 @@ void engine_proxy::set_id() {
 // class thread;
 
 void thread::handle_engine_event() {
-  thread_command received_command;
-  while (engine_queue_.pop(received_command)) {
-    switch (received_command.type) {
+  thread_command* received_command = nullptr;
+  while (received_command = engine_queue_.pop(id())) {
+    switch (received_command->type) {
       case thread_command_type::add_routine:
         scheduled_routines_.emplace_back(
-            received_command.data.template get<routine_ptr_t>().release());
+            received_command->data.template get<routine_ptr_t>().release());
         break;
       case thread_command_type::schedule_waiting_routine: {
-        routine* current_routine = received_command.data.template get<routine_ptr_t>().release();
+        routine* current_routine = received_command->data.template get<routine_ptr_t>().release();
         assert(current_routine->status() == routine_status::wait_sema_wait);
         current_routine->expected_event_happened();
         --suspended_routines_;
@@ -41,6 +41,7 @@ void thread::handle_engine_event() {
         status_ = thread_status::finishing;
         break;
     }
+    delete received_command;
   }
   // execute_scheduled_routines();
 }
@@ -50,9 +51,10 @@ void thread::unregister_all_events() {
   loop_.unregister(self_event_id_);
 }
 
-thread::thread(engine& parent_engine) : engine_proxy_(parent_engine), loop_(*this) {
+thread::thread(engine& parent_engine) : engine_proxy_(parent_engine), loop_(*this), engine_queue_{parent_engine.max_nb_cores()+1} {
   engine_event_id_ = loop_.register_event(&engine_event_id_);
   self_event_id_ = loop_.register_event(&self_event_id_);
+  engine_proxy_.set_id();  // Tells the engine which thread id we got
 }
 
 void thread::event(int event_id, void* data) {
@@ -78,8 +80,8 @@ void thread::write(int fd, void* data) {
 }
 
 // called by engine
-void thread::push_command(thread_command&& command) {
-  engine_queue_.push(std::move(command));
+void thread::push_command(thread_command command) {
+  engine_queue_.push(id(), new thread_command{std::move(command)});
   loop_.send_event(engine_event_id_);
 };
 
@@ -175,7 +177,6 @@ void thread::execute_scheduled_routines() {
 
 void thread::loop() {
   using namespace std::chrono;
-  engine_proxy_.set_id();  // Tells the engine which thread id we got
   current_thread() = this;
 
   while (status_ != thread_status::finished) {

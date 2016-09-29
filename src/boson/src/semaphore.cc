@@ -24,6 +24,10 @@ semaphore::semaphore(int capacity) : waiters_{nullptr}, counter_{capacity} {
   get_queue(internal::current_thread());
 }
 
+semaphore::~semaphore() {
+  delete waiters_;
+}
+
 bool semaphore::pop_a_waiter(internal::routine* current_routine) {
   using namespace internal;
   thread* current = current_routine->thread_;

@@ -39,7 +39,7 @@ class semaphore {
   semaphore(semaphore&&) = default;
   semaphore& operator=(semaphore const&) = delete;
   semaphore& operator=(semaphore&&) = default;
-  virtual ~semaphore() = default;
+  virtual ~semaphore();
 
   /**
    * takes a semaphore ticker if it could, otherwise suspend the routine until a ticker is available
