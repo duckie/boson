@@ -11,7 +11,7 @@
 #include <thread>
 #include <vector>
 #include "boson/event_loop.h"
-//#include "boson/queues/mpmc.h"
+#include "boson/logger.h"
 #include "boson/queues/weakrb.h"
 #include "boson/queues/wfqueue.h"
 #include "routine.h"
@@ -195,6 +195,7 @@ routine* thread::running_routine() {
 }
 
 thread_id thread::id() const {
+
   return engine_proxy_.get_id();
 }
 

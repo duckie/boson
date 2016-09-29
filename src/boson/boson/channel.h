@@ -7,21 +7,35 @@
 #include <mutex>
 #include "internal/routine.h"
 #include "internal/thread.h"
-#include "queues/mpmc.h"
+#include "queues/wfqueue.h"
 #include "boson/semaphore.h"
 
 namespace boson {
 
 template <class ContentType, std::size_t Size>
 class channel_impl {
-  using routine_ptr_t = std::unique_ptr<internal::routine>;
-  queues::bounded_mpmc<ContentType> queue_;
+  using queue_t = queues::wfqueue<ContentType*>;
+  std::atomic<queue_t*> queue_;
   boson::semaphore readers_slots_;
   boson::semaphore writer_slots_;
+  std::mutex mut_; // Only for init
+
+  queue_t* get_queue() {
+    if (!queue_) {
+        mut_.lock();
+        if (!queue_) {
+          queue_= new queue_t(internal::current_thread()->get_engine().max_nb_cores()+1);
+        }
+        mut_.unlock();
+    }
+    return queue_;
+  }
 
  public:
-  channel_impl() : queue_(Size), readers_slots_(0), writer_slots_(Size) {
+  channel_impl() : queue_(nullptr), readers_slots_(0), writer_slots_(Size) {
   }
+
+  ~channel_impl() { delete queue_; }
 
   /**
    * Write an element in the channel
@@ -29,18 +43,19 @@ class channel_impl {
    * Returns false only if the channel is closed.
    */
   template <class... Args>
-  bool push(Args&&... args) {
+  bool push(thread_id tid, Args&&... args) {
     writer_slots_.wait();
-    bool success = queue_.push(std::forward<Args>(args)...);
-    assert(success);
+    get_queue()->push(tid, new ContentType(std::forward<Args>(args)...));
     readers_slots_.post();
     return true;
   }
 
-  bool pop(ContentType& value) {
+  bool pop(thread_id tid, ContentType& value) {
     readers_slots_.wait();
-    bool success = queue_.pop(value);
-    assert(success);
+    ContentType* ptr = get_queue()->pop(tid);
+    assert(ptr);
+    value = std::move(*ptr);
+    delete ptr;
     writer_slots_.post();
     return true;
   }
@@ -51,14 +66,29 @@ class channel_impl {
  */
 template <class ContentType>
 class channel_impl<ContentType,0> {
-  using routine_ptr_t = std::unique_ptr<internal::routine>;
-  queues::bounded_mpmc<ContentType> queue_;
+  using queue_t = queues::wfqueue<ContentType*>;
+  std::atomic<queue_t*> queue_;
   boson::semaphore readers_slots_;
   boson::semaphore writer_slots_;
+  std::mutex mut_; // Only for init
+
+  queue_t* get_queue() {
+    if (!queue_) {
+        mut_.lock();
+        if (!queue_) {
+          queue_= new queue_t(internal::current_thread()->get_engine().max_nb_cores()+1);
+        }
+        mut_.unlock();
+    }
+    return queue_;
+  }
+
 
  public:
-  channel_impl() : queue_(1), readers_slots_(0), writer_slots_(1) {
+  channel_impl() : queue_(nullptr), readers_slots_(0), writer_slots_(1) {
   }
+
+  ~channel_impl() { delete queue_; }
 
   /**
    * Write an element in the channel
@@ -66,18 +96,19 @@ class channel_impl<ContentType,0> {
    * Returns false only if the channel is closed.
    */
   template <class... Args>
-  bool push(Args&&... args) {
+  bool push(thread_id tid, Args&&... args) {
     writer_slots_.wait();
-    bool success = queue_.push(std::forward<Args>(args)...);
-    assert(success);
+    get_queue()->push(tid, new ContentType(std::forward<Args>(args)...));
     readers_slots_.post();
     return true;
   }
 
-  bool pop(ContentType& value) {
+  bool pop(thread_id tid, ContentType& value) {
     readers_slots_.wait();
-    bool success = queue_.pop(value);
-    assert(success);
+    ContentType* ptr = get_queue()->pop(tid);
+    assert(ptr);
+    value = std::move(*ptr);
+    delete ptr;
     writer_slots_.post();
     return true;
   }
@@ -89,7 +120,7 @@ class channel_impl<ContentType,0> {
  * The user is supposed ot use and copy channel objects
  * and not directly use the implementation. channel objects must
  * never be transmitted to new routines through reference
- * but onl by copy.
+ * but only by copy.
  */
 template <class ContentType, std::size_t Size>
 class channel {
@@ -97,6 +128,16 @@ class channel {
   using impl_t = channel_impl<value_t, Size>;
 
   std::shared_ptr<impl_t> channel_;
+  thread_id thread_id_ {0};
+
+  thread_id get_id() {
+    if (!thread_id_) {
+      internal::thread* this_thread = internal::current_thread();
+      assert(this_thread);
+      thread_id_ = this_thread->id();
+    }
+    return thread_id_;
+  }
 
  public:
   using value_type = ContentType;
@@ -117,11 +158,11 @@ class channel {
 
   template <class... Args>
   inline bool push(Args&&... args) {
-    return channel_->push(std::forward<Args>(args)...);
+    return channel_->push(get_id(), std::forward<Args>(args)...);
   }
 
   inline bool pop(ContentType& value) {
-    return channel_->pop(value);
+    return channel_->pop(get_id(), value);
   }
 };
 
