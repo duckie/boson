@@ -4,9 +4,9 @@
 #include <ostream>
 #include <string>
 #include <thread>
+#include <mutex>
 #include "fmt/format.h"
 #include "json_backbone.hpp"
-#include "queues/mpmc.h"
 
 namespace boson {
 
@@ -17,13 +17,8 @@ namespace boson {
  * only used for debug in the boson framework.
  */
 class logger {
-  using thread_message_t = json_backbone::variant<std::nullptr_t, std::string>;
-
   std::ostream& stream_;
-  queues::unbounded_mpmc<thread_message_t> queue_;
-  std::thread writer_;
-
-  void log_line(std::string line);
+  std::mutex lock_;
 
  public:
   logger(std::ostream& ouput);
@@ -35,7 +30,8 @@ class logger {
 
   template <class... Args>
   void log(char const* line_format, Args&&... args) {
-    this->log_line(fmt::format(line_format, std::forward<Args>(args)...));
+    std::lock_guard<std::mutex> guard(lock_);
+    this->stream_ << fmt::format(line_format, std::forward<Args>(args)...) << std::endl;
   }
 };
 
