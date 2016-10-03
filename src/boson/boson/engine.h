@@ -15,6 +15,10 @@
 
 namespace boson {
 
+namespace internal {
+  class routine;
+};
+
 /**
  * engine encapsulates an instance of the boson runtime
  *
@@ -25,8 +29,8 @@ class engine {
   using proxy_t = internal::engine_proxy;
 
   struct thread_view {
-    thread_t thread;
     std::thread std_thread;
+    thread_t thread;
 
     inline thread_view(engine& engine) : thread{engine} {
     }
@@ -37,7 +41,8 @@ class engine {
     notify_end_of_thread
   };
 
-  using command_data = json_backbone::variant<std::nullptr_t, std::tuple<int, std::unique_ptr<routine>>>;
+  using command_new_routine_data = std::tuple<thread_id, std::unique_ptr<internal::routine>>;
+  using command_data = json_backbone::variant<std::nullptr_t, command_new_routine_data>;
 
   struct command {
     command_type type;
@@ -109,18 +114,16 @@ inline size_t engine::max_nb_cores() const {
 
 template <class Function>
 void engine::start(thread_id id, Function&& function) {
-  // Select a thread
-  threads_.at(id)->thread.push_command(
-      command_t{internal::thread_command_type::add_routine,
-                new internal::routine{current_routine_id_++, std::forward<Function>(function)}});
-  // threads_.at(id)->thread.execute_commands();
+  command_queue_.push(
+      max_nb_cores_, new command{command_type::add_routine,
+                                 command_new_routine_data{
+                                     id, new internal::routine{current_routine_id_++,
+                                                               std::forward<Function>(function)}}});
 };
 
 template <class Function>
 void engine::start(Function&& function) {
-  // Select a thread
-  this->start(next_scheduled_thread_, std::forward<Function>(function));
-  next_scheduled_thread_ = (next_scheduled_thread_ + 1) % max_nb_cores_;
+  start(max_nb_cores_, std::forward<Function>(function));
 };
 
 }  // namespace boson

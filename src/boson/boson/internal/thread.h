@@ -161,7 +161,7 @@ class thread : public event_handler {
   void write(int fd, void* data) override;
 
   // called by engine
-  void push_command(thread_command command);
+  void push_command(thread_id from, thread_command command);
 
   // called by engine
   // void execute_commands();
