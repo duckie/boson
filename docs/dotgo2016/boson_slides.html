@@ -36,8 +36,8 @@
 
     <section class="slide" id="frontpage">
       <div class="vcenter">
-        <h1>The Boson framework</h1>
-        <h2>Bringing a chunk of the Go awesomeness to C++ fellows</h2>
+        <h1>The low-level awesomeness of Go</h1>
+        <h2>Seen from a C++ developer</h2>
       </div>
     </section>
 
@@ -47,7 +47,7 @@
         <h3>is a real pain</h3>
         <ul>
           <li class="slide" id="cpp-conc-complicated">
-            <strong>Complicated</strong>: The program intent is diluted into synchronisation tooling (mutexes, event loops).
+            <strong>Complicated</strong>: The program intent is diluted into synchronisation tooling (threads lifecycle, mutexes, event loops).
           </li>
 
           <li class="slide" id="cpp-con-verbose">
@@ -74,7 +74,7 @@
           </li>
 
           <li class="slide" id="go-cpu-time">
-            <strong>Resource usage</strong>: The scheduler will ensure an efficient usage of your CPU time.
+            <strong>Code as data flow</strong>: Channels ensure readability and efficient CPU time usage.
           </li>
         </ul>
       </div>
@@ -82,20 +82,29 @@
 
     <section class="slide" id="boson-features">
       <div class="vcenter">
-        <h2>What the Boson framework does</h2>
+        <h3>Goroutines : how does it do it</h3>
+        <h2>ASM code</h2>
         <ul>
-          <li class="slide" id="boson-routines">
-            <strong>Routines</strong>: Suspendable fibers (aka Go routines)
+          <li class="slide" id="go-clean">
+            Go is written in assembly and Go exclusively (except for cgo).
           </li>
 
-          <li class="slide" id="boson-io">
-            <strong>Transparent I/O loop</strong>: Blocking system calls let other routines execute in the same thread (aka the Go net poller)
+          <li class="slide" id="go-io-friendly">
+            Context-switching is written in ASM
           </li>
 
-          <li class="slide" id="boson-channels">
-            <strong>Channels</strong>: You Gophers know how awesome they are
+          <li class="slide" id="go-cpu-time">
+            Peculiar Thread Local Storage trick
           </li>
         </ul>
+      </div>
+    </section>
+
+    <section class="slide" id="boson-features">
+      <div class="vcenter">
+        <h3>Goroutines : how does it do it</h3>
+        <h2>ASM code</h2>
+        <p>The root of it all is assembly code, written by people smart enough to right OSes.</p>
       </div>
     </section>
 
@@ -150,10 +159,10 @@
 
 
     <!-- deck.navigation snippet -->
-    <div aria-role="navigation">
+    <!--<div aria-role="navigation">
       <a href="#" class="deck-prev-link" title="Previous">&#8592;</a>
       <a href="#" class="deck-next-link" title="Next">&#8594;</a>
-    </div>
+    </div>-->
 
     <!-- deck.status snippet -->
     <p class="deck-status" aria-role="status">
