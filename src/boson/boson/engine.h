@@ -3,6 +3,7 @@
 #pragma once
 
 #include <atomic>
+#include <condition_variable>
 #include <future>
 #include <memory>
 #include <thread>
@@ -10,6 +11,7 @@
 #include <vector>
 #include "internal/routine.h"
 #include "internal/thread.h"
+#include "json_backbone.hpp"
 
 namespace boson {
 
@@ -30,11 +32,25 @@ class engine {
     }
   };
 
+  enum class command_type {
+    add_routine,
+    notify_end_of_thread
+  };
+
+  using command_data = json_backbone::variant<std::nullptr_t, std::tuple<int, std::unique_ptr<routine>>>;
+
+  struct command {
+    command_type type;
+    command_data data;
+  };
+  
+
   using thread_view_t = thread_view;
   using thread_list_t = std::vector<std::unique_ptr<thread_view_t>>;
 
   friend class internal::engine_proxy;
 
+  std::size_t nb_active_threads_;
   thread_list_t threads_;
   size_t max_nb_cores_;
   std::atomic<thread_id> current_thread_id_{0};
@@ -55,6 +71,13 @@ class engine {
    * id
    */
   thread_id register_thread_id();
+
+  using queue_t = queues::wfqueue<command*>;
+  queue_t command_queue_;
+  std::condition_variable command_waiter_;
+
+  void push_command(thread_id from, std::unique_ptr<command> new_command);
+  void execute_commands();
 
  public:
   engine(size_t max_nb_cores = 1);
