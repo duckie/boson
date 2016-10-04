@@ -20,7 +20,17 @@ engine_proxy::~engine_proxy() {
 }
 
 void engine_proxy::notify_end() {
-  engine_->push_command(current_thread_id_, std::make_unique<engine::command>(engine::command_type::notify_end_of_thread, engine::command_data{nullptr}));
+  engine_->push_command(current_thread_id_,
+                        std::make_unique<engine::command>(
+                            current_thread_id_, engine::command_type::notify_end_of_thread,
+                            engine::command_data{nullptr}));
+}
+
+void engine_proxy::notify_idle(size_t nb_suspended_routines) {
+  engine_->push_command(
+      current_thread_id_,
+      std::make_unique<engine::command>(current_thread_id_, engine::command_type::notify_idle,
+                                        engine::command_data{nb_suspended_routines}));
 }
 
 void engine_proxy::set_id() {
@@ -58,7 +68,10 @@ void thread::unregister_all_events() {
   loop_.unregister(self_event_id_);
 }
 
-thread::thread(engine& parent_engine) : engine_proxy_(parent_engine), loop_(*this), engine_queue_{static_cast<int>(parent_engine.max_nb_cores()+1)} {
+thread::thread(engine& parent_engine)
+    : engine_proxy_(parent_engine),
+      loop_(*this),
+      engine_queue_{static_cast<int>(parent_engine.max_nb_cores() + 1)} {
   engine_event_id_ = loop_.register_event(&engine_event_id_);
   self_event_id_ = loop_.register_event(&self_event_id_);
   engine_proxy_.set_id();  // Tells the engine which thread id we got
@@ -173,12 +186,25 @@ void thread::execute_scheduled_routines() {
   // If finished and no more routines, exit
   bool no_more_routines =
       scheduled_routines_.empty() && timed_routines_.empty() && 0 == suspended_routines_;
-  if (no_more_routines && thread_status::finishing == status_) {
-    unregister_all_events();
-    status_ = thread_status::finished;
+  if (no_more_routines) {
+    if (thread_status::finishing == status_) {
+      unregister_all_events();
+      status_ = thread_status::finished;
+    }
+    else {
+      status_ = thread_status::idle;
+      engine_proxy_.notify_idle(0);
+    }
   } else {
-    // If some routines already are scheduled, then throw an event to force a loop execution
-    if (!scheduled_routines_.empty()) loop_.send_event(self_event_id_);
+    if (scheduled_routines_.empty()) {
+      status_ = thread_status::idle;
+      engine_proxy_.notify_idle(timed_routines_.size() + suspended_routines_);
+    }
+    else {
+      // If some routines already are scheduled, then throw an event to force a loop execution
+      status_ = thread_status::busy;
+      loop_.send_event(self_event_id_);
+    }
   }
 }
 
@@ -201,7 +227,7 @@ void thread::loop() {
       case loop_end_reason::max_iter_reached:
         break;
       case loop_end_reason::timed_out:
-        // Shcedule routines that timed out
+        // Schedule routines that timed out
         for (auto& timed_routine : first_timed_routines->second) {
           timed_routine->expected_event_happened();
           scheduled_routines_.emplace_back(timed_routine.release());

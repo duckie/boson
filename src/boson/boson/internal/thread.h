@@ -63,6 +63,7 @@ class engine_proxy final {
   ~engine_proxy();
   void set_id();
   void notify_end();
+  void notify_idle(size_t nb_suspended_routines);
   inline thread_id get_id() const {
     return current_thread_id_;
   }

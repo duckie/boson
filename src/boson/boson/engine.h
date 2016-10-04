@@ -31,6 +31,7 @@ class engine {
   struct thread_view {
     std::thread std_thread;
     thread_t thread;
+    size_t nb_routines = 0;
 
     inline thread_view(engine& engine) : thread{engine} {
     }
@@ -38,16 +39,18 @@ class engine {
 
   enum class command_type {
     add_routine,
+    notify_idle,
     notify_end_of_thread
   };
 
   using command_new_routine_data = std::tuple<thread_id, std::unique_ptr<internal::routine>>;
-  using command_data = json_backbone::variant<std::nullptr_t, command_new_routine_data>;
+  using command_data = json_backbone::variant<std::nullptr_t, size_t, command_new_routine_data>;
 
   struct command {
+    thread_id from;
     command_type type;
     command_data data;
-    inline command(command_type new_type, command_data new_data) : type(new_type), data(std::move(new_data)) {}
+    inline command(thread_id from, command_type new_type, command_data new_data) : type(new_type), data(std::move(new_data)) {}
   };
 
   using thread_view_t = thread_view;
@@ -84,6 +87,7 @@ class engine {
 
   void push_command(thread_id from, std::unique_ptr<command> new_command);
   void execute_commands();
+  void wait_all_routines();
 
  public:
   engine(size_t max_nb_cores = 1);
@@ -115,8 +119,9 @@ inline size_t engine::max_nb_cores() const {
 
 template <class Function>
 void engine::start(thread_id id, Function&& function) {
+  // Send a request
   push_command(
-      max_nb_cores_, std::make_unique<command>(command_type::add_routine,
+      max_nb_cores_, std::make_unique<command>(max_nb_cores_, command_type::add_routine,
                                  command_new_routine_data{
                                      id, std::make_unique<internal::routine>(current_routine_id_++,
                                                                std::forward<Function>(function))}));
