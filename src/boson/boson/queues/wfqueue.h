@@ -8,8 +8,10 @@
 #include <cstring>
 #include <type_traits>
 #include <utility>
-//#include "wfqueue/wfqueue.h"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-security"
 #include "wfqueue/lcrq.h"
+#pragma GCC diagnostic pop
 
 extern "C" void queue_init(queue_t * q, int nprocs);
 extern "C" void queue_register(queue_t * q, handle_t * th, int id);

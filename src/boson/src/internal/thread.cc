@@ -31,7 +31,7 @@ void engine_proxy::set_id() {
 
 void thread::handle_engine_event() {
   thread_command* received_command = nullptr;
-  while (received_command = engine_queue_.pop(id())) {
+  while ((received_command = engine_queue_.pop(id()))) {
     switch (received_command->type) {
       case thread_command_type::add_routine:
         scheduled_routines_.emplace_back(
