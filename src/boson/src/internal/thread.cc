@@ -16,6 +16,13 @@ namespace internal {
 engine_proxy::engine_proxy(engine& parent_engine) : engine_(&parent_engine) {
 }
 
+engine_proxy::~engine_proxy() {
+}
+
+void engine_proxy::notify_end() {
+  engine_->push_command(current_thread_id_, std::make_unique<engine::command>(engine::command_type::notify_end_of_thread, engine::command_data{nullptr}));
+}
+
 void engine_proxy::set_id() {
   current_thread_id_ = engine_->register_thread_id();
 }
@@ -210,6 +217,7 @@ void thread::loop() {
     execute_scheduled_routines();
   }
 
+  engine_proxy_.notify_end();
   // Should not be useful, but a lil discipline does not hurt
   // current_thread = nullptr;
 }

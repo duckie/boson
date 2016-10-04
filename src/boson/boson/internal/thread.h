@@ -44,6 +44,7 @@ using thread_command_data = json_backbone::variant<std::nullptr_t, std::unique_p
 struct thread_command {
   thread_command_type type;
   thread_command_data data;
+  inline thread_command(thread_command_type new_type, thread_command_data new_data) : type(new_type), data(std::move(new_data)) {}
 };
 
 /**
@@ -52,14 +53,16 @@ struct thread_command {
  * It encapsulates the semantics for the thread to identify
  * on the engine. currently, this semantics is an id.
  */
-class engine_proxy {
+class engine_proxy final {
   // Use a pointer here to get free move ctor and operator
   engine* engine_;
   thread_id current_thread_id_;
 
  public:
   engine_proxy(engine&);
+  ~engine_proxy();
   void set_id();
+  void notify_end();
   inline thread_id get_id() const {
     return current_thread_id_;
   }

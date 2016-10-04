@@ -1,9 +1,10 @@
 #include "engine.h"
-#include <iostream>
 
 namespace boson {
 
 void engine::push_command(thread_id from, std::unique_ptr<command> new_command) {
+  command_pushers_.fetch_add(std::memory_order_release);
+  command_waiter_.notify_one();
   command_queue_.push(from, new_command.release());
   command_waiter_.notify_one();
 }
@@ -11,8 +12,6 @@ void engine::push_command(thread_id from, std::unique_ptr<command> new_command) 
 void engine::execute_commands() {
   std::mutex mut;
   std::unique_lock<std::mutex> lock(mut);
-  std::lock_guard<decltype(lock)> guard(lock);
-      command_waiter_.wait(lock);
 
   while (0 < nb_active_threads_) {
     std::unique_ptr<command> new_command;
@@ -35,12 +34,13 @@ void engine::execute_commands() {
             --nb_active_threads_;
           } break;
         }
+        command_pushers_.fetch_sub(std::memory_order_release);
       }
 
-    } while(new_command);
-    if (0 < nb_active_threads_) {
-      command_waiter_.wait(lock);
-    }
+    } while(new_command || 0 < this->command_pushers_.load(std::memory_order_acquire));
+    command_waiter_.wait(lock, [this] {
+        return 0 == this->nb_active_threads_ || 0 < this->command_pushers_.load(std::memory_order_acquire);
+    });
   }
 }
 
@@ -49,7 +49,7 @@ thread_id engine::register_thread_id() {
   return new_id;
 }
 
-engine::engine(size_t max_nb_cores) : max_nb_cores_{max_nb_cores}, nb_active_threads_{max_nb_cores}, command_queue_{static_cast<int>(max_nb_cores+1)} {
+engine::engine(size_t max_nb_cores) : max_nb_cores_{max_nb_cores}, nb_active_threads_{max_nb_cores}, command_queue_{static_cast<int>(max_nb_cores+1)}, command_pushers_{0} {
   // Start all threads directly
   threads_.reserve(max_nb_cores);
   for (size_t index = 0; index < max_nb_cores_; ++index) {
@@ -69,7 +69,6 @@ engine::~engine() {
 
   // Loop
   execute_commands();
-        std::cout << "wtf" << std::endl;
 
   // Join everyone
   for (auto& thread : threads_) {

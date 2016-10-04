@@ -47,8 +47,8 @@ class engine {
   struct command {
     command_type type;
     command_data data;
+    inline command(command_type new_type, command_data new_data) : type(new_type), data(std::move(new_data)) {}
   };
-  
 
   using thread_view_t = thread_view;
   using thread_list_t = std::vector<std::unique_ptr<thread_view_t>>;
@@ -80,6 +80,7 @@ class engine {
   using queue_t = queues::wfqueue<command*>;
   queue_t command_queue_;
   std::condition_variable command_waiter_;
+  std::atomic<size_t> command_pushers_;
 
   void push_command(thread_id from, std::unique_ptr<command> new_command);
   void execute_commands();
@@ -114,11 +115,11 @@ inline size_t engine::max_nb_cores() const {
 
 template <class Function>
 void engine::start(thread_id id, Function&& function) {
-  command_queue_.push(
-      max_nb_cores_, new command{command_type::add_routine,
+  push_command(
+      max_nb_cores_, std::make_unique<command>(command_type::add_routine,
                                  command_new_routine_data{
-                                     id, new internal::routine{current_routine_id_++,
-                                                               std::forward<Function>(function)}}});
+                                     id, std::make_unique<internal::routine>(current_routine_id_++,
+                                                               std::forward<Function>(function))}));
 };
 
 template <class Function>
