@@ -43,7 +43,7 @@ bool semaphore::pop_a_waiter(internal::routine* current_routine) {
       //boson::debug::log("Routine {}:{} to unlock {}:{}:{}", current->id(), current_routine->id(),
                         //managing_thread->id(), waiter->id(),static_cast<int>(waiter->status()));
       managing_thread->push_command(current->id(),
-          {thread_command_type::schedule_waiting_routine, std::unique_ptr<routine>(waiter)});
+          std::make_unique<thread_command>(thread_command_type::schedule_waiting_routine, std::unique_ptr<routine>(waiter)));
       return true;
     }
   }

@@ -5,14 +5,14 @@ namespace boson {
 void engine::push_command(thread_id from, std::unique_ptr<command> new_command) {
   command_pushers_.fetch_add(std::memory_order_release);
   command_waiter_.notify_one();
-  command_queue_.push(from, new_command.release());
-  command_waiter_.notify_one();
+  command_queue_.push(static_cast<int>(from), new_command.release());
+  //command_waiter_.notify_one();
 }
 
 void engine::execute_commands() {
   std::unique_ptr<command> new_command;
   do {
-    new_command.reset(command_queue_.pop(0));
+    new_command.reset(command_queue_.pop(max_nb_cores_));
     if (new_command) {
       switch (new_command->type) {
         case command_type::add_routine: {
@@ -27,7 +27,7 @@ void engine::execute_commands() {
           ++view.nb_routines;
           view.thread.push_command(
               max_nb_cores_,
-              command_t{internal::thread_command_type::add_routine, move(new_routine)});
+              std::make_unique<command_t>(internal::thread_command_type::add_routine, move(new_routine)));
         } break;
         case command_type::notify_idle: {
           auto& view = *threads_.at(new_command->from);
@@ -55,7 +55,7 @@ void engine::wait_all_routines() {
     if (0 == nb_remaining_routines) {
       for (auto& thread : threads_) {
         thread->thread.push_command(max_nb_cores_,
-                                    command_t{internal::thread_command_type::finish, nullptr});
+                                    std::make_unique<command_t>(internal::thread_command_type::finish, nullptr));
       }
     }
     command_waiter_.wait(lock, [this] {

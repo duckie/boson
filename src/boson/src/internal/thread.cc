@@ -100,8 +100,8 @@ void thread::write(int fd, void* data) {
 }
 
 // called by engine
-void thread::push_command(thread_id from, thread_command command) {
-  engine_queue_.push(from, new thread_command{std::move(command)});
+void thread::push_command(thread_id from, std::unique_ptr<thread_command> command) {
+  engine_queue_.push(from, command.release());
   loop_.send_event(engine_event_id_);
 };
 

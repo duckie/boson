@@ -29,8 +29,8 @@ class engine {
   using proxy_t = internal::engine_proxy;
 
   struct thread_view {
-    std::thread std_thread;
     thread_t thread;
+    std::thread std_thread;
     size_t nb_routines = 0;
 
     inline thread_view(engine& engine) : thread{engine} {
@@ -50,7 +50,7 @@ class engine {
     thread_id from;
     command_type type;
     command_data data;
-    inline command(thread_id from, command_type new_type, command_data new_data) : type(new_type), data(std::move(new_data)) {}
+    inline command(thread_id new_from, command_type new_type, command_data new_data) : from{new_from}, type(new_type), data(std::move(new_data)) {}
   };
 
   using thread_view_t = thread_view;
