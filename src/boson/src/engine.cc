@@ -33,7 +33,7 @@ void engine::execute_commands() {
         case command_type::notify_idle: {
           auto& view = *threads_.at(new_command->from);
           view.nb_routines = new_command->data.get<size_t>();
-          debug::log("Received an idle status from {} with {} routines.", new_command->from, view.nb_routines);
+          //debug::log("Received an idle status from {} with {} routines.", new_command->from, view.nb_routines);
         } break;
         case command_type::notify_end_of_thread: {
           --nb_active_threads_;
@@ -55,7 +55,7 @@ void engine::wait_all_routines() {
     for(auto& view_ptr : threads_){
       nb_remaining_routines += view_ptr->nb_routines;
     }
-    debug::log("Remains {} routines.", nb_remaining_routines);
+    //debug::log("Remains {} routines.", nb_remaining_routines);
     if (0 == nb_remaining_routines) {
       for (auto& thread : threads_) {
         if (!thread->sent_end_request) {

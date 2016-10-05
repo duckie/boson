@@ -204,24 +204,23 @@ void thread::execute_scheduled_routines() {
   // If finished and no more routines, exit
   bool no_more_routines =
       scheduled_routines_.empty() && timed_routines_.empty() && 0 == suspended_routines_;
-  debug::log("So ??? {}", id());
   if (no_more_routines) {
     if (thread_status::finishing == status_) {
       unregister_all_events();
       status_ = thread_status::finished;
-      debug::log("Thread {} finished", id());
+      //debug::log("Thread {} finished", id());
     }
     else if (0 == nb_pending_commands_.load(std::memory_order_acquire)){
       status_ = thread_status::idle;
       engine_proxy_.notify_idle(0);
-      debug::log("Thread {} idles.", id());
+      //debug::log("Thread {} idles.", id());
     }
   } else {
     if (scheduled_routines_.empty()) {
       if (0 == nb_pending_commands_.load(std::memory_order_acquire)){
         status_ = thread_status::idle;
         engine_proxy_.notify_idle(timed_routines_.size() + suspended_routines_);
-        debug::log("Thread {} idles with {} routines.", id(), timed_routines_.size() + suspended_routines_);
+        //debug::log("Thread {} idles with {} routines.", id(), timed_routines_.size() + suspended_routines_);
       }
       else {
         loop_.send_event(self_event_id_);
@@ -232,7 +231,7 @@ void thread::execute_scheduled_routines() {
       // If some routines already are scheduled, then throw an event to force a loop execution
       //status_ = thread_status::busy;
       loop_.send_event(self_event_id_);
-      debug::log("Thread {} is busy.", id());
+      //debug::log("Thread {} is busy.", id());
     }
   }
 }
