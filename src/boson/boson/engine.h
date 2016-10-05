@@ -32,6 +32,7 @@ class engine {
     thread_t thread;
     std::thread std_thread;
     size_t nb_routines = 0;
+    bool sent_end_request = false;
 
     inline thread_view(engine& engine) : thread{engine} {
     }

@@ -7,6 +7,7 @@
 #include "logger.h"
 #include <iostream>
 #include "fmt/format.h"
+#include "logger.h"
 
 namespace boson {
 namespace internal {
@@ -26,11 +27,26 @@ void engine_proxy::notify_end() {
                             engine::command_data{nullptr}));
 }
 
+routine_id engine_proxy::get_new_routine_id() {
+  return engine_->current_thread_id_++;
+}
+
 void engine_proxy::notify_idle(size_t nb_suspended_routines) {
   engine_->push_command(
       current_thread_id_,
       std::make_unique<engine::command>(current_thread_id_, engine::command_type::notify_idle,
                                         engine::command_data{nb_suspended_routines}));
+}
+
+void engine_proxy::start_routine(std::unique_ptr<routine> new_routine) {
+  start_routine(engine_->max_nb_cores(), std::move(new_routine));
+}
+
+void engine_proxy::start_routine(thread_id target_thread, std::unique_ptr<routine> new_routine) {
+  engine_->push_command(
+      current_thread_id_, std::make_unique<engine::command>(target_thread, engine::command_type::add_routine,
+                                 engine::command_new_routine_data{
+                                     target_thread, std::move(new_routine)}));
 }
 
 void engine_proxy::set_id() {
@@ -42,6 +58,7 @@ void engine_proxy::set_id() {
 void thread::handle_engine_event() {
   thread_command* received_command = nullptr;
   while ((received_command = engine_queue_.pop(id()))) {
+    nb_pending_commands_.fetch_sub(std::memory_order_release);
     switch (received_command->type) {
       case thread_command_type::add_routine:
         scheduled_routines_.emplace_back(
@@ -101,6 +118,7 @@ void thread::write(int fd, void* data) {
 
 // called by engine
 void thread::push_command(thread_id from, std::unique_ptr<thread_command> command) {
+  nb_pending_commands_.fetch_add(std::memory_order_release);
   engine_queue_.push(from, command.release());
   loop_.send_event(engine_event_id_);
 };
@@ -186,24 +204,35 @@ void thread::execute_scheduled_routines() {
   // If finished and no more routines, exit
   bool no_more_routines =
       scheduled_routines_.empty() && timed_routines_.empty() && 0 == suspended_routines_;
+  debug::log("So ??? {}", id());
   if (no_more_routines) {
     if (thread_status::finishing == status_) {
       unregister_all_events();
       status_ = thread_status::finished;
+      debug::log("Thread {} finished", id());
     }
-    else {
+    else if (0 == nb_pending_commands_.load(std::memory_order_acquire)){
       status_ = thread_status::idle;
       engine_proxy_.notify_idle(0);
+      debug::log("Thread {} idles.", id());
     }
   } else {
     if (scheduled_routines_.empty()) {
-      status_ = thread_status::idle;
-      engine_proxy_.notify_idle(timed_routines_.size() + suspended_routines_);
+      if (0 == nb_pending_commands_.load(std::memory_order_acquire)){
+        status_ = thread_status::idle;
+        engine_proxy_.notify_idle(timed_routines_.size() + suspended_routines_);
+        debug::log("Thread {} idles with {} routines.", id(), timed_routines_.size() + suspended_routines_);
+      }
+      else {
+        loop_.send_event(self_event_id_);
+      }
+      // else nothing, other commands will take care of it
     }
     else {
       // If some routines already are scheduled, then throw an event to force a loop execution
-      status_ = thread_status::busy;
+      //status_ = thread_status::busy;
       loop_.send_event(self_event_id_);
+      debug::log("Thread {} is busy.", id());
     }
   }
 }

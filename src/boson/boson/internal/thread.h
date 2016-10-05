@@ -62,8 +62,11 @@ class engine_proxy final {
   engine_proxy(engine&);
   ~engine_proxy();
   void set_id();
+  routine_id get_new_routine_id();
   void notify_end();
   void notify_idle(size_t nb_suspended_routines);
+  void start_routine(std::unique_ptr<routine> new_routine);
+  void start_routine(thread_id target_thread, std::unique_ptr<routine> new_routine);
   inline thread_id get_id() const {
     return current_thread_id_;
   }
@@ -113,6 +116,7 @@ class thread : public event_handler {
   event_loop loop_;
 
   engine_queue_t engine_queue_;
+  std::atomic<std::size_t> nb_pending_commands_;
   int engine_event_id_;
   int self_event_id_;
 
@@ -178,6 +182,12 @@ class thread : public event_handler {
    * loop() is executed in a std::thread dedicated to this object
    */
   void loop();
+
+  template <class Function>
+  void start_routine(Function&& func) {
+    engine_proxy_.start_routine(
+        std::make_unique<routine>(engine_proxy_.get_new_routine_id(), std::forward<Function>(func)));
+  }
 };
 
 /**
@@ -189,6 +199,7 @@ class thread : public event_handler {
  * But it avoids TLS writes at each context switch
  */
 thread*& current_thread();
+
 
 transfer_t& thread::context() {
   return context_;
@@ -208,6 +219,12 @@ engine const& thread::get_engine() const {
 }
 
 }  // namespace internal
+
+template <class Function>
+void start(Function&& func) {
+  internal::current_thread()->start_routine(std::forward<Function>(func));
+}
+
 }  // namespace boson
 
 #endif  // BOSON_THREAD_H_

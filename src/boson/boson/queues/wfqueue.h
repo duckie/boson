@@ -74,7 +74,10 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
   ~wfqueue() {
     // Create one handler to force memory reclamation algorithm
     //enqueue(queue_, get_handle(nprocs_-1), nullptr);
-    //while(reinterpret_cast<void*>(0xffffffffffffffff) != dequeue(queue_, get_handle(nprocs_)));
+    void* data = nullptr;
+    while(reinterpret_cast<void*>(0xffffffffffffffff) != (data = dequeue(queue_, get_handle(nprocs_)))) {
+      //delete static_cast<ContentType>(data);
+    }
     for (int index = 0; index < nprocs_+1; ++index) {
       if (hds_[index])
         queue_free(queue_, hds_[index]);
