@@ -11,6 +11,7 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-security"
 #include "wfqueue/lcrq.h"
+//#include "wfqueue/wfqueue.h"
 #pragma GCC diagnostic pop
 
 extern "C" void queue_init(queue_t * q, int nprocs);
@@ -60,10 +61,12 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
 
   wfqueue(int nprocs) noexcept(std::is_nothrow_default_constructible<ContentType>()) : nprocs_(nprocs) {
     queue_ = static_cast<queue_t*>(align_malloc(PAGE_SIZE, sizeof(queue_t)));
-    queue_init(queue_, nprocs+1);  // We add 1 proc to be used at destruction to maje sure the queue is empty
-    hds_ = static_cast<handle_t**>(align_malloc(PAGE_SIZE, sizeof(handle_t*[nprocs+1])));;
-    for(std::size_t index = 0; index < nprocs + 1; ++index)
+    queue_init(queue_, nprocs);  // We add 1 proc to be used at destruction to maje sure the queue is empty
+    hds_ = static_cast<handle_t**>(align_malloc(PAGE_SIZE, sizeof(handle_t*[nprocs])));;
+    for(std::size_t index = 0; index < nprocs; ++index)
       hds_[index] = nullptr; 
+    for(std::size_t index = 0; index < nprocs; ++index)
+      get_handle(index);
   }
 
   wfqueue(wfqueue const&) = delete;
@@ -75,10 +78,12 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
     // Create one handler to force memory reclamation algorithm
     //enqueue(queue_, get_handle(nprocs_-1), nullptr);
     void* data = nullptr;
-    while(reinterpret_cast<void*>(0xffffffffffffffff) != (data = dequeue(queue_, get_handle(nprocs_)))) {
+    //while(reinterpret_cast<void*>(0xffffffffffffffff) != (data = dequeue(queue_, get_handle(nprocs_))))
+    //while(nullptr != (data = dequeue(queue_, get_handle(2*nprocs_))))
+    {
       //delete static_cast<ContentType>(data);
     }
-    for (int index = 0; index < nprocs_+1; ++index) {
+    for (int index = 0; index < nprocs_; ++index) {
       if (hds_[index])
         queue_free(queue_, hds_[index]);
       //free(hds_[index]);
