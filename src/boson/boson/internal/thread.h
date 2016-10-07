@@ -39,7 +39,7 @@ enum class thread_status {
 
 enum class thread_command_type { add_routine, schedule_waiting_routine, finish };
 
-using thread_command_data = json_backbone::variant<std::nullptr_t, std::unique_ptr<routine>>;
+using thread_command_data = json_backbone::variant<std::nullptr_t, std::unique_ptr<routine>, std::tuple<int, int, std::unique_ptr<routine>>>;
 
 struct thread_command {
   thread_command_type type;

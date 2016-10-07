@@ -15,6 +15,7 @@ namespace boson {
  * The boson semaphore may only be used from routines.
  */
 class semaphore {
+  friend class internal::thread;
   using queue_t = queues::wfqueue<internal::routine*>;
   std::atomic<queue_t*> waiters_;
   std::atomic<int> counter_;
@@ -31,7 +32,7 @@ class semaphore {
    * returns true if the poped thread is not the current or if
    * none could be poped
    */
-  bool pop_a_waiter(internal::routine* current = nullptr);
+  bool pop_a_waiter(internal::thread* current = nullptr);
 
  public:
   semaphore(int capacity);

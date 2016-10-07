@@ -11,7 +11,7 @@ using namespace std::literals;
 using namespace std::chrono;
 
 static constexpr int nb_iter = 1e4;
-static constexpr int nb_threads = 24;
+static constexpr int nb_threads = 4;
 
 int main(int argc, char* argv[]) {
   boson::debug::logger_instance(&std::cout);

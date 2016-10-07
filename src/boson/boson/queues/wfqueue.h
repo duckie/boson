@@ -33,7 +33,8 @@ namespace queues {
  * Currently, thei algorithms bugs here so we use LCRQ
  */
 template <class ContentType>
-class alignas(2 * CACHE_LINE_SIZE) wfqueue {
+class wfqueue {
+ public:
   using content_t = ContentType;
   queue_t* queue_;
   handle_t** hds_;
@@ -50,7 +51,6 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
     return hd;
   }
 
- public:
   using content_type = ContentType;
 
   class queue_handler {
@@ -62,11 +62,11 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
   wfqueue(int nprocs) noexcept(std::is_nothrow_default_constructible<ContentType>()) : nprocs_(nprocs) {
     queue_ = static_cast<queue_t*>(align_malloc(PAGE_SIZE, sizeof(queue_t)));
     queue_init(queue_, nprocs);  // We add 1 proc to be used at destruction to maje sure the queue is empty
-    hds_ = static_cast<handle_t**>(align_malloc(PAGE_SIZE, sizeof(handle_t*[nprocs])));;
-    for(std::size_t index = 0; index < nprocs; ++index)
+    hds_ = static_cast<handle_t**>(align_malloc(PAGE_SIZE, sizeof(handle_t*[nprocs+1])));;
+    for(std::size_t index = 0; index < nprocs+1; ++index)
       hds_[index] = nullptr; 
-    for(std::size_t index = 0; index < nprocs; ++index)
-      get_handle(index);
+    //for(std::size_t index = 0; index < nprocs; ++index)
+      //get_handle(index);
   }
 
   wfqueue(wfqueue const&) = delete;
@@ -76,18 +76,18 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
 
   ~wfqueue() {
     // Create one handler to force memory reclamation algorithm
-    //enqueue(queue_, get_handle(nprocs_-1), nullptr);
-    void* data = nullptr;
+    enqueue(queue_, get_handle(nprocs_), nullptr);
     //while(reinterpret_cast<void*>(0xffffffffffffffff) != (data = dequeue(queue_, get_handle(nprocs_))))
-    //while(nullptr != (data = dequeue(queue_, get_handle(2*nprocs_))))
+    void* data = nullptr;
+    while(nullptr != (data = dequeue(queue_, get_handle(nprocs_))))
     {
       //delete static_cast<ContentType>(data);
     }
-    for (int index = 0; index < nprocs_; ++index) {
-      if (hds_[index])
-        queue_free(queue_, hds_[index]);
-      //free(hds_[index]);
-    }
+    //for (int index = 0; index < nprocs_; ++index) {
+      //if (hds_[index])
+        //queue_free(queue_, hds_[index]);
+      ////free(hds_[index]);
+    //}
     free(queue_);
     free(hds_);
   }

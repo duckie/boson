@@ -1,4 +1,5 @@
 #include "internal/thread.h"
+#include "semaphore.h"
 #include <cassert>
 #include <chrono>
 #include "engine.h"
@@ -65,11 +66,19 @@ void thread::handle_engine_event() {
             received_command->data.template get<routine_ptr_t>().release());
         break;
       case thread_command_type::schedule_waiting_routine: {
-        routine* current_routine = received_command->data.template get<routine_ptr_t>().release();
-        assert(current_routine->status() == routine_status::wait_sema_wait);
-        current_routine->expected_event_happened();
-        --suspended_routines_;
-        scheduled_routines_.emplace_back(current_routine);
+        auto& t = received_command->data.template get<std::tuple<int,int,routine_ptr_t>>();
+        int rid = std::get<0>(t);
+        int status = std::get<1>(t);
+        routine* current_routine = std::get<2>(t).release();
+        
+        debug::log("Thread {} unlocks {}:{}",id(), rid , status);
+        //assert(current_routine->status() == routine_status::wait_sema_wait);
+        //debug::log("Thread {} unlocks {}:{}:{}",id(), current_routine->thread_->id(),current_routine->id(),static_cast<int>(current_routine->status()));
+        if (current_routine->status() == routine_status::wait_sema_wait) {
+          current_routine->expected_event_happened();
+          --suspended_routines_;
+          scheduled_routines_.emplace_back(current_routine);
+        }
       } break;
       case thread_command_type::finish:
         status_ = thread_status::finishing;
@@ -173,6 +182,9 @@ void thread::execute_scheduled_routines() {
           clear_previous_io_event(*routine, loop_);
           target_event.event_id = loop_.register_read(target_event.fd, routine.release());
         }
+        else {
+          next_scheduled_routines.emplace_back(routine.release());
+        }
       } break;
       case routine_status::wait_sys_write: {
         routine_io_event& target_event = routine->waiting_data().get<routine_io_event>();
@@ -181,10 +193,19 @@ void thread::execute_scheduled_routines() {
           clear_previous_io_event(*routine, loop_);
           target_event.event_id = loop_.register_write(target_event.fd, routine.release());
         }
+        else {
+          next_scheduled_routines.emplace_back(routine.release());
+        }
       } break;
       case routine_status::wait_sema_wait: {
         clear_previous_io_event(*routine, loop_);
-        routine.release();
+        // Routine missed the lock, lets take care it
+      debug::log("Routine {}:{}:{} is pushed", id(), routine->id(), static_cast<int>(routine->status())); 
+        semaphore* missed_semaphore = static_cast<semaphore*>(routine->context_.data);
+        missed_semaphore->get_queue(this)->push(id(), routine.release());
+        int result = missed_semaphore->counter_.fetch_add(1, std::memory_order::memory_order_release);
+        if (0 <= result)
+          missed_semaphore->pop_a_waiter(this);
         ++suspended_routines_;
       } break;
       case routine_status::finished: {
@@ -192,6 +213,9 @@ void thread::execute_scheduled_routines() {
       } break;
     };
 
+    if (routine.get()) {
+      debug::log("Routine {}:{}:{} will be deleted.", id(), routine->id(), static_cast<int>(routine->status())); 
+    }
     scheduled_routines_.pop_front();
   }
 
