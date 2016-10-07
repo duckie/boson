@@ -10,8 +10,8 @@
 #include <utility>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-security"
-#include "wfqueue/lcrq.h"
-//#include "wfqueue/wfqueue.h"
+//#include "wfqueue/lcrq.h"
+#include "wfqueue/wfqueue.h"
 #pragma GCC diagnostic pop
 
 extern "C" void queue_init(queue_t * q, int nprocs);
@@ -101,8 +101,8 @@ class alignas(2 * CACHE_LINE_SIZE) wfqueue {
   inline ContentType pop(std::size_t proc_id) {
     assert(proc_id < nprocs_);
     void* result = dequeue(queue_, get_handle(proc_id));
-    return reinterpret_cast<void*>(0xffffffffffffffff) == result ? nullptr : static_cast<ContentType>(result);
-    //return nullptr == result ? nullptr : static_cast<ContentType>(result);
+    //return reinterpret_cast<void*>(0xffffffffffffffff) == result ? nullptr : static_cast<ContentType>(result);
+    return nullptr == result ? nullptr : static_cast<ContentType>(result);
   }
 };
 
