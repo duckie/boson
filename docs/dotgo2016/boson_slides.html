@@ -100,6 +100,86 @@
       </div>
     </section>
 
+    <section class="slide" id="go-ctx-switch-1">
+      <div class="vcenter">
+        <h3>Goroutines : how does it do it</h3>
+        <h2>Context switching : one thread example</h2>
+        <ul>
+          <li class="slide" id="go-clean">
+            Routine A is executing and needs to pause on a I/O syscall.
+          </li>
+
+          <li class="slide" id="go-io-friendly">
+            Routine A context-switches to scheduler.
+          </li>
+
+          <li class="slide" id="go-cpu-time">
+            Scheduler context-switches to available routine B.
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="slide" id="go-ctx-switch-1">
+      <div class="vcenter">
+        <h3>Goroutines : how does it do it</h3>
+        <h2>Context switching : speed</h2>
+        <ul>
+          <li class="slide" id="go-clean">
+            Process context swich: 2500 to 4000 nanoseconds.
+          </li>
+
+          <li class="slide" id="go-io-friendly">
+            Process context swich: 1300 to 3000 nanoseconds.
+          </li>
+
+          <li class="slide" id="go-cpu-time">
+            Go routine / boost.context context switch: less than 10 nanoseconds.
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="slide" id="go-io-loop">
+      <div class="vcenter">
+        <h3>Net poller : how does it do it</h3>
+        <h2>I/O event loop</h2>
+        <ul>
+          <li class="slide" id="go-clean">
+            Per platform implementation: epoll, kqueue, I/O Completion Ports.
+          </li>
+
+          <li class="slide" id="go-io-friendly">
+            Integrated into the scheduler.
+          </li>
+
+          <li class="slide" id="go-cpu-time">
+            Transparent for the user : use classic syscalls.
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="slide" id="go-channels-1">
+      <div class="vcenter">
+        <h3>Channels : how does it do it</h3>
+        <h2>I/O event loop</h2>
+        <ul>
+          <li class="slide" id="go-clean">
+            Per platform implementation: epoll, kqueue, I/O Completion Ports.
+          </li>
+
+          <li class="slide" id="go-io-friendly">
+            Integrated into the scheduler.
+          </li>
+
+          <li class="slide" id="go-cpu-time">
+            Transparent for the user : use classic syscalls.
+          </li>
+        </ul>
+      </div>
+    </section>
+
     <section class="slide" id="boson-features">
       <div class="vcenter">
         <h3>Goroutines : how does it do it</h3>
