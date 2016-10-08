@@ -41,7 +41,7 @@ TEST_CASE("Queues - WfQueue - sums", "[queues][wfqueue]") {
 
   std::array<std::thread, nb_main_threads> main_threads;
   for (int j = 0; j < nb_main_threads; ++j) {
-    main_threads[j] = std::thread([]() {
+    main_threads[j] = std::thread([&]() {
       size_t nnb_iter = nb_iter;
       boson::queues::wfqueue<int*> queue(nb_prod + nb_cons);
 

@@ -1,3 +1,6 @@
+ccqueue.h
+ccqueue.c
+ccsynch.h
 wfqueue.c
 wfqueue.h
 lcrq.c

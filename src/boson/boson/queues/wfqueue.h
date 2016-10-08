@@ -10,15 +10,10 @@
 #include <utility>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-security"
-//#include "wfqueue/lcrq.h"
-#include "wfqueue/wfqueue.h"
+extern "C" {
+#include "wfqueue/queue.h"
+}
 #pragma GCC diagnostic pop
-
-extern "C" void queue_init(queue_t * q, int nprocs);
-extern "C" void queue_register(queue_t * q, handle_t * th, int id);
-extern "C" void enqueue(queue_t * q, handle_t * th, void * v);
-extern "C" void * dequeue(queue_t * q, handle_t * th);
-extern "C" void queue_free(queue_t * q, handle_t * h);
 
 namespace boson {
 namespace queues {

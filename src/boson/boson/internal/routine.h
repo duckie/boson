@@ -79,6 +79,7 @@ namespace detail {
 void resume_routine(transfer_t transfered_context);
 
 struct function_holder {
+  virtual ~function_holder() = default;
   virtual void operator()() = 0;
 };
 

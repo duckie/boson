@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
     // Execute a routine communication through pipes
     boson::mutex mut;   // if not shared, it must outlive the engine instance
     boson::mutex mut2;  // if not shared, it must outlive the engine instance
-    boson::engine instance(8);
+    boson::engine instance(4);
     // boson::shared_mutex mut;  // if not shared, it must outlive the engine instance
     // boson::shared_mutex mut2;  // if not shared, it must outlive the engine instance
     for (int i = 0; i < nb_threads / 2; ++i) {

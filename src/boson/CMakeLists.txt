@@ -18,7 +18,7 @@ set(lib_sources ${lib_sources} ${lib_linux_sources})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/boson ${CMAKE_CURRENT_SOURCE_DIR}/src/linux)
 add_library(boson ${lib_sources} $<TARGET_OBJECTS:boson_fcontext>)
 target_compile_options(boson PUBLIC -nostdlib -fPIC)
-target_link_libraries(boson ${LIBRARIES})
+target_link_libraries(boson ${LIBRARIES} -lpthread)
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(test)
