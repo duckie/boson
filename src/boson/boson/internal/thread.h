@@ -39,12 +39,15 @@ enum class thread_status {
 
 enum class thread_command_type { add_routine, schedule_waiting_routine, finish };
 
-using thread_command_data = json_backbone::variant<std::nullptr_t, std::unique_ptr<routine>, std::tuple<int, int, std::unique_ptr<routine>>>;
+using thread_command_data = json_backbone::variant<std::nullptr_t, std::unique_ptr<routine>,
+                                                   std::tuple<int, int, std::unique_ptr<routine>>>;
 
 struct thread_command {
   thread_command_type type;
   thread_command_data data;
-  inline thread_command(thread_command_type new_type, thread_command_data new_data) : type(new_type), data(std::move(new_data)) {}
+  inline thread_command(thread_command_type new_type, thread_command_data new_data)
+      : type(new_type), data(std::move(new_data)) {
+  }
 };
 
 /**
@@ -91,8 +94,7 @@ class thread : public event_handler {
 
   friend class boson::semaphore;
   using routine_ptr_t = std::unique_ptr<routine>;
-  using engine_queue_t = queues::wfqueue<thread_command*>;
-  //using engine_queue_t = queues::simple_wfqueue;
+  using engine_queue_t = queues::base_wfqueue;
 
   engine_proxy engine_proxy_;
   std::list<routine_ptr_t> scheduled_routines_;
@@ -186,8 +188,8 @@ class thread : public event_handler {
 
   template <class Function>
   void start_routine(Function&& func) {
-    engine_proxy_.start_routine(
-        std::make_unique<routine>(engine_proxy_.get_new_routine_id(), std::forward<Function>(func)));
+    engine_proxy_.start_routine(std::make_unique<routine>(engine_proxy_.get_new_routine_id(),
+                                                          std::forward<Function>(func)));
   }
 
   inline routine* running_routine();
@@ -203,7 +205,6 @@ class thread : public event_handler {
  */
 thread*& current_thread();
 
-
 transfer_t& thread::context() {
   return context_;
 }
@@ -213,7 +214,6 @@ routine* thread::running_routine() {
 }
 
 thread_id thread::id() const {
-
   return engine_proxy_.get_id();
 }
 

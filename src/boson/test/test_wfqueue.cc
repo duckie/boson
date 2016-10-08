@@ -1,42 +1,42 @@
+#include <pthread.h>
+#include <cassert>
 #include <iostream>
 #include <limits>
 #include <random>
 #include <thread>
-#include <cassert>
 #include <vector>
 #include "boson/queues/wfqueue.h"
 #include "catch.hpp"
 #include "wfqueue/wfqueue.h"
-#include <pthread.h>
 
 namespace {
-  static constexpr size_t nb_iter = 1e5+153;
+static constexpr size_t nb_iter = 1e5 + 153;
 }
 
 using namespace std;
 
 TEST_CASE("Queues - WfQueue - simple case", "[queues][wfqueue]") {
-  //boson::queues::wfqueue<int*> queue(2);
-  //int i = 0;
-  //void* none = queue.pop(0);
-  //CHECK(none == nullptr);
-  //queue.push(0,&i);
-  //void* val = queue.pop(0);
-  //CHECK(val == &i);
-  //none = queue.pop(0);
-  //CHECK(none == nullptr);
-  //queue.push(0,nullptr);
-  //none = queue.pop(0);
-  //CHECK(none == nullptr);
-  //queue_
+  // boson::queues::wfqueue<int*> queue(2);
+  // int i = 0;
+  // void* none = queue.pop(0);
+  // CHECK(none == nullptr);
+  // queue.push(0,&i);
+  // void* val = queue.pop(0);
+  // CHECK(val == &i);
+  // none = queue.pop(0);
+  // CHECK(none == nullptr);
+  // queue.push(0,nullptr);
+  // none = queue.pop(0);
+  // CHECK(none == nullptr);
+  // queue_
 }
 
 TEST_CASE("Queues - WfQueue - sums", "[queues][wfqueue]") {
   constexpr size_t const nb_prod = 16;
   constexpr size_t const nb_cons = 16;
   constexpr size_t const nb_iter = 1e3;
-  //pthread_barrier_t barrier;
-  //pthread_barrier_init(&barrier, NULL, nb_prod+nb_cons);
+  // pthread_barrier_t barrier;
+  // pthread_barrier_init(&barrier, NULL, nb_prod+nb_cons);
   constexpr size_t const nb_main_threads = 4;
 
   std::array<std::thread, nb_main_threads> main_threads;

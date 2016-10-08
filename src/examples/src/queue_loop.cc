@@ -19,9 +19,8 @@ constexpr size_t const nb_cons = 12;
 int main(int argc, char* argv[]) {
   boson::debug::logger_instance(&std::cout);
 
-
   size_t nnb_iter = nb_iter;
-  boson::queues::base_wfqueue queue(nb_threads+1);
+  boson::queues::base_wfqueue queue(nb_threads + 1);
 
   std::array<vector<size_t>, nb_prod> input{};
   std::array<size_t, nb_cons> output{};

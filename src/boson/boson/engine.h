@@ -16,7 +16,7 @@
 namespace boson {
 
 namespace internal {
-  class routine;
+class routine;
 };
 
 /**
@@ -38,11 +38,7 @@ class engine {
     }
   };
 
-  enum class command_type {
-    add_routine,
-    notify_idle,
-    notify_end_of_thread
-  };
+  enum class command_type { add_routine, notify_idle, notify_end_of_thread };
 
   using command_new_routine_data = std::tuple<thread_id, std::unique_ptr<internal::routine>>;
   using command_data = json_backbone::variant<std::nullptr_t, size_t, command_new_routine_data>;
@@ -51,7 +47,9 @@ class engine {
     thread_id from;
     command_type type;
     command_data data;
-    inline command(thread_id new_from, command_type new_type, command_data new_data) : from{new_from}, type(new_type), data(std::move(new_data)) {}
+    inline command(thread_id new_from, command_type new_type, command_data new_data)
+        : from{new_from}, type(new_type), data(std::move(new_data)) {
+    }
   };
 
   using thread_view_t = thread_view;
@@ -81,8 +79,7 @@ class engine {
    */
   thread_id register_thread_id();
 
-  using queue_t = queues::wfqueue<command*>;
-  //using queue_t = queues::simple_wfqueue;
+  using queue_t = queues::base_wfqueue;
   queue_t command_queue_;
   std::condition_variable command_waiter_;
   std::atomic<size_t> command_pushers_;
@@ -122,10 +119,11 @@ inline size_t engine::max_nb_cores() const {
 template <class Function>
 void engine::start(thread_id id, Function&& function) {
   // Send a request
-  push_command(
-      max_nb_cores_, std::make_unique<command>(max_nb_cores_, command_type::add_routine,
-                                 command_new_routine_data{
-                                     id, std::make_unique<internal::routine>(current_routine_id_++,
+  push_command(max_nb_cores_,
+               std::make_unique<command>(
+                   max_nb_cores_, command_type::add_routine,
+                   command_new_routine_data{
+                       id, std::make_unique<internal::routine>(current_routine_id_++,
                                                                std::forward<Function>(function))}));
 };
 

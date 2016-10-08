@@ -1,32 +1,32 @@
 #ifndef BOSON_CHANNEL_H_
-
 #define BOSON_CHANNEL_H_
 
 #include <list>
 #include <memory>
 #include <mutex>
+#include "boson/semaphore.h"
 #include "internal/routine.h"
 #include "internal/thread.h"
 #include "queues/wfqueue.h"
-#include "boson/semaphore.h"
+#include "engine.h"
 
 namespace boson {
 
 template <class ContentType, std::size_t Size>
 class channel_impl {
-  using queue_t = queues::wfqueue<ContentType*>;
+  using queue_t = queues::base_wfqueue;
   std::atomic<queue_t*> queue_;
   boson::semaphore readers_slots_;
   boson::semaphore writer_slots_;
-  std::mutex mut_; // Only for init
+  std::mutex mut_;  // Only for init
 
   queue_t* get_queue() {
     if (!queue_) {
-        mut_.lock();
-        if (!queue_) {
-          queue_= new queue_t(internal::current_thread()->get_engine().max_nb_cores()+1);
-        }
-        mut_.unlock();
+      mut_.lock();
+      if (!queue_) {
+        queue_ = new queue_t(internal::current_thread()->get_engine().max_nb_cores() + 1);
+      }
+      mut_.unlock();
     }
     return queue_;
   }
@@ -35,7 +35,9 @@ class channel_impl {
   channel_impl() : queue_(nullptr), readers_slots_(0), writer_slots_(Size) {
   }
 
-  ~channel_impl() { delete queue_; }
+  ~channel_impl() {
+    delete queue_;
+  }
 
   /**
    * Write an element in the channel
@@ -65,30 +67,31 @@ class channel_impl {
  * Specialization for the sync channel
  */
 template <class ContentType>
-class channel_impl<ContentType,0> {
-  using queue_t = queues::wfqueue<ContentType*>;
+class channel_impl<ContentType, 0> {
+  using queue_t = queues::base_wfqueue;
   std::atomic<queue_t*> queue_;
   boson::semaphore readers_slots_;
   boson::semaphore writer_slots_;
-  std::mutex mut_; // Only for init
+  std::mutex mut_;  // Only for init
 
   queue_t* get_queue() {
     if (!queue_) {
-        mut_.lock();
-        if (!queue_) {
-          queue_= new queue_t(internal::current_thread()->get_engine().max_nb_cores()+1);
-        }
-        mut_.unlock();
+      mut_.lock();
+      if (!queue_) {
+        queue_ = new queue_t(internal::current_thread()->get_engine().max_nb_cores() + 1);
+      }
+      mut_.unlock();
     }
     return queue_;
   }
-
 
  public:
   channel_impl() : queue_(nullptr), readers_slots_(0), writer_slots_(1) {
   }
 
-  ~channel_impl() { delete queue_; }
+  ~channel_impl() {
+    delete queue_;
+  }
 
   /**
    * Write an element in the channel
@@ -128,7 +131,7 @@ class channel {
   using impl_t = channel_impl<value_t, Size>;
 
   std::shared_ptr<impl_t> channel_;
-  thread_id thread_id_ {0};
+  thread_id thread_id_{0};
 
   thread_id get_id() {
     if (!thread_id_) {
