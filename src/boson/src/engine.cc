@@ -74,6 +74,21 @@ void engine::wait_all_routines() {
   }
 }
 
+engine::engine(size_t max_nb_cores)
+    : max_nb_cores_{max_nb_cores},
+      nb_active_threads_{max_nb_cores},
+      command_queue_{static_cast<int>(max_nb_cores + 1)},
+      command_pushers_{0} {
+  // Start threads
+  threads_.reserve(max_nb_cores);
+  for (size_t index = 0; index < max_nb_cores_; ++index) {
+    threads_.emplace_back(new thread_view_t(*this));
+    auto& created_thread = threads_.back();
+    threads_.back()->std_thread =
+        std::thread([&created_thread]() { created_thread->thread.loop(); });
+  }
+};
+
 thread_id engine::register_thread_id() {
   auto new_id = current_thread_id_++;
   return new_id;

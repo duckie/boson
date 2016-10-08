@@ -49,12 +49,13 @@ int main(int argc, char* argv[]) {
     std::vector<int> data;
     std::vector<int> data2;
     // Execute a routine communication through pipes
-    boson::mutex mut;   // if not shared, it must outlive the engine instance
-    boson::mutex mut2;  // if not shared, it must outlive the engine instance
-    boson::engine instance(nb_threads);
-    instance.start([&]() mutable {
+    boson::run(nb_threads, [&]() {
+      using namespace boson;
+      boson::mutex mut;   // if not shared, it must outlive the engine instance
+      boson::mutex mut2;  // if not shared, it must outlive the engine instance
+
       for (int i = 0; i < nb_threads / 2; ++i) {
-        boson::start([&mut, &data]() mutable {
+        boson::start([mut, &data]() mutable {
           for (int j = 0; j < nb_iter; ++j) {
             mut.lock();
             data.push_back(1);
@@ -62,7 +63,7 @@ int main(int argc, char* argv[]) {
             mut.unlock();
           }
         });
-        boson::start([&mut2, &data2]() mutable {
+        boson::start([mut2, &data2]() mutable {
           for (int j = 0; j < nb_iter; ++j) {
             mut2.lock();
             data2.push_back(1);
@@ -72,35 +73,35 @@ int main(int argc, char* argv[]) {
         });
       }
     });
-    t2 = high_resolution_clock::now();
   }
   auto t3 = high_resolution_clock::now();
   {
     std::vector<int> data;
     std::vector<int> data2;
-    // Execute a routine communication through pipes
-    boson::engine instance(nb_threads);
     std::mutex std_mut;
     std::mutex std_mut2;
-    for (int i = 0; i < nb_threads / 2; ++i) {
-      instance.start([&data, &std_mut]() mutable {
-        for (int j = 0; j < nb_iter; ++j) {
-          std_mut.lock();
-          data.push_back(1);
-          // std::this_thread::sleep_for(2ms);
-          std_mut.unlock();
-        }
-      });
-      instance.start([&data2, &std_mut2]() mutable {
-        for (int j = 0; j < nb_iter; ++j) {
-          std_mut2.lock();
-          data2.push_back(1);
-          // std::this_thread::sleep_for(2ms);
-          std_mut2.unlock();
-        }
-      });
-    }
-    t3 = high_resolution_clock::now();
+    // Execute a routine communication through pipes
+    boson::run(nb_threads, [&]() mutable {
+      using namespace boson;
+      for (int i = 0; i < nb_threads / 2; ++i) {
+        start([&data, &std_mut]() mutable {
+          for (int j = 0; j < nb_iter; ++j) {
+            std_mut.lock();
+            data.push_back(1);
+            // std::this_thread::sleep_for(2ms);
+            std_mut.unlock();
+          }
+        });
+        start([&data2, &std_mut2]() mutable {
+          for (int j = 0; j < nb_iter; ++j) {
+            std_mut2.lock();
+            data2.push_back(1);
+            // std::this_thread::sleep_for(2ms);
+            std_mut2.unlock();
+          }
+        });
+      }
+    });
   }
   auto t4 = high_resolution_clock::now();
   boson::debug::log("Pass 1: {}", duration_cast<milliseconds>(t2 - t1).count());

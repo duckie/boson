@@ -4,41 +4,41 @@
 
 namespace boson {
 
-class mutex : private semaphore {
+class mutex_impl : private semaphore {
  public:
-  inline mutex();
-  mutex(mutex const&) = delete;
-  mutex(mutex&&) = default;
-  mutex& operator=(mutex const&) = delete;
-  mutex& operator=(mutex&&) = default;
-  virtual ~mutex() = default;
+  inline mutex_impl();
+  mutex_impl(mutex_impl const&) = delete;
+  mutex_impl(mutex_impl&&) = default;
+  mutex_impl& operator=(mutex_impl const&) = delete;
+  mutex_impl& operator=(mutex_impl&&) = default;
+  virtual ~mutex_impl() = default;
   inline void lock();
   inline void unlock();
 };
 
-mutex::mutex() : semaphore(1) {
+mutex_impl::mutex_impl() : semaphore(1) {
 }
 
-void mutex::lock() {
+void mutex_impl::lock() {
   wait();
 }
-void mutex::unlock() {
+void mutex_impl::unlock() {
   post();
 }
 
 /**
- * shared_mutex is a wrapper for shared_ptr of a mutex
+ * mutex is a wrapper for shared_ptr of a mutex_impl
  */
-class shared_mutex {
-  std::shared_ptr<mutex> impl_;
+class mutex {
+  std::shared_ptr<mutex_impl> impl_;
 
  public:
-  inline shared_mutex();
-  shared_mutex(shared_mutex const&) = default;
-  shared_mutex(shared_mutex&&) = default;
-  shared_mutex& operator=(shared_mutex const&) = default;
-  shared_mutex& operator=(shared_mutex&&) = default;
-  virtual ~shared_mutex() = default;
+  inline mutex();
+  mutex(mutex const&) = default;
+  mutex(mutex&&) = default;
+  mutex& operator=(mutex const&) = default;
+  mutex& operator=(mutex&&) = default;
+  virtual ~mutex() = default;
 
   inline void lock();
   inline void unlock();
@@ -46,14 +46,14 @@ class shared_mutex {
 
 // inline implementations
 
-shared_mutex::shared_mutex() : impl_{new mutex} {
+mutex::mutex() : impl_{new mutex_impl} {
 }
 
-void shared_mutex::lock() {
+void mutex::lock() {
   impl_->lock();
 }
 
-void shared_mutex::unlock() {
+void mutex::unlock() {
   impl_->unlock();
 }
 

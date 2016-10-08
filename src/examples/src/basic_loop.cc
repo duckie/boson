@@ -4,15 +4,18 @@
 
 int main(int argc, char* argv[]) {
   boson::debug::logger_instance(&std::cout);
-  boson::engine instance(1, [&]() mutable {
-    boson::start([]() {
+
+  boson::run(1, []() {
+    using namespace boson;
+
+    start([]() {
       for (int i = 0; i < 10; ++i) {
         std::cout << "A: " << i << "\n";
         boson::yield();
       }
     });
 
-    boson::start([]() {
+    start([]() {
       for (int i = 0; i < 10; ++i) {
         std::cout << "B: " << i << "\n";
         boson::yield();

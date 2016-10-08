@@ -21,6 +21,7 @@ int main(int argc, char* argv[]) {
 
   size_t nnb_iter = nb_iter;
   boson::queues::base_wfqueue queue(nb_threads + 1);
+  //boson::queues::simple_wfqueue queue(nb_threads + 1);
 
   std::array<vector<size_t>, nb_prod> input{};
   std::array<size_t, nb_cons> output{};
