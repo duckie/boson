@@ -1,9 +1,9 @@
 set(headers
-wfqueue/wfqueue.h
-wfqueue/lcrq.h
-wfqueue/ccqueue.h
-wfqueue/primitives.h
-wfqueue/align.h
+#wfqueue/wfqueue.h
+#wfqueue/lcrq.h
+#wfqueue/ccqueue.h
+#wfqueue/primitives.h
+#wfqueue/align.h
 wfqueue/queue.h
 )
 
@@ -11,8 +11,8 @@ add_library(wfqueue
 wfqueue/wfqueue.c
 #wfqueue/lcrq.c
 #wfqueue/ccqueue.c
-wfqueue/hzdptr.c
-wfqueue/xxhash.c
+#wfqueue/hzdptr.c
+#wfqueue/xxhash.c
 ${headers}
 )
 
