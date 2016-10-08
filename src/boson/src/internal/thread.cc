@@ -54,8 +54,6 @@ void engine_proxy::set_id() {
   current_thread_id_ = engine_->register_thread_id();
 }
 
-// class thread;
-
 void thread::handle_engine_event() {
   thread_command* received_command = nullptr;
   while ((received_command = static_cast<thread_command*>(engine_queue_.pop(id())))) {
@@ -70,15 +68,10 @@ void thread::handle_engine_event() {
         int rid = std::get<0>(t);
         int status = std::get<1>(t);
         routine* current_routine = std::get<2>(t).release();
-        
-        debug::log("Thread {} unlocks {}:{}",id(), rid , status);
         assert(current_routine->status() == routine_status::wait_sema_wait);
-        //debug::log("Thread {} unlocks {}:{}:{}",id(), current_routine->thread_->id(),current_routine->id(),static_cast<int>(current_routine->status()));
-        //if (current_routine->status() == routine_status::wait_sema_wait) {
-          current_routine->expected_event_happened();
-          --suspended_routines_;
-          scheduled_routines_.emplace_back(current_routine);
-        //}
+        current_routine->expected_event_happened();
+        --suspended_routines_;
+        scheduled_routines_.emplace_back(current_routine);
       } break;
       case thread_command_type::finish:
         status_ = thread_status::finishing;
