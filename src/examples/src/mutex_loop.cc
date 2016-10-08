@@ -52,26 +52,26 @@ int main(int argc, char* argv[]) {
     boson::mutex mut;   // if not shared, it must outlive the engine instance
     boson::mutex mut2;  // if not shared, it must outlive the engine instance
     boson::engine instance(nb_threads);
-    // boson::shared_mutex mut;  // if not shared, it must outlive the engine instance
-    // boson::shared_mutex mut2;  // if not shared, it must outlive the engine instance
-    for (int i = 0; i < nb_threads / 2; ++i) {
-      instance.start([&mut, &data]() mutable {
-        for (int j = 0; j < nb_iter; ++j) {
-          mut.lock();
-          data.push_back(1);
-          // boson::sleep(2ms);
-          mut.unlock();
-        }
-      });
-      instance.start([&mut2, &data2]() mutable {
-        for (int j = 0; j < nb_iter; ++j) {
-          mut2.lock();
-          data2.push_back(1);
-          // boson::sleep(2ms);
-          mut2.unlock();
-        }
-      });
-    }
+    instance.start([&]() mutable {
+      for (int i = 0; i < nb_threads / 2; ++i) {
+        boson::start([&mut, &data]() mutable {
+          for (int j = 0; j < nb_iter; ++j) {
+            mut.lock();
+            data.push_back(1);
+            // boson::sleep(2ms);
+            mut.unlock();
+          }
+        });
+        boson::start([&mut2, &data2]() mutable {
+          for (int j = 0; j < nb_iter; ++j) {
+            mut2.lock();
+            data2.push_back(1);
+            // boson::sleep(2ms);
+            mut2.unlock();
+          }
+        });
+      }
+    });
     t2 = high_resolution_clock::now();
   }
   auto t3 = high_resolution_clock::now();

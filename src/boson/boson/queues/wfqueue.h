@@ -24,28 +24,13 @@ class simple_wfqueue {
   std::list<void*> queue_;
   std::mutex mut_;
  public:
-
-  simple_wfqueue(int nprocs_) {
-  }
+  simple_wfqueue(int nprocs_);
   simple_wfqueue(simple_wfqueue const&) = delete;
   simple_wfqueue(simple_wfqueue&&) = default;
   simple_wfqueue& operator=(simple_wfqueue const&) = delete;
   simple_wfqueue& operator=(simple_wfqueue&&) = default;
-
-  void push(std::size_t proc_id, void* data) {
-    std::lock_guard<std::mutex> guard(mut_);
-    queue_.push_back(data); 
-  }
-
-  void* pop(std::size_t proc_id) {
-    std::lock_guard<std::mutex> guard(mut_);
-    void* data = nullptr;
-    if (!queue_.empty()) {
-      data = queue_.front();
-      queue_.pop_front();
-    }
-    return data;
-  }
+  void push(std::size_t proc_id, void* data);
+  void* pop(std::size_t proc_id);
 };
 
 /**

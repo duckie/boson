@@ -79,7 +79,6 @@ void thread::handle_engine_event() {
     }
     delete received_command;
   }
-  // execute_scheduled_routines();
 }
 
 void thread::unregister_all_events() {
