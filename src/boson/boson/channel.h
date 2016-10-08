@@ -52,7 +52,7 @@ class channel_impl {
 
   bool pop(thread_id tid, ContentType& value) {
     readers_slots_.wait();
-    ContentType* ptr = get_queue()->pop(tid);
+    ContentType* ptr = static_cast<ContentType*>(get_queue()->pop(tid));
     assert(ptr);
     value = std::move(*ptr);
     delete ptr;
@@ -105,7 +105,7 @@ class channel_impl<ContentType,0> {
 
   bool pop(thread_id tid, ContentType& value) {
     readers_slots_.wait();
-    ContentType* ptr = get_queue()->pop(tid);
+    ContentType* ptr = static_cast<ContentType*>(get_queue()->pop(tid));
     assert(ptr);
     value = std::move(*ptr);
     delete ptr;

@@ -10,7 +10,7 @@ auto semaphore::get_queue(internal::thread* current) -> queue_t* {
     if (!waiters_) {
         mut_.lock();
         if (!waiters_) {
-          waiters_ = new queues::wfqueue<internal::routine*>(current->get_engine().max_nb_cores()*2);
+          waiters_ = new queue_t(current->get_engine().max_nb_cores()*2);
         }
         mut_.unlock();
     }
@@ -30,7 +30,8 @@ semaphore::~semaphore() {
 
 bool semaphore::pop_a_waiter(internal::thread* current) {
   using namespace internal;
-  routine* waiter = get_queue(current)->pop(current->id());
+  //routine* waiter = static_cast<routine*>(get_queue(current)->pop(current->id()));
+  routine* waiter = static_cast<routine*>(get_queue(current)->pop(current->id()));
   if (waiter) {
     assert(waiter->thread_);
     thread* managing_thread = waiter->thread_;

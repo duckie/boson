@@ -11,17 +11,17 @@ using namespace std::literals;
 using namespace std::chrono;
 using namespace std;
 
-static constexpr int nb_iter = 1e6;
-static constexpr int nb_threads = 4;
-constexpr size_t const nb_prod = 16;
-constexpr size_t const nb_cons = 16;
+static constexpr int nb_iter = 1e5;
+static constexpr int nb_threads = 8;
+constexpr size_t const nb_prod = 12;
+constexpr size_t const nb_cons = 12;
 
 int main(int argc, char* argv[]) {
   boson::debug::logger_instance(&std::cout);
 
 
   size_t nnb_iter = nb_iter;
-  boson::queues::wfqueue<int*> queue(nb_threads+1);
+  boson::queues::base_wfqueue queue(nb_threads+1);
 
   std::array<vector<size_t>, nb_prod> input{};
   std::array<size_t, nb_cons> output{};
@@ -33,7 +33,6 @@ int main(int argc, char* argv[]) {
     if (0 < index) input[index % nb_prod].push_back(index);
     expected += index;
   }
-  // Execute a routine communication through pipes
   {
     boson::engine instance(nb_threads);
     for (int index = 0; index < nb_prod; ++index) {

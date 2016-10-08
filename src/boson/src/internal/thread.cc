@@ -58,7 +58,7 @@ void engine_proxy::set_id() {
 
 void thread::handle_engine_event() {
   thread_command* received_command = nullptr;
-  while ((received_command = engine_queue_.pop(id()))) {
+  while ((received_command = static_cast<thread_command*>(engine_queue_.pop(id())))) {
     nb_pending_commands_.fetch_sub(std::memory_order_release);
     switch (received_command->type) {
       case thread_command_type::add_routine:
@@ -72,13 +72,13 @@ void thread::handle_engine_event() {
         routine* current_routine = std::get<2>(t).release();
         
         debug::log("Thread {} unlocks {}:{}",id(), rid , status);
-        //assert(current_routine->status() == routine_status::wait_sema_wait);
+        assert(current_routine->status() == routine_status::wait_sema_wait);
         //debug::log("Thread {} unlocks {}:{}:{}",id(), current_routine->thread_->id(),current_routine->id(),static_cast<int>(current_routine->status()));
-        if (current_routine->status() == routine_status::wait_sema_wait) {
+        //if (current_routine->status() == routine_status::wait_sema_wait) {
           current_routine->expected_event_happened();
           --suspended_routines_;
           scheduled_routines_.emplace_back(current_routine);
-        }
+        //}
       } break;
       case thread_command_type::finish:
         status_ = thread_status::finishing;
@@ -200,7 +200,7 @@ void thread::execute_scheduled_routines() {
       case routine_status::wait_sema_wait: {
         clear_previous_io_event(*routine, loop_);
         // Routine missed the lock, lets take care it
-      debug::log("Routine {}:{}:{} is pushed", id(), routine->id(), static_cast<int>(routine->status())); 
+      //debug::log("Routine {}:{}:{} is pushed", id(), routine->id(), static_cast<int>(routine->status())); 
         semaphore* missed_semaphore = static_cast<semaphore*>(routine->context_.data);
         missed_semaphore->get_queue(this)->push(id(), routine.release());
         int result = missed_semaphore->counter_.fetch_add(1, std::memory_order::memory_order_release);
@@ -213,9 +213,9 @@ void thread::execute_scheduled_routines() {
       } break;
     };
 
-    if (routine.get()) {
-      debug::log("Routine {}:{}:{} will be deleted.", id(), routine->id(), static_cast<int>(routine->status())); 
-    }
+    //if (routine.get()) {
+      //debug::log("Routine {}:{}:{} will be deleted.", id(), routine->id(), static_cast<int>(routine->status())); 
+    //}
     scheduled_routines_.pop_front();
   }
 

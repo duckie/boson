@@ -10,13 +10,13 @@
 #include <pthread.h>
 
 namespace {
-  static constexpr size_t nb_iter = 1e4;
+  static constexpr size_t nb_iter = 1e5+153;
 }
 
 using namespace std;
 
 TEST_CASE("Queues - WfQueue - simple case", "[queues][wfqueue]") {
-  boson::queues::wfqueue<int*> queue(2);
+  //boson::queues::wfqueue<int*> queue(2);
   //int i = 0;
   //void* none = queue.pop(0);
   //CHECK(none == nullptr);
@@ -43,7 +43,7 @@ TEST_CASE("Queues - WfQueue - sums", "[queues][wfqueue]") {
   for (int j = 0; j < nb_main_threads; ++j) {
     main_threads[j] = std::thread([&]() {
       size_t nnb_iter = nb_iter;
-      boson::queues::wfqueue<int*> queue(nb_prod + nb_cons);
+      boson::queues::base_wfqueue queue(nb_prod + nb_cons);
 
       std::array<vector<size_t>, nb_prod> input{};
       std::array<size_t, nb_cons> output{};

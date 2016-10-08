@@ -51,11 +51,11 @@ void routine::resume(thread* managing_thread) {
       //// placment new for control structure on context-stack
       // auto rec = ::new ( sp) detail::stack_header;
       context_.fctx = make_fcontext(stack_.sp, stack_.size, detail::resume_routine);
-      context_ = jump_fcontext(context_.fctx, thread_);
+      context_ = jump_fcontext(context_.fctx, nullptr);
       break;
     }
     case routine_status::yielding: {
-      context_ = jump_fcontext(context_.fctx, thread_);
+      context_ = jump_fcontext(context_.fctx, nullptr);
       break;
     }
     case routine_status::finished: {
@@ -64,6 +64,36 @@ void routine::resume(thread* managing_thread) {
       break;
     }
   }
+
+  // Manage the queue requests
+  while(status_ == routine_status::request_queue_push || status_ == routine_status::request_queue_pop) {
+    queue_request* request = static_cast<queue_request*>(context_.data);
+    if (status_ == routine_status::request_queue_push) {
+      request->queue->push(thread_->id(),request->data); 
+    }
+    else {
+      request->data = request->queue->pop(thread_->id()); 
+    }
+    context_ = jump_fcontext(context_.fctx, nullptr);
+  }
+}
+
+void routine::queue_push(queues::base_wfqueue& queue, void* data) {
+  queue_request * request = new queue_request {&queue,data};
+  status_ = routine_status::request_queue_push;
+  thread_->context() = jump_fcontext(thread_->context().fctx, request);
+  delete request;
+  status_ = routine_status::running;
+}
+
+void* routine::queue_pop(queues::base_wfqueue& queue) {
+  queue_request* request = new queue_request {&queue,nullptr};
+  status_ = routine_status::request_queue_pop;
+  thread_->context() = jump_fcontext(thread_->context().fctx, request);
+  status_ = routine_status::running;
+  void* data = request->data;
+  delete request;
+  return data;
 }
 
 }  // namespace internal

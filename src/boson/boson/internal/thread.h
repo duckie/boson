@@ -87,10 +87,12 @@ class thread : public event_handler {
   friend ssize_t boson::write(int fd, const void* buf, size_t count);
   template <class ContentType>
   friend class channel;
+  friend class routine;
 
   friend class boson::semaphore;
   using routine_ptr_t = std::unique_ptr<routine>;
   using engine_queue_t = queues::wfqueue<thread_command*>;
+  //using engine_queue_t = queues::simple_wfqueue;
 
   engine_proxy engine_proxy_;
   std::list<routine_ptr_t> scheduled_routines_;
@@ -150,7 +152,6 @@ class thread : public event_handler {
   void unregister_all_events();
 
   inline transfer_t& context();
-  inline routine* running_routine();
 
  public:
   thread(engine& parent_engine);
@@ -188,6 +189,8 @@ class thread : public event_handler {
     engine_proxy_.start_routine(
         std::make_unique<routine>(engine_proxy_.get_new_routine_id(), std::forward<Function>(func)));
   }
+
+  inline routine* running_routine();
 };
 
 /**

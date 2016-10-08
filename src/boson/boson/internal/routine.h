@@ -10,6 +10,12 @@
 #include "stack.h"
 
 namespace boson {
+
+namespace queues {
+class base_wfqueue;
+}
+
+
 using routine_id = std::size_t;
 namespace internal {
 
@@ -32,8 +38,8 @@ enum class routine_status {
   wait_sys_read,   // Routine waits for a FD to be ready for read
   wait_sys_write,  // Routine waits for a FD to be readu for write
   wait_sema_wait,  // Routine waits to get a boson::semaphore
-  //wait_channek_write,
-  //wait_channel_read,
+  request_queue_push,  // Executes a push in the thread context
+  request_queue_pop,  // Executes a pop in the thread context
   finished  // Routine finished execution
 };
 
@@ -96,6 +102,11 @@ class function_holder_impl : public function_holder {
 };
 }  // nemespace detail
 
+struct queue_request {
+  queues::base_wfqueue* queue;
+  void* data;
+};
+
 /**
  * routine represents a single unit of execution
  *
@@ -152,6 +163,8 @@ class routine {
    *
    */
   void resume(thread* managing_thread);
+  void queue_push(queues::base_wfqueue& queue, void* data);
+  void* queue_pop(queues::base_wfqueue& queue);
 
   /**
    * Tells the routine it can be executed

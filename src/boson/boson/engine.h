@@ -82,6 +82,7 @@ class engine {
   thread_id register_thread_id();
 
   using queue_t = queues::wfqueue<command*>;
+  //using queue_t = queues::simple_wfqueue;
   queue_t command_queue_;
   std::condition_variable command_waiter_;
   std::atomic<size_t> command_pushers_;
