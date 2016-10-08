@@ -118,6 +118,38 @@ class channel_impl<ContentType, 0> {
 };
 
 /**
+ * Specialization for the channel containing nothing
+ */
+template <std::size_t Size>
+class channel_impl<std::nullptr_t, Size> {
+  boson::semaphore semaphore_;
+
+ public:
+  channel_impl() : semaphore_{Size} {
+  }
+
+  ~channel_impl() {
+  }
+
+  /**
+   * Write an element in the channel
+   *
+   * Returns false only if the channel is closed.
+   */
+  template <class... Args>
+  bool push(thread_id tid, Args&&... args) {
+    semaphore_.post();
+    return true;
+  }
+
+  bool pop(thread_id tid, std::nullptr_t& value) {
+    semaphore_.wait();
+    value = nullptr;
+    return true;
+  }
+};
+
+/**
  * Channel use interface
  *
  * The user is supposed ot use and copy channel objects
