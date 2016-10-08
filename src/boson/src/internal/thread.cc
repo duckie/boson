@@ -131,7 +131,7 @@ void thread::push_command(thread_id from, std::unique_ptr<thread_command> comman
 namespace {
 inline void clear_previous_io_event(routine& routine, event_loop& loop) {
   if (routine.previous_status_is_io_block()) {
-    routine_io_event& target_event = routine.waiting_data().raw<routine_io_event>();
+    routine_io_event& target_event = routine.waiting_data().get<routine_io_event>();
     if (0 <= target_event.event_id) loop.unregister(target_event.event_id);
   }
 }
@@ -220,34 +220,26 @@ void thread::execute_scheduled_routines() {
   // This is made in two step to limit the syscall to get the current date
 
   // If finished and no more routines, exit
+  size_t nb_pending_commands = nb_pending_commands_.load(std::memory_order_acquire);
   bool no_more_routines =
       scheduled_routines_.empty() && timed_routines_.empty() && 0 == suspended_routines_;
   if (no_more_routines) {
     if (thread_status::finishing == status_) {
       unregister_all_events();
       status_ = thread_status::finished;
-      // debug::log("Thread {} finished", id());
-    } else if (0 == nb_pending_commands_.load(std::memory_order_acquire)) {
-      status_ = thread_status::idle;
+    } else if (0 == nb_pending_commands) {
       engine_proxy_.notify_idle(0);
-      // debug::log("Thread {} idles.", id());
     }
   } else {
     if (scheduled_routines_.empty()) {
-      if (0 == nb_pending_commands_.load(std::memory_order_acquire)) {
-        status_ = thread_status::idle;
+      if (0 == nb_pending_commands) {
         engine_proxy_.notify_idle(timed_routines_.size() + suspended_routines_);
-        // debug::log("Thread {} idles with {} routines.", id(), timed_routines_.size() +
-        // suspended_routines_);
       } else {
         loop_.send_event(self_event_id_);
       }
-      // else nothing, other commands will take care of it
     } else {
       // If some routines already are scheduled, then throw an event to force a loop execution
-      // status_ = thread_status::busy;
       loop_.send_event(self_event_id_);
-      // debug::log("Thread {} is busy.", id());
     }
   }
 }

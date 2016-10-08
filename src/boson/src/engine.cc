@@ -56,7 +56,7 @@ void engine::wait_all_routines() {
     for (auto& view_ptr : threads_) {
       nb_remaining_routines += view_ptr->nb_routines;
     }
-    // debug::log("Remains {} routines.", nb_remaining_routines);
+    //debug::log("Remains {} routines.", nb_remaining_routines);
     if (0 == nb_remaining_routines) {
       for (auto& thread : threads_) {
         if (!thread->sent_end_request) {

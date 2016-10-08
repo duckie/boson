@@ -63,9 +63,11 @@ int main(int argc, char* argv[]) {
   {
     // Execute a routine communication through pipes
     boson::engine instance(1);
-    instance.start(producer, b2a[0], a2b[1]);
-    instance.start(router, a2b[0], b2a[1], c2b[0], b2c[1]);
-    instance.start(consumer, b2c[0], c2b[1]);
+    instance.start([&] {
+      boson::start(producer, b2a[0], a2b[1]);
+      boson::start(router, a2b[0], b2a[1], c2b[0], b2c[1]);
+      boson::start(consumer, b2c[0], c2b[1]);
+    });
   }
   ::close(a2b[1]);
   ::close(b2a[0]);
