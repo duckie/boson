@@ -8,6 +8,7 @@
 #include "boson/syscalls.h"
 #include "fcontext.h"
 #include "stack.h"
+#include "boson/std/experimental/apply.h"
 
 namespace boson {
 
@@ -88,17 +89,23 @@ struct function_holder {
   virtual void operator()() = 0;
 };
 
-template <class Function>
+template <class Function, class TupleArgs>
 class function_holder_impl : public function_holder {
   Function func_;
+  TupleArgs args_;
 
  public:
-  function_holder_impl(Function&& func) : func_{std::move(func)} {
+  function_holder_impl(Function&& func, TupleArgs&& args) : func_{std::move(func)}, args_{std::move(args)} {
   }
   void operator()() override {
-    func_();
+    return experimental::apply(func_, std::move(args_));
   }
 };
+
+template <class Function, class TupleArgs> 
+decltype(auto) make_unique_function_holder(Function&& func, TupleArgs&& args) {
+  return std::unique_ptr<function_holder>(new function_holder_impl<Function, TupleArgs>(std::forward<Function>(func), std::forward<TupleArgs>(args)));
+}
 }  // nemespace detail
 
 struct queue_request {
@@ -131,9 +138,9 @@ class routine {
   routine_id id_;
 
  public:
-  template <class Function>
-  routine(routine_id id, Function&& func)
-      : func_{new detail::function_holder_impl<Function>(std::forward<Function>(func))}, id_{id} {
+  template <class Function, class ... Args>
+  routine(routine_id id, Function&& func, Args&& ... args)
+      : func_{detail::make_unique_function_holder(std::forward<Function>(func), std::forward_as_tuple(args...))}, id_{id} {
   }
 
   routine(routine const&) = delete;

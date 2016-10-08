@@ -101,14 +101,14 @@ class engine {
   /***
    * Starts a routine into the given thread
    */
-  template <class Function>
-  void start(thread_id id, Function&& function);
+  template <class Function, class ... Args>
+  void start(thread_id id, Function&& function, Args&& ... args);
 
   /**
    * Starts a routine in whatever thread the engine sees fit
    */
-  template <class Function>
-  void start(Function&& function);
+  template <class Function, class ... Args>
+  void start(Function&& function, Args&& ... args);
 };
 
 // Inline/template implementations
@@ -116,20 +116,20 @@ inline size_t engine::max_nb_cores() const {
   return max_nb_cores_;
 }
 
-template <class Function>
-void engine::start(thread_id id, Function&& function) {
+template <class Function, class ... Args>
+void engine::start(thread_id id, Function&& function, Args&& ... args) {
   // Send a request
   push_command(max_nb_cores_,
                std::make_unique<command>(
                    max_nb_cores_, command_type::add_routine,
                    command_new_routine_data{
                        id, std::make_unique<internal::routine>(current_routine_id_++,
-                                                               std::forward<Function>(function))}));
+                                                               std::forward<Function>(function), std::forward<Args>(args)...)}));
 };
 
-template <class Function>
-void engine::start(Function&& function) {
-  start(max_nb_cores_, std::forward<Function>(function));
+template <class Function, class ... Args>
+void engine::start(Function&& function, Args&& ... args) {
+  start(max_nb_cores_, std::forward<Function>(function), std::forward<Args>(args)...);
 };
 
 }  // namespace boson

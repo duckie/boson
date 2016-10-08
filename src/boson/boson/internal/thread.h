@@ -186,10 +186,10 @@ class thread : public event_handler {
    */
   void loop();
 
-  template <class Function>
-  void start_routine(Function&& func) {
+  template <class Function, class ... Args>
+  void start_routine(Function&& func, Args&& ... args) {
     engine_proxy_.start_routine(std::make_unique<routine>(engine_proxy_.get_new_routine_id(),
-                                                          std::forward<Function>(func)));
+                                                          std::forward<Function>(func), std::forward<Args>(args)...));
   }
 
   inline routine* running_routine();
@@ -223,9 +223,9 @@ engine const& thread::get_engine() const {
 
 }  // namespace internal
 
-template <class Function>
-void start(Function&& func) {
-  internal::current_thread()->start_routine(std::forward<Function>(func));
+template <class Function, class ... Args>
+void start(Function&& func, Args&& ... args) {
+  internal::current_thread()->start_routine(std::forward<Function>(func), std::forward<Args>(args)...);
 }
 
 }  // namespace boson
