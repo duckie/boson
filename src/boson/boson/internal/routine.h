@@ -89,22 +89,23 @@ struct function_holder {
   virtual void operator()() = 0;
 };
 
-template <class Function, class TupleArgs>
+template <class Function, class ... Args>
 class function_holder_impl : public function_holder {
   Function func_;
-  TupleArgs args_;
+  std::tuple<Args...> args_;
 
  public:
-  function_holder_impl(Function&& func, TupleArgs&& args) : func_{std::move(func)}, args_{std::move(args)} {
+  function_holder_impl(Function func, Args ... args) : func_{std::move(func)}, args_{std::forward<Args>(args)...} {
   }
   void operator()() override {
     return experimental::apply(func_, std::move(args_));
   }
 };
 
-template <class Function, class TupleArgs> 
-decltype(auto) make_unique_function_holder(Function&& func, TupleArgs&& args) {
-  return std::unique_ptr<function_holder>(new function_holder_impl<Function, TupleArgs>(std::forward<Function>(func), std::forward<TupleArgs>(args)));
+template <class Function, class ... Args> 
+decltype(auto) make_unique_function_holder(Function&& func, Args&& ... args) {
+  return std::unique_ptr<function_holder>(new function_holder_impl<Function, Args...>(
+      std::forward<Function>(func), std::forward<Args>(args)...));
 }
 }  // nemespace detail
 
@@ -140,7 +141,7 @@ class routine {
  public:
   template <class Function, class ... Args>
   routine(routine_id id, Function&& func, Args&& ... args)
-      : func_{detail::make_unique_function_holder(std::forward<Function>(func), std::forward_as_tuple(args...))}, id_{id} {
+      : func_{detail::make_unique_function_holder(std::forward<Function>(func), std::forward<Args>(args)...)}, id_{id} {
   }
 
   routine(routine const&) = delete;
