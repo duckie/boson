@@ -87,6 +87,9 @@ class thread : public event_handler {
   friend void boson::sleep(std::chrono::milliseconds);
   friend ssize_t boson::read(int fd, void* buf, size_t count);
   friend ssize_t boson::write(int fd, const void* buf, size_t count);
+  friend int boson::accept(int socket, struct sockaddr* address, socklen_t* address_len);
+  friend size_t boson::send(int socket, const void* buffer, size_t length, int flags);
+  friend ssize_t boson::recv(int socket, void* buffer, size_t length, int flags);
   template <class ContentType>
   friend class channel;
   friend class routine;
@@ -185,10 +188,11 @@ class thread : public event_handler {
    */
   void loop();
 
-  template <class Function, class ... Args>
-  void start_routine(Function&& func, Args&& ... args) {
+  template <class Function, class... Args>
+  void start_routine(Function&& func, Args&&... args) {
     engine_proxy_.start_routine(std::make_unique<routine>(engine_proxy_.get_new_routine_id(),
-                                                          std::forward<Function>(func), std::forward<Args>(args)...));
+                                                          std::forward<Function>(func),
+                                                          std::forward<Args>(args)...));
   }
 
   inline routine* running_routine();
@@ -222,9 +226,10 @@ engine const& thread::get_engine() const {
 
 }  // namespace internal
 
-template <class Function, class ... Args>
-void start(Function&& func, Args&& ... args) {
-  internal::current_thread()->start_routine(std::forward<Function>(func), std::forward<Args>(args)...);
+template <class Function, class... Args>
+void start(Function&& func, Args&&... args) {
+  internal::current_thread()->start_routine(std::forward<Function>(func),
+                                            std::forward<Args>(args)...);
 }
 
 }  // namespace boson

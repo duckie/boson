@@ -3,10 +3,10 @@
 #pragma once
 
 #include <sys/epoll.h>
+#include <atomic>
 #include <vector>
 #include "event_loop.h"
 #include "memory/sparse_vector.h"
-#include <atomic>
 
 namespace boson {
 using epoll_event_t = struct epoll_event;
@@ -32,7 +32,7 @@ class event_loop_impl {
   memory::sparse_vector<event_data> events_data_;
   std::vector<epoll_event_t> events_;
   size_t nb_io_registered_;
-  std::atomic<bool> trigger_fd_events_; // Only used for fd_event to bypass epoll
+  std::atomic<bool> trigger_fd_events_;  // Only used for fd_event to bypass epoll
 
  public:
   event_loop_impl(event_handler& handler);

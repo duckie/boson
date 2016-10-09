@@ -5,16 +5,16 @@
 #include <memory>
 #include <mutex>
 #include "boson/semaphore.h"
+#include "engine.h"
 #include "internal/routine.h"
 #include "internal/thread.h"
 #include "queues/wfqueue.h"
-#include "engine.h"
 
 namespace boson {
 
 template <class ContentType, std::size_t Size>
 class channel_impl {
-  std::array<ContentType,Size> buffer_;
+  std::array<ContentType, Size> buffer_;
   std::atomic<size_t> head_;
   std::atomic<size_t> tail_;
 
@@ -27,7 +27,7 @@ class channel_impl {
   }
 
   ~channel_impl() {
-    //delete queue_;
+    // delete queue_;
   }
 
   /**
@@ -38,7 +38,7 @@ class channel_impl {
   template <class... Args>
   bool push(thread_id tid, Args&&... args) {
     writer_slots_.wait();
-    size_t head = head_.fetch_add(1,std::memory_order_acq_rel);
+    size_t head = head_.fetch_add(1, std::memory_order_acq_rel);
     buffer_[head % Size] = ContentType(std::forward<Args>(args)...);
     readers_slots_.post();
     return true;
@@ -46,7 +46,7 @@ class channel_impl {
 
   bool pop(thread_id tid, ContentType& value) {
     readers_slots_.wait();
-    size_t tail = tail_.fetch_add(1,std::memory_order_acq_rel);
+    size_t tail = tail_.fetch_add(1, std::memory_order_acq_rel);
     value = std::move(buffer_[tail % Size]);
     writer_slots_.post();
     return true;
@@ -68,7 +68,7 @@ class channel_impl<ContentType, 0> {
   }
 
   ~channel_impl() {
-    //delete queue_;
+    // delete queue_;
   }
 
   /**

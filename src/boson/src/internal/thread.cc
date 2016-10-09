@@ -58,7 +58,7 @@ void thread::handle_engine_event() {
   thread_command* received_command = nullptr;
   while ((received_command = static_cast<thread_command*>(engine_queue_.pop(id())))) {
     static int sub = 0;
-    //nb_pending_commands_.fetch_sub(1,std::memory_order_release);
+    // nb_pending_commands_.fetch_sub(1,std::memory_order_release);
     nb_pending_commands_.fetch_sub(1);
     switch (received_command->type) {
       case thread_command_type::add_routine:
@@ -134,7 +134,8 @@ namespace {
 inline void clear_previous_io_event(routine& routine, event_loop& loop) {
   if (routine.previous_status_is_io_block()) {
     routine_io_event& target_event = routine.waiting_data().get<routine_io_event>();
-    if (0 <= target_event.event_id) loop.unregister(target_event.event_id);
+    if (0 <= target_event.event_id)
+      loop.unregister(target_event.event_id);
   }
 }
 }
@@ -146,11 +147,7 @@ bool thread::execute_scheduled_routines() {
     // For now; we schedule them in order
     auto& routine = scheduled_routines_.front();
     running_routine_ = routine.get();
-    // debug::log("Thread resumes {}:{} with status {}.", id(),
-    // routine->id(),static_cast<int>(routine->status()));
     routine->resume(this);
-    // debug::log("Thread finished {}:{} with status {}.", id(),
-    // routine->id(),static_cast<int>(routine->status()));
     switch (routine->status()) {
       case routine_status::is_new: {
         // Not supposed to happen
@@ -177,7 +174,7 @@ bool thread::execute_scheduled_routines() {
           clear_previous_io_event(*routine, loop_);
           target_event.event_id = loop_.register_read(target_event.fd, routine.release());
         } else {
-          next_scheduled_routines.emplace_back(routine.release());
+          routine.release();
         }
       } break;
       case routine_status::wait_sys_write: {
@@ -186,27 +183,28 @@ bool thread::execute_scheduled_routines() {
         if (!target_event.is_same_as_previous_event) {
           clear_previous_io_event(*routine, loop_);
           target_event.event_id = loop_.register_write(target_event.fd, routine.release());
-        } else {
-          next_scheduled_routines.emplace_back(routine.release());
+        }
+        else {
+          routine.release();
         }
       } break;
       case routine_status::wait_sema_wait: {
-        clear_previous_io_event(*routine, loop_);
+        //clear_previous_io_event(*routine, loop_);
         // Routine missed the lock, lets take care it
         // debug::log("Routine {}:{}:{} is pushed", id(), routine->id(),
         // static_cast<int>(routine->status()));
         semaphore* missed_semaphore = static_cast<semaphore*>(routine->context_.data);
         missed_semaphore->get_queue(this)->push(id(), routine.release());
-        //int result =
-            //missed_semaphore->counter_.fetch_add(1, std::memory_order::memory_order_release);
-        int result =
-            missed_semaphore->counter_.fetch_add(1);
-        //if (0 < missed_semaphore->counter_) 
-        //missed_semaphore->pop_a_waiter(this);
+        // int result =
+        // missed_semaphore->counter_.fetch_add(1, std::memory_order::memory_order_release);
+        int result = missed_semaphore->counter_.fetch_add(1);
+        // if (0 < missed_semaphore->counter_)
+        // missed_semaphore->pop_a_waiter(this);
         ++suspended_routines_;
       } break;
       case routine_status::finished: {
-        clear_previous_io_event(*routine, loop_);
+        //clear_previous_io_event(*routine, loop_);
+        // Should have been made by the routine by closing the FD
       } break;
     };
 
@@ -243,13 +241,14 @@ bool thread::execute_scheduled_routines() {
         return false;
       } else {
         static int fail = 0;
-        //debug::log("Fail send {}", nb_pending_commands_.load());
+        // debug::log("Fail send {}", nb_pending_commands_.load());
         loop_.send_event(engine_event_id_);
         return true;
       }
     } else {
       // If some routines already are scheduled, then throw an event to force a loop execution
-      loop_.send_event(self_event_id_);
+      //loop_.send_event(self_event_id_);
+      debug::log("Has {} scheduled", scheduled_routines_.size());
       return true;
     }
   }
