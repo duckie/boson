@@ -109,6 +109,11 @@ decltype(auto) make_unique_function_holder(Function&& func, Args&& ... args) {
 }
 }  // nemespace detail
 
+struct in_context_function {
+  virtual ~in_context_function() = default;
+  virtual void operator()(thread* this_thread) = 0;
+};
+
 struct queue_request {
   queues::base_wfqueue* queue;
   void* data;
@@ -170,8 +175,8 @@ class routine {
    *
    */
   void resume(thread* managing_thread);
-  void queue_push(queues::base_wfqueue& queue, void* data);
-  void* queue_pop(queues::base_wfqueue& queue);
+  //void queue_push(queues::base_wfqueue& queue, void* data);
+  //void* queue_pop(queues::base_wfqueue& queue);
 
   /**
    * Tells the routine it can be executed
@@ -180,6 +185,8 @@ class routine {
    * execute by putting its status to "yielding"
    */
   inline void expected_event_happened();
+
+  //void execute_in
 };
 
 static thread_local thread* this_routine = nullptr;

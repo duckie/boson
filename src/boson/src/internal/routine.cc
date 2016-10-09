@@ -22,7 +22,8 @@ void resume_routine(transfer_t transfered_context) {
   // It is paramount to use reference to the thread local variable here
   // since it can be updated during ping/ping context jumps during the routine
   // execution
-  jump_fcontext(this_thread->context().fctx, this_thread->context().data);
+  //jump_fcontext(this_thread->context().fctx, this_thread->context().data);
+  jump_fcontext(this_thread->context().fctx, nullptr);
 }
 }
 
@@ -66,35 +67,40 @@ void routine::resume(thread* managing_thread) {
   }
 
   // Manage the queue requests
-  while (status_ == routine_status::request_queue_push ||
-         status_ == routine_status::request_queue_pop) {
-    queue_request* request = static_cast<queue_request*>(context_.data);
-    if (status_ == routine_status::request_queue_push) {
-      request->queue->push(thread_->id(), request->data);
-    } else {
-      request->data = request->queue->pop(thread_->id());
-    }
+  while(context_.data && status_ == routine_status::running) {
+    in_context_function* func = static_cast<in_context_function*>(context_.data);
+    (*func)(thread_);
     context_ = jump_fcontext(context_.fctx, nullptr);
   }
+  //while (status_ == routine_status::request_queue_push ||
+         //status_ == routine_status::request_queue_pop) {
+    //queue_request* request = static_cast<queue_request*>(context_.data);
+    //if (status_ == routine_status::request_queue_push) {
+      //request->queue->push(thread_->id(), request->data);
+    //} else {
+      //request->data = request->queue->pop(thread_->id());
+    //}
+    //context_ = jump_fcontext(context_.fctx, nullptr);
+  //}
 }
 
-void routine::queue_push(queues::base_wfqueue& queue, void* data) {
-  queue_request* request = new queue_request{&queue, data};
-  status_ = routine_status::request_queue_push;
-  thread_->context() = jump_fcontext(thread_->context().fctx, request);
-  delete request;
-  status_ = routine_status::running;
-}
-
-void* routine::queue_pop(queues::base_wfqueue& queue) {
-  queue_request* request = new queue_request{&queue, nullptr};
-  status_ = routine_status::request_queue_pop;
-  thread_->context() = jump_fcontext(thread_->context().fctx, request);
-  status_ = routine_status::running;
-  void* data = request->data;
-  delete request;
-  return data;
-}
+//void routine::queue_push(queues::base_wfqueue& queue, void* data) {
+  //queue_request* request = new queue_request{&queue, data};
+  //status_ = routine_status::request_queue_push;
+  //thread_->context() = jump_fcontext(thread_->context().fctx, request);
+  //delete request;
+  //status_ = routine_status::running;
+//}
+//
+//void* routine::queue_pop(queues::base_wfqueue& queue) {
+  //queue_request* request = new queue_request{&queue, nullptr};
+  //status_ = routine_status::request_queue_pop;
+  //thread_->context() = jump_fcontext(thread_->context().fctx, request);
+  //status_ = routine_status::running;
+  //void* data = request->data;
+  //delete request;
+  //return data;
+//}
 
 }  // namespace internal
 

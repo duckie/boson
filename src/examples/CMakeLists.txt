@@ -33,3 +33,6 @@ target_link_libraries(queue_loop boson ${LIBRARIES})
 
 add_executable(channel_loop src/channel_loop.cc)
 target_link_libraries(channel_loop boson ${LIBRARIES})
+
+add_executable(channel_loop2 src/channel_loop2.cc)
+target_link_libraries(channel_loop2 boson ${LIBRARIES})
