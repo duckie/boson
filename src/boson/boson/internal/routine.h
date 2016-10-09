@@ -8,8 +8,14 @@
 #include "boson/syscalls.h"
 #include "fcontext.h"
 #include "stack.h"
+#include "boson/std/experimental/apply.h"
 
 namespace boson {
+
+namespace queues {
+class base_wfqueue;
+}
+
 using routine_id = std::size_t;
 namespace internal {
 
@@ -25,16 +31,16 @@ class thread;
 // static thread_local transfer_t current_thread_context = {nullptr, nullptr};
 
 enum class routine_status {
-  is_new,          // Routine has been created but never started
-  running,         // Routine is currently running
-  yielding,        // Routine yielded and waits to be resumed
-  wait_timer,      // Routine waits for a timer to expire
-  wait_sys_read,   // Routine waits for a FD to be ready for read
-  wait_sys_write,  // Routine waits for a FD to be readu for write
-  wait_sema_wait,  // Routine waits to get a boson::semaphore
-  //wait_channek_write,
-  //wait_channel_read,
-  finished  // Routine finished execution
+  is_new,              // Routine has been created but never started
+  running,             // Routine is currently running
+  yielding,            // Routine yielded and waits to be resumed
+  wait_timer,          // Routine waits for a timer to expire
+  wait_sys_read,       // Routine waits for a FD to be ready for read
+  wait_sys_write,      // Routine waits for a FD to be readu for write
+  wait_sema_wait,      // Routine waits to get a boson::semaphore
+  request_queue_push,  // Executes a push in the thread context
+  request_queue_pop,   // Executes a pop in the thread context
+  finished             // Routine finished execution
 };
 
 using routine_time_point =
@@ -79,21 +85,39 @@ namespace detail {
 void resume_routine(transfer_t transfered_context);
 
 struct function_holder {
+  virtual ~function_holder() = default;
   virtual void operator()() = 0;
 };
 
-template <class Function>
+template <class Function, class ... Args>
 class function_holder_impl : public function_holder {
   Function func_;
+  std::tuple<Args...> args_;
 
  public:
-  function_holder_impl(Function&& func) : func_{std::move(func)} {
+  function_holder_impl(Function func, Args ... args) : func_{std::move(func)}, args_{std::forward<Args>(args)...} {
   }
   void operator()() override {
-    func_();
+    return experimental::apply(func_, std::move(args_));
   }
 };
+
+template <class Function, class ... Args> 
+decltype(auto) make_unique_function_holder(Function&& func, Args&& ... args) {
+  return std::unique_ptr<function_holder>(new function_holder_impl<Function, Args...>(
+      std::forward<Function>(func), std::forward<Args>(args)...));
+}
 }  // nemespace detail
+
+struct in_context_function {
+  virtual ~in_context_function() = default;
+  virtual void operator()(thread* this_thread) = 0;
+};
+
+struct queue_request {
+  queues::base_wfqueue* queue;
+  void* data;
+};
 
 /**
  * routine represents a single unit of execution
@@ -120,9 +144,9 @@ class routine {
   routine_id id_;
 
  public:
-  template <class Function>
-  routine(routine_id id, Function&& func)
-      : func_{new detail::function_holder_impl<Function>(std::forward<Function>(func))}, id_{id} {
+  template <class Function, class ... Args>
+  routine(routine_id id, Function&& func, Args&& ... args)
+      : func_{detail::make_unique_function_holder(std::forward<Function>(func), std::forward<Args>(args)...)}, id_{id} {
   }
 
   routine(routine const&) = delete;
@@ -151,6 +175,8 @@ class routine {
    *
    */
   void resume(thread* managing_thread);
+  //void queue_push(queues::base_wfqueue& queue, void* data);
+  //void* queue_pop(queues::base_wfqueue& queue);
 
   /**
    * Tells the routine it can be executed
@@ -159,6 +185,8 @@ class routine {
    * execute by putting its status to "yielding"
    */
   inline void expected_event_happened();
+
+  //void execute_in
 };
 
 static thread_local thread* this_routine = nullptr;

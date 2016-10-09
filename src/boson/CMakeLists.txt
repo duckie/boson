@@ -11,14 +11,14 @@ add_library(boson_fcontext OBJECT
   )
 
 # Import configuration options into code
-file(GLOB lib_sources src/*.cc src/internal/*.cc)
+file(GLOB lib_sources src/*.cc src/internal/*.cc src/queues/*.cc)
 file(GLOB lib_linux_sources src/linux/*.cc)
 set(lib_sources ${lib_sources} ${lib_linux_sources})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/boson ${CMAKE_CURRENT_SOURCE_DIR}/src/linux)
 add_library(boson ${lib_sources} $<TARGET_OBJECTS:boson_fcontext>)
 target_compile_options(boson PUBLIC -nostdlib -fPIC)
-target_link_libraries(boson ${LIBRARIES})
+target_link_libraries(boson ${LIBRARIES} -lpthread)
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(test)

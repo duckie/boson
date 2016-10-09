@@ -1,10 +1,10 @@
 #ifndef BOSON_LOGGER_H_
 #define BOSON_LOGGER_H_
 
+#include <mutex>
 #include <ostream>
 #include <string>
 #include <thread>
-#include <mutex>
 #include "fmt/format.h"
 #include "json_backbone.hpp"
 

@@ -13,6 +13,6 @@ else
   git clone ${CORE_REPO} ${CORE_DOWNLOAD}
 fi
 cd ${CORE_DOWNLOAD}
-git checkout "v1.0.2"
-mkdir -p ${SCRIPTPATH}/fmt
+git checkout "master"
+mkdir -p ${SCRIPTPATH}/wfqueue
 rsync -avz --delete --files-from=${SCRIPTPATH}/file_list.txt ${CORE_DOWNLOAD}/ ${SCRIPTPATH}/wfqueue/

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=1024, user-scalable=no">
+
+  <title>The Boson framework</title>
+
+  <!-- Required stylesheet -->
+  <link rel="stylesheet" media="screen" href="core/deck.core.css">
+
+  <!-- Extension CSS files go here. Remove or add as needed. -->
+  <link rel="stylesheet" media="screen" href="extensions/goto/deck.goto.css">
+  <link rel="stylesheet" media="screen" href="extensions/menu/deck.menu.css">
+  <link rel="stylesheet" media="screen" href="extensions/navigation/deck.navigation.css">
+  <link rel="stylesheet" media="screen" href="extensions/status/deck.status.css">
+  <link rel="stylesheet" media="screen" href="extensions/scale/deck.scale.css">
+
+  <!-- Style theme. More available in /themes/style/ or create your own. -->
+  <link rel="stylesheet" media="screen" href="themes/style/neon.css">
+
+  <!-- Transition theme. More available in /themes/transition/ or create your own. -->
+  <link rel="stylesheet" media="screen" href="themes/transition/horizontal-slide.css">
+
+  <!-- Basic black and white print styles -->
+  <link rel="stylesheet" media="print" href="core/print.css">
+
+  <!-- Required Modernizr file -->
+  <script src="modernizr.custom.js"></script>
+</head>
+<body>
+  <div class="deck-container">
+
+    <!-- Begin slides. Just make elements with a class of slide. -->
+
+    <section class="slide" id="frontpage">
+      <div class="vcenter">
+        <h1>The Boson framework</h1>
+        <h2>Bringing a chunk of the Go awesomeness to C++ fellows</h2>
+      </div>
+    </section>
+
+    <section class="slide" id="cpp-concurrent">
+      <div class="vcenter">
+        <h2>Concurrent I/O programming in C++</h2>
+        <h3>is a real pain</h3>
+        <ul>
+          <li class="slide" id="cpp-conc-complicated">
+            <strong>Complicated</strong>: The program intent is diluted into synchronisation tooling (mutexes, event loops).
+          </li>
+
+          <li class="slide" id="cpp-con-verbose">
+            <strong>Verbose</strong>:  A lot of code to write to do simple things.
+          </li>
+
+          <li class="slide" id="cpp-conc-error">
+            <strong>Delicate</strong>: One step out of the way and you blow the whole thing up.
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="slide" id="go-awesomeness">
+      <div class="vcenter">
+        <h2>Why Go looks awesome for backend C++ developers</h2>
+        <ul>
+          <li class="slide" id="go-clean">
+            <strong>Clean</strong>: Write the tasks in the order they are supposed to happen.
+          </li>
+
+          <li class="slide" id="go-io-friendly">
+            <strong>I/O friendly</strong>: Routines parked by the net poller is a must have.
+          </li>
+
+          <li class="slide" id="go-cpu-time">
+            <strong>Resource usage</strong>: The scheduler will ensure an efficient usage of your CPU time.
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="slide" id="boson-features">
+      <div class="vcenter">
+        <h2>What the Boson framework does</h2>
+        <ul>
+          <li class="slide" id="boson-routines">
+            <strong>Routines</strong>: Suspendable fibers (aka Go routines)
+          </li>
+
+          <li class="slide" id="boson-io">
+            <strong>Transparent I/O loop</strong>: Blocking system calls let other routines execute in the same thread (aka the Go net poller)
+          </li>
+
+          <li class="slide" id="boson-channels">
+            <strong>Channels</strong>: You Gophers know how awesome they are
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="slide" id="example-read">
+      <h2>Quick examples</h2>
+      <pre><code>
+    void read_socket(int fd) {
+      std::array&lt;char,1024&gt; buffer;
+      while(boson::read(fd, buffer.data(), buffer.size()-1)) {
+        std::cout &lt;&lt; buffer.data();
+      }
+    }
+
+    // ...
+
+    int fd1 = get_socket_fd1();  // A supposed socket
+    int fd2 = get_socket_fd2();  // A supposed socket
+    boson::engine instance(1);   // Start with 1 thread
+    instance.start(read_socket, fd1);
+    instance.start(read_socket, fd2);
+      </code></pre>
+    </section>
+
+    <section class="slide" id="example-channels">
+      <h2>Quick examples</h2>
+      <pre><code>
+    boson::channel&lt;int&gt; chan(5);  // Channel with a 5 long buffer
+    boson::engine instance(1);          // Start with 1 thread
+    instance.start([chan]() mutable {   // Channels must be passed by copy
+      for (int i = 0; i &lt; 10; ++i)
+        chan.push(i);
+      chan.close(); 
+    });
+    instance.start([chan]() mutable {
+      int i = 0;
+      while(chan.pop(i))
+        std::cout &lt;&lt; i &lt;&lt; "\n";
+    });
+      </code></pre>
+    </section>
+
+    <section class="slide" id="github">
+      <div class="vcenter">
+        <h2>Meet the framework on github</h2>
+        <h2><a href="https://github.com/duckie/boson">https://github.com/duckie/boson</a></h2>
+      </div>
+    </section>
+
+    <section class="slide" id="thanks">
+      <h1>Thank you very much</h1>
+    </section>
+
+
+    <!-- deck.navigation snippet -->
+    <div aria-role="navigation">
+      <a href="#" class="deck-prev-link" title="Previous">&#8592;</a>
+      <a href="#" class="deck-next-link" title="Next">&#8594;</a>
+    </div>
+
+    <!-- deck.status snippet -->
+    <p class="deck-status" aria-role="status">
+      <span class="deck-status-current"></span>
+      /
+      <span class="deck-status-total"></span>
+    </p>
+
+    <!-- deck.goto snippet -->
+    <form action="." method="get" class="goto-form">
+      <label for="goto-slide">Go to slide:</label>
+      <input type="text" name="slidenum" id="goto-slide" list="goto-datalist">
+      <datalist id="goto-datalist"></datalist>
+      <input type="submit" value="Go">
+    </form>
+
+    <!-- End extension snippets. -->
+  </div>
+
+<!-- Required JS files. -->
+<script src="jquery.min.js"></script>
+<script src="core/deck.core.js"></script>
+
+<!-- Extension JS files. Add or remove as needed. -->
+<script src="extensions/menu/deck.menu.js"></script>
+<script src="extensions/goto/deck.goto.js"></script>
+<script src="extensions/status/deck.status.js"></script>
+<script src="extensions/navigation/deck.navigation.js"></script>
+<script src="extensions/scale/deck.scale.js"></script>
+
+<!-- Initialize the deck. You can put this in an external file if desired. -->
+<script>
+  $(function() {
+    $.deck('.slide');
+  });
+</script>
+</body>
+</html>

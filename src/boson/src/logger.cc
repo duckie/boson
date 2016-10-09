@@ -2,9 +2,7 @@
 
 namespace boson {
 
-
-logger::logger(std::ostream& output)
-    : stream_(output) {
+logger::logger(std::ostream& output) : stream_(output) {
 }
 
 logger::~logger() {

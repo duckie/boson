@@ -102,34 +102,34 @@ static void cleanup(queue_t * q, handle_t * th) {
   }
 }
 
-static cell_t * find_cell(node_t * volatile * p, long i, handle_t * th) {
-  node_t * c = *p;
+static cell_t * find_cell(node_t * volatile * ptr, long i, handle_t * th) {
+  node_t * curr = *ptr;
 
   long j;
-  for (j = c->id; j < i / N; ++j) {
-    node_t * n = c->next;
+  for (j = curr->id; j < i / N; ++j) {
+    node_t * next = curr->next;
 
-    if (n == NULL) {
-      node_t * t = th->spare;
+    if (next == NULL) {
+      node_t * temp = th->spare;
 
-      if (t == NULL) {
-        t = new_node();
-        th->spare = t;
+      if (!temp) {
+        temp = new_node();
+        th->spare = temp;
       }
 
-      t->id = j + 1;
+      temp->id = j + 1;
 
-      if (CASra(&c->next, &n, t)) {
-        n = t;
+      if (CASra(&curr->next, &next, temp)) {
+        next = temp;
         th->spare = NULL;
       }
     }
 
-    c = n;
+    curr = next;
   }
 
-  *p = c;
-  return &c->cells[i % N];
+  *ptr = curr;
+  return &curr->cells[i % N];
 }
 
 static int enq_fast(queue_t * q, handle_t * th, void * v, long * id)
@@ -260,6 +260,10 @@ static void help_deq(queue_t * q, handle_t * th, handle_t * ph)
     node_t * h = Dp;
     for (; idx == old && new == 0; ++i) {
       cell_t * c = find_cell(&h, i, th);
+
+      long Di = q->Di;
+      while (Di <= i && !CAS(&q->Di, &Di, i + 1));
+
       void * v = help_enq(q, th, c, i);
       if (v == BOT || (v != TOP && c->deq == BOT)) new = i;
       else idx = ACQUIRE(&deq->idx);
@@ -309,8 +313,6 @@ static void * deq_slow(queue_t * q, handle_t * th, long id)
   cell_t * c = find_cell(&th->Dp, i, th);
   void * val = c->val;
 
-  long Di = q->Di;
-  while (Di <= i && !CAS(&q->Di, &Di, i + 1));
 #ifdef RECORD
   th->slowdeq++;
 #endif

@@ -1,41 +1,34 @@
 #ifndef BOSON_CHANNEL_H_
-
 #define BOSON_CHANNEL_H_
 
 #include <list>
 #include <memory>
 #include <mutex>
+#include "boson/semaphore.h"
 #include "internal/routine.h"
 #include "internal/thread.h"
 #include "queues/wfqueue.h"
-#include "boson/semaphore.h"
+#include "engine.h"
 
 namespace boson {
 
 template <class ContentType, std::size_t Size>
 class channel_impl {
-  using queue_t = queues::wfqueue<ContentType*>;
-  std::atomic<queue_t*> queue_;
+  std::array<ContentType,Size> buffer_;
+  std::atomic<size_t> head_;
+  std::atomic<size_t> tail_;
+
+  // Waiting lists
   boson::semaphore readers_slots_;
   boson::semaphore writer_slots_;
-  std::mutex mut_; // Only for init
-
-  queue_t* get_queue() {
-    if (!queue_) {
-        mut_.lock();
-        if (!queue_) {
-          queue_= new queue_t(internal::current_thread()->get_engine().max_nb_cores()+1);
-        }
-        mut_.unlock();
-    }
-    return queue_;
-  }
 
  public:
-  channel_impl() : queue_(nullptr), readers_slots_(0), writer_slots_(Size) {
+  channel_impl() : buffer_{}, head_{0}, tail_{0}, readers_slots_(0), writer_slots_(Size) {
   }
 
-  ~channel_impl() { delete queue_; }
+  ~channel_impl() {
+    //delete queue_;
+  }
 
   /**
    * Write an element in the channel
@@ -45,17 +38,16 @@ class channel_impl {
   template <class... Args>
   bool push(thread_id tid, Args&&... args) {
     writer_slots_.wait();
-    get_queue()->push(tid, new ContentType(std::forward<Args>(args)...));
+    size_t head = head_.fetch_add(1,std::memory_order_acq_rel);
+    buffer_[head % Size] = ContentType(std::forward<Args>(args)...);
     readers_slots_.post();
     return true;
   }
 
   bool pop(thread_id tid, ContentType& value) {
     readers_slots_.wait();
-    ContentType* ptr = get_queue()->pop(tid);
-    assert(ptr);
-    value = std::move(*ptr);
-    delete ptr;
+    size_t tail = tail_.fetch_add(1,std::memory_order_acq_rel);
+    value = std::move(buffer_[tail % Size]);
     writer_slots_.post();
     return true;
   }
@@ -65,30 +57,19 @@ class channel_impl {
  * Specialization for the sync channel
  */
 template <class ContentType>
-class channel_impl<ContentType,0> {
-  using queue_t = queues::wfqueue<ContentType*>;
-  std::atomic<queue_t*> queue_;
+class channel_impl<ContentType, 0> {
+  using queue_t = queues::base_wfqueue;
+  ContentType buffer_;
   boson::semaphore readers_slots_;
   boson::semaphore writer_slots_;
-  std::mutex mut_; // Only for init
-
-  queue_t* get_queue() {
-    if (!queue_) {
-        mut_.lock();
-        if (!queue_) {
-          queue_= new queue_t(internal::current_thread()->get_engine().max_nb_cores()+1);
-        }
-        mut_.unlock();
-    }
-    return queue_;
-  }
-
 
  public:
-  channel_impl() : queue_(nullptr), readers_slots_(0), writer_slots_(1) {
+  channel_impl() : readers_slots_(0), writer_slots_(1) {
   }
 
-  ~channel_impl() { delete queue_; }
+  ~channel_impl() {
+    //delete queue_;
+  }
 
   /**
    * Write an element in the channel
@@ -98,18 +79,47 @@ class channel_impl<ContentType,0> {
   template <class... Args>
   bool push(thread_id tid, Args&&... args) {
     writer_slots_.wait();
-    get_queue()->push(tid, new ContentType(std::forward<Args>(args)...));
+    buffer_ = ContentType(std::forward<Args>(args)...);
     readers_slots_.post();
     return true;
   }
 
   bool pop(thread_id tid, ContentType& value) {
     readers_slots_.wait();
-    ContentType* ptr = get_queue()->pop(tid);
-    assert(ptr);
-    value = std::move(*ptr);
-    delete ptr;
+    value = std::move(buffer_);
     writer_slots_.post();
+    return true;
+  }
+};
+
+/**
+ * Specialization for the channel containing nothing
+ */
+template <std::size_t Size>
+class channel_impl<std::nullptr_t, Size> {
+  boson::semaphore semaphore_;
+
+ public:
+  channel_impl() : semaphore_{Size} {
+  }
+
+  ~channel_impl() {
+  }
+
+  /**
+   * Write an element in the channel
+   *
+   * Returns false only if the channel is closed.
+   */
+  template <class... Args>
+  bool push(thread_id tid, Args&&... args) {
+    semaphore_.post();
+    return true;
+  }
+
+  bool pop(thread_id tid, std::nullptr_t& value) {
+    semaphore_.wait();
+    value = nullptr;
     return true;
   }
 };
@@ -128,7 +138,7 @@ class channel {
   using impl_t = channel_impl<value_t, Size>;
 
   std::shared_ptr<impl_t> channel_;
-  thread_id thread_id_ {0};
+  thread_id thread_id_{0};
 
   thread_id get_id() {
     if (!thread_id_) {

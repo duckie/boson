@@ -6,20 +6,33 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <list>
+#include <mutex>
 #include <type_traits>
 #include <utility>
-//#include "wfqueue/wfqueue.h"
-#include "wfqueue/lcrq.h"
-
-extern "C" void queue_init(queue_t * q, int nprocs);
-extern "C" void queue_register(queue_t * q, handle_t * th, int id);
-extern "C" void enqueue(queue_t * q, handle_t * th, void * v);
-extern "C" void * dequeue(queue_t * q, handle_t * th);
-extern "C" void queue_free(queue_t * q, handle_t * h);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-security"
+extern "C" {
+#include "wfqueue/queue.h"
+}
+#pragma GCC diagnostic pop
 
 namespace boson {
 namespace queues {
 
+class simple_wfqueue {
+  std::list<void*> queue_;
+  std::mutex mut_;
+
+ public:
+  simple_wfqueue(int nprocs_);
+  simple_wfqueue(simple_wfqueue const&) = delete;
+  simple_wfqueue(simple_wfqueue&&) = default;
+  simple_wfqueue& operator=(simple_wfqueue const&) = delete;
+  simple_wfqueue& operator=(simple_wfqueue&&) = default;
+  void push(std::size_t proc_id, void* data);
+  void* pop(std::size_t proc_id);
+};
 
 /**
  * Wfqueue is a wait-free MPMC concurrent queue
@@ -29,66 +42,22 @@ namespace queues {
  * Algorithm from Chaoran Yang and John Mellor-Crummey
  * Currently, thei algorithms bugs here so we use LCRQ
  */
-template <class ContentType>
-class alignas(2 * CACHE_LINE_SIZE) wfqueue {
-  using content_t = ContentType;
+class base_wfqueue {
   queue_t* queue_;
   handle_t** hds_;
   int nprocs_;
 
-  inline handle_t* get_handle(std::size_t proc_id) {
-    handle_t* hd = hds_[proc_id];
-    if (hd == nullptr) {
-      // This handler has not been initialized yet
-      hd = hds_[proc_id] = static_cast<handle_t*>(align_malloc(PAGE_SIZE, sizeof(handle_t)));;
-      memset(static_cast<void*>(hd),0,sizeof(handle_t));
-      queue_register(queue_, hd, proc_id);
-    }
-    return hd;
-  }
+  handle_t* get_handle(std::size_t proc_id);
 
  public:
-  using content_type = ContentType;
-
-  class queue_handler {
-    wfqueue& parent_;
-    handle_t* handler_;
-
-  };
-
-  wfqueue(int nprocs) noexcept(std::is_nothrow_default_constructible<ContentType>()) : nprocs_(nprocs) {
-    queue_ = static_cast<queue_t*>(align_malloc(PAGE_SIZE, sizeof(queue_t)));
-    queue_init(queue_, nprocs+1);  // We add 1 proc to be used at destruction to maje sure the queue is empty
-    hds_ = static_cast<handle_t**>(align_malloc(PAGE_SIZE, sizeof(handle_t*[nprocs+1])));;
-    for(std::size_t index = 0; index < nprocs + 1; ++index)
-      hds_[index] = nullptr; 
-  }
-
-  wfqueue(wfqueue const&) = delete;
-  wfqueue(wfqueue&&) = default;
-  wfqueue& operator=(wfqueue const&) = delete;
-  wfqueue& operator=(wfqueue&&) = default;
-
-  ~wfqueue() {
-    // Create one handler to force memory reclamation algorithm
-    while(reinterpret_cast<void*>(0xffffffffffffffff) != dequeue(queue_, get_handle(nprocs_)));
-    //while(dequeue(queue_, get_handle(nprocs_)));
-    free(queue_);
-    free(hds_);
-  }
-  
-  template <class ... Args>
-  void push(std::size_t proc_id, Args&& ... args) {
-    assert(proc_id < nprocs_);
-    enqueue(queue_, get_handle(proc_id), static_cast<void*>(ContentType(std::forward<Args>(args)...)));
-  }
-
-  inline ContentType pop(std::size_t proc_id) {
-    assert(proc_id < nprocs_);
-    void* result = dequeue(queue_, get_handle(proc_id));
-    return reinterpret_cast<void*>(0xffffffffffffffff) == result ? nullptr : static_cast<ContentType>(result);
-    //return nullptr == result ? nullptr : static_cast<ContentType>(result);
-  }
+  base_wfqueue(int nprocs);
+  base_wfqueue(base_wfqueue const&) = delete;
+  base_wfqueue(base_wfqueue&&) = default;
+  base_wfqueue& operator=(base_wfqueue const&) = delete;
+  base_wfqueue& operator=(base_wfqueue&&) = default;
+  ~base_wfqueue();
+  void push(std::size_t proc_id, void* data);
+  void* pop(std::size_t proc_id);
 };
 
 };  // namespace queues
