@@ -12,10 +12,10 @@ using namespace std::literals;
 using namespace std::chrono;
 using namespace std;
 
-static constexpr int nb_iter = 1e5;
+static constexpr int nb_iter = 1e6;
 static constexpr int nb_threads = 8;
-constexpr size_t const nb_prod = 12;
-constexpr size_t const nb_cons = 12;
+constexpr size_t const nb_prod = 112;
+constexpr size_t const nb_cons = 112;
 
 int main(int argc, char* argv[]) {
   boson::debug::logger_instance(&std::cout);

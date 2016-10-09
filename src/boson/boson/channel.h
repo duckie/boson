@@ -14,29 +14,20 @@ namespace boson {
 
 template <class ContentType, std::size_t Size>
 class channel_impl {
-  using queue_t = queues::base_wfqueue;
-  std::atomic<queue_t*> queue_;
+  std::array<ContentType,Size> buffer_;
+  std::atomic<size_t> head_;
+  std::atomic<size_t> tail_;
+
+  // Waiting lists
   boson::semaphore readers_slots_;
   boson::semaphore writer_slots_;
-  std::mutex mut_;  // Only for init
-
-  queue_t* get_queue() {
-    if (!queue_) {
-      mut_.lock();
-      if (!queue_) {
-        queue_ = new queue_t(internal::current_thread()->get_engine().max_nb_cores() + 1);
-      }
-      mut_.unlock();
-    }
-    return queue_;
-  }
 
  public:
-  channel_impl() : queue_(nullptr), readers_slots_(0), writer_slots_(Size) {
+  channel_impl() : buffer_{}, head_{0}, tail_{0}, readers_slots_(0), writer_slots_(Size) {
   }
 
   ~channel_impl() {
-    delete queue_;
+    //delete queue_;
   }
 
   /**
@@ -47,17 +38,16 @@ class channel_impl {
   template <class... Args>
   bool push(thread_id tid, Args&&... args) {
     writer_slots_.wait();
-    get_queue()->push(tid, new ContentType(std::forward<Args>(args)...));
+    size_t head = head_.fetch_add(1,std::memory_order_acq_rel);
+    buffer_[head % Size] = ContentType(std::forward<Args>(args)...);
     readers_slots_.post();
     return true;
   }
 
   bool pop(thread_id tid, ContentType& value) {
     readers_slots_.wait();
-    ContentType* ptr = static_cast<ContentType*>(get_queue()->pop(tid));
-    assert(ptr);
-    value = std::move(*ptr);
-    delete ptr;
+    size_t tail = tail_.fetch_add(1,std::memory_order_acq_rel);
+    value = std::move(buffer_[tail % Size]);
     writer_slots_.post();
     return true;
   }
@@ -69,28 +59,16 @@ class channel_impl {
 template <class ContentType>
 class channel_impl<ContentType, 0> {
   using queue_t = queues::base_wfqueue;
-  std::atomic<queue_t*> queue_;
+  ContentType buffer_;
   boson::semaphore readers_slots_;
   boson::semaphore writer_slots_;
-  std::mutex mut_;  // Only for init
-
-  queue_t* get_queue() {
-    if (!queue_) {
-      mut_.lock();
-      if (!queue_) {
-        queue_ = new queue_t(internal::current_thread()->get_engine().max_nb_cores() + 1);
-      }
-      mut_.unlock();
-    }
-    return queue_;
-  }
 
  public:
-  channel_impl() : queue_(nullptr), readers_slots_(0), writer_slots_(1) {
+  channel_impl() : readers_slots_(0), writer_slots_(1) {
   }
 
   ~channel_impl() {
-    delete queue_;
+    //delete queue_;
   }
 
   /**
@@ -101,17 +79,14 @@ class channel_impl<ContentType, 0> {
   template <class... Args>
   bool push(thread_id tid, Args&&... args) {
     writer_slots_.wait();
-    get_queue()->push(tid, new ContentType(std::forward<Args>(args)...));
+    buffer_ = ContentType(std::forward<Args>(args)...);
     readers_slots_.post();
     return true;
   }
 
   bool pop(thread_id tid, ContentType& value) {
     readers_slots_.wait();
-    ContentType* ptr = static_cast<ContentType*>(get_queue()->pop(tid));
-    assert(ptr);
-    value = std::move(*ptr);
-    delete ptr;
+    value = std::move(buffer_);
     writer_slots_.post();
     return true;
   }
