@@ -1,10 +1,10 @@
+#include "boson/channel.h"
 #include <unistd.h>
 #include <chrono>
 #include <fstream>
 #include <iostream>
 #include <mutex>
 #include "boson/boson.h"
-#include "boson/channel.h"
 #include "boson/logger.h"
 #include "boson/mutex.h"
 
@@ -13,7 +13,7 @@ using namespace std::chrono;
 using namespace std;
 
 static constexpr int nb_iter = 1e6;
-static constexpr int nb_threads = 8;
+static constexpr int nb_threads = 16;
 constexpr size_t const nb_prod = 112;
 constexpr size_t const nb_cons = 112;
 
@@ -21,8 +21,8 @@ int main(int argc, char* argv[]) {
   boson::debug::logger_instance(&std::cout);
 
   size_t nnb_iter = nb_iter;
-  //boson::queues::base_wfqueue queue(nb_threads + 1);
-  //boson::queues::simple_wfqueue queue(nb_threads + 1);
+  // boson::queues::base_wfqueue queue(nb_threads + 1);
+  // boson::queues::simple_wfqueue queue(nb_threads + 1);
 
   std::array<vector<size_t>, nb_prod> input{};
   std::array<size_t, nb_cons> output{};
@@ -39,29 +39,34 @@ int main(int argc, char* argv[]) {
       using namespace boson;
       channel<int, nb_iter> chan;
       for (int index = 0; index < nb_prod; ++index) {
-        start([&, index](auto chan) {
-          for (size_t i = 0; i < input[index].size(); ++i) {
-            //queue.push(boson::internal::current_thread()->id(), static_cast<void*>(&input[index][i]));
-            chan.push(input[index][i]);
-          }
-          chan.push(nnb_iter);
-          //queue.push(boson::internal::current_thread()->id(), static_cast<void*>(&nnb_iter));
-        }, dup(chan));
+        start(
+            [&, index](auto chan) {
+              for (size_t i = 0; i < input[index].size(); ++i) {
+                // queue.push(boson::internal::current_thread()->id(),
+                // static_cast<void*>(&input[index][i]));
+                chan.push(input[index][i]);
+              }
+              chan.push(nnb_iter);
+              // queue.push(boson::internal::current_thread()->id(), static_cast<void*>(&nnb_iter));
+            },
+            dup(chan));
       }
       for (int index = 0; index < nb_cons; ++index) {
-        start([&, index](auto chan) {
-          int val = 0;
-          do {
-            val = 0;
-            //void* pval = queue.pop(boson::internal::current_thread()->id());
-            if (chan.pop(val)) {
-            //if (pval) {
-              //val = *static_cast<size_t*>(pval);
-              if (val != nb_iter) output[index] += val;
-            //}
-            }
-          } while (val != nb_iter);
-        },dup(chan));
+        start(
+            [&, index](auto chan) {
+              int val = 0;
+              do {
+                val = 0;
+                // void* pval = queue.pop(boson::internal::current_thread()->id());
+                if (chan.pop(val)) {
+                  // if (pval) {
+                  // val = *static_cast<size_t*>(pval);
+                  if (val != nb_iter) output[index] += val;
+                  //}
+                }
+              } while (val != nb_iter);
+            },
+            dup(chan));
       }
     });
   }

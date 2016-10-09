@@ -90,8 +90,8 @@ class engine {
 
  public:
   engine(size_t max_nb_cores);
-  template <class Function, class ... Args>
-  engine(size_t max_nb_cores, Function&& start_func, Args&& ... args);
+  template <class Function, class... Args>
+  engine(size_t max_nb_cores, Function&& start_func, Args&&... args);
   engine(engine const&) = delete;
   engine(engine&&) = default;
   engine& operator=(engine const&) = delete;
@@ -103,14 +103,14 @@ class engine {
   /***
    * Starts a routine into the given thread
    */
-  template <class Function, class ... Args>
-  void start(thread_id id, Function&& function, Args&& ... args);
+  template <class Function, class... Args>
+  void start(thread_id id, Function&& function, Args&&... args);
 
   /**
    * Starts a routine in whatever thread the engine sees fit
    */
-  template <class Function, class ... Args>
-  void start(Function&& function, Args&& ... args);
+  template <class Function, class... Args>
+  void start(Function&& function, Args&&... args);
 };
 
 // Inline/template implementations
@@ -124,25 +124,25 @@ engine::engine(size_t max_nb_cores, Function&& function, Args&&... args) : engin
   start(max_nb_cores_, std::forward<Function>(function), std::forward<Args>(args)...);
 };
 
-template <class Function, class ... Args>
-void engine::start(thread_id id, Function&& function, Args&& ... args) {
+template <class Function, class... Args>
+void engine::start(thread_id id, Function&& function, Args&&... args) {
   // Send a request
-  push_command(max_nb_cores_,
-               std::make_unique<command>(
-                   max_nb_cores_, command_type::add_routine,
-                   command_new_routine_data{
-                       id, std::make_unique<internal::routine>(current_routine_id_++,
-                                                               std::forward<Function>(function), std::forward<Args>(args)...)}));
+  push_command(max_nb_cores_, std::make_unique<command>(
+                                  max_nb_cores_, command_type::add_routine,
+                                  command_new_routine_data{id, std::make_unique<internal::routine>(
+                                                                   current_routine_id_++,
+                                                                   std::forward<Function>(function),
+                                                                   std::forward<Args>(args)...)}));
 };
 
-template <class Function, class ... Args>
-void engine::start(Function&& function, Args&& ... args) {
+template <class Function, class... Args>
+void engine::start(Function&& function, Args&&... args) {
   start(max_nb_cores_, std::forward<Function>(function), std::forward<Args>(args)...);
 };
 
-template <class Function, class ... Args>
-inline void run(size_t max_nb_cores, Function&& start_func, Args&& ... args) {
-  engine {max_nb_cores, std::forward<Function>(start_func), std::forward<Args>(args)...};
+template <class Function, class... Args>
+inline void run(size_t max_nb_cores, Function&& start_func, Args&&... args) {
+  engine{max_nb_cores, std::forward<Function>(start_func), std::forward<Args>(args)...};
 }
 
 }  // namespace boson

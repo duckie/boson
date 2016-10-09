@@ -9,7 +9,10 @@
 namespace boson {
 
 event_loop_impl::event_loop_impl(event_handler& handler)
-    : handler_{handler}, loop_fd_{epoll_create1(0)} {
+    : handler_{handler},
+      loop_fd_{epoll_create1(0)},
+      nb_io_registered_(0),
+      trigger_fd_events_{false} {
 }
 
 event_loop_impl::~event_loop_impl() {
@@ -48,6 +51,7 @@ void event_loop_impl::send_event(int event) {
   if (nb_bytes < 0) {
     throw exception(std::string("Syscall error (write): ") + strerror(errno));
   }
+  trigger_fd_events_.store(true, std::memory_order_release);
 }
 
 int event_loop_impl::register_read(int fd, void* data) {
@@ -71,6 +75,7 @@ int event_loop_impl::register_read(int fd, void* data) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
 
+  ++nb_io_registered_;
   return event_id;
 }
 
@@ -95,6 +100,7 @@ int event_loop_impl::register_write(int fd, void* data) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
 
+  ++nb_io_registered_;
   return event_id;
 }
 
@@ -105,6 +111,7 @@ void event_loop_impl::disable(int event_id) {
   if (return_code < 0) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
+  if (event_data.type != event_type::event_fd) --nb_io_registered_;
 }
 
 void event_loop_impl::enable(int event_id) {
@@ -114,6 +121,7 @@ void event_loop_impl::enable(int event_id) {
   if (return_code < 0) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
+  if (event_data.type != event_type::event_fd) ++nb_io_registered_;
 }
 
 void* event_loop_impl::unregister(int event_id) {
@@ -125,6 +133,7 @@ void* event_loop_impl::unregister(int event_id) {
   if (return_code < 0) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
+  if (event_data.type != event_type::event_fd) --nb_io_registered_;
   events_data_.free(event_id);
   return data;
 }
@@ -132,17 +141,25 @@ void* event_loop_impl::unregister(int event_id) {
 loop_end_reason event_loop_impl::loop(int max_iter, int timeout_ms) {
   bool forever = (-1 == max_iter);
   for (size_t index = 0; index < static_cast<size_t>(max_iter) || forever; ++index) {
-    int return_code = ::epoll_wait(loop_fd_, events_.data(), events_.size(), timeout_ms);
-    switch (return_code) {
-      case 0:
-        return loop_end_reason::timed_out;
-      case EINTR:
-      case EBADF:
-      case EFAULT:
-      case EINVAL:
-        throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
-      default:
-        break;
+    int return_code = 0;
+    if (0 != timeout_ms || 0 < nb_io_registered_ ||
+        trigger_fd_events_.load(std::memory_order_acquire)) {
+      trigger_fd_events_.store(false, std::memory_order_relaxed);
+      return_code = ::epoll_wait(loop_fd_, events_.data(), events_.size(), timeout_ms);
+      switch (return_code) {
+        case 0:
+          if (timeout_ms != 0)
+            return loop_end_reason::timed_out;
+          else
+            break;
+        case EINTR:
+        case EBADF:
+        case EFAULT:
+        case EINVAL:
+          throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
+        default:
+          break;
+      }
     }
     // Success, get on on with dispatching events
     for (int index = 0; index < return_code; ++index) {

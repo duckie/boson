@@ -5,10 +5,10 @@
 #include <chrono>
 #include <json_backbone.hpp>
 #include <memory>
+#include "boson/std/experimental/apply.h"
 #include "boson/syscalls.h"
 #include "fcontext.h"
 #include "stack.h"
-#include "boson/std/experimental/apply.h"
 
 namespace boson {
 
@@ -38,8 +38,6 @@ enum class routine_status {
   wait_sys_read,       // Routine waits for a FD to be ready for read
   wait_sys_write,      // Routine waits for a FD to be readu for write
   wait_sema_wait,      // Routine waits to get a boson::semaphore
-  request_queue_push,  // Executes a push in the thread context
-  request_queue_pop,   // Executes a pop in the thread context
   finished             // Routine finished execution
 };
 
@@ -89,21 +87,22 @@ struct function_holder {
   virtual void operator()() = 0;
 };
 
-template <class Function, class ... Args>
+template <class Function, class... Args>
 class function_holder_impl : public function_holder {
   Function func_;
   std::tuple<Args...> args_;
 
  public:
-  function_holder_impl(Function func, Args ... args) : func_{std::move(func)}, args_{std::forward<Args>(args)...} {
+  function_holder_impl(Function func, Args... args)
+      : func_{std::move(func)}, args_{std::forward<Args>(args)...} {
   }
   void operator()() override {
     return experimental::apply(func_, std::move(args_));
   }
 };
 
-template <class Function, class ... Args> 
-decltype(auto) make_unique_function_holder(Function&& func, Args&& ... args) {
+template <class Function, class... Args>
+decltype(auto) make_unique_function_holder(Function&& func, Args&&... args) {
   return std::unique_ptr<function_holder>(new function_holder_impl<Function, Args...>(
       std::forward<Function>(func), std::forward<Args>(args)...));
 }
@@ -129,6 +128,9 @@ class routine {
   friend void boson::sleep(std::chrono::milliseconds);
   friend ssize_t boson::read(int fd, void* buf, size_t count);
   friend ssize_t boson::write(int fd, const void* buf, size_t count);
+  friend int boson::accept(int socket, struct sockaddr* address, socklen_t* address_len);
+  friend size_t boson::send(int socket, const void* buffer, size_t length, int flags);
+  friend ssize_t boson::recv(int socket, void* buffer, size_t length, int flags);
   template <class ContentType>
   friend class channel;
   friend class thread;
@@ -144,9 +146,11 @@ class routine {
   routine_id id_;
 
  public:
-  template <class Function, class ... Args>
-  routine(routine_id id, Function&& func, Args&& ... args)
-      : func_{detail::make_unique_function_holder(std::forward<Function>(func), std::forward<Args>(args)...)}, id_{id} {
+  template <class Function, class... Args>
+  routine(routine_id id, Function&& func, Args&&... args)
+      : func_{detail::make_unique_function_holder(std::forward<Function>(func),
+                                                  std::forward<Args>(args)...)},
+        id_{id} {
   }
 
   routine(routine const&) = delete;
@@ -175,8 +179,8 @@ class routine {
    *
    */
   void resume(thread* managing_thread);
-  //void queue_push(queues::base_wfqueue& queue, void* data);
-  //void* queue_pop(queues::base_wfqueue& queue);
+  // void queue_push(queues::base_wfqueue& queue, void* data);
+  // void* queue_pop(queues::base_wfqueue& queue);
 
   /**
    * Tells the routine it can be executed
@@ -186,7 +190,7 @@ class routine {
    */
   inline void expected_event_happened();
 
-  //void execute_in
+  // void execute_in
 };
 
 static thread_local thread* this_routine = nullptr;
