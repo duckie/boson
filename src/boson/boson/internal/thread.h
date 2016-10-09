@@ -12,7 +12,6 @@
 #include <vector>
 #include "boson/event_loop.h"
 #include "boson/logger.h"
-#include "boson/queues/weakrb.h"
 #include "boson/queues/wfqueue.h"
 #include "routine.h"
 

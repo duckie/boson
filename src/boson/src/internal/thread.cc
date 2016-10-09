@@ -29,7 +29,7 @@ void engine_proxy::notify_end() {
 }
 
 routine_id engine_proxy::get_new_routine_id() {
-  return engine_->current_thread_id_++;
+  return engine_->current_routine_id_++;
 }
 
 void engine_proxy::notify_idle(size_t nb_suspended_routines) {
