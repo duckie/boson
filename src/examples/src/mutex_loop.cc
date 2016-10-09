@@ -11,7 +11,7 @@ using namespace std::literals;
 using namespace std::chrono;
 
 static constexpr int nb_iter = 1e4;
-static constexpr int nb_threads = 8;
+static constexpr int nb_threads = 16;
 
 int main(int argc, char* argv[]) {
   boson::debug::logger_instance(&std::cout);
@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
     });
   }
   auto t4 = high_resolution_clock::now();
-  boson::debug::log("Pass 1: {}", duration_cast<milliseconds>(t2 - t1).count());
-  boson::debug::log("Pass 2: {}", duration_cast<milliseconds>(t3 - t2).count());
-  boson::debug::log("Pass 2: {}", duration_cast<milliseconds>(t4 - t3).count());
+  std::cout << fmt::format("Pass 1: {}\n", duration_cast<milliseconds>(t2 - t1).count())
+            << fmt::format("Pass 2: {}\n", duration_cast<milliseconds>(t3 - t2).count())
+            << fmt::format("Pass 3: {}\n", duration_cast<milliseconds>(t4 - t3).count());
 }

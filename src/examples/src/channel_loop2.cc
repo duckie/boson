@@ -13,7 +13,7 @@ using namespace std::chrono;
 using namespace std;
 
 static constexpr int nb_iter = 1e6;
-static constexpr int nb_threads = 8;
+static constexpr int nb_threads = 16;
 constexpr size_t const nb_prod = 112;
 constexpr size_t const nb_cons = 112;
 

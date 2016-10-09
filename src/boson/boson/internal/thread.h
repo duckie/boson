@@ -176,7 +176,7 @@ class thread : public event_handler {
   // called by engine
   // void execute_commands();
 
-  void execute_scheduled_routines();
+  bool execute_scheduled_routines();
 
   /**
    * Executes the boson::thread

@@ -57,7 +57,9 @@ void engine_proxy::set_id() {
 void thread::handle_engine_event() {
   thread_command* received_command = nullptr;
   while ((received_command = static_cast<thread_command*>(engine_queue_.pop(id())))) {
-    nb_pending_commands_.fetch_sub(std::memory_order_release);
+    static int sub = 0;
+    //nb_pending_commands_.fetch_sub(1,std::memory_order_release);
+    nb_pending_commands_.fetch_sub(1);
     switch (received_command->type) {
       case thread_command_type::add_routine:
         scheduled_routines_.emplace_back(
@@ -119,7 +121,7 @@ void thread::write(int fd, void* data) {
 
 // called by engine
 void thread::push_command(thread_id from, std::unique_ptr<thread_command> command) {
-  nb_pending_commands_.fetch_add(std::memory_order_release);
+  nb_pending_commands_.fetch_add(1);
   engine_queue_.push(from, command.release());
   loop_.send_event(engine_event_id_);
 };
@@ -137,8 +139,7 @@ inline void clear_previous_io_event(routine& routine, event_loop& loop) {
 }
 }
 
-void thread::execute_scheduled_routines() {
-  // while (!scheduled_routines_.empty()) {
+bool thread::execute_scheduled_routines() {
   decltype(scheduled_routines_) next_scheduled_routines;
   std::list<std::tuple<size_t, routine_ptr_t>> new_timed_routines_;
   while (!scheduled_routines_.empty()) {
@@ -196,9 +197,12 @@ void thread::execute_scheduled_routines() {
         // static_cast<int>(routine->status()));
         semaphore* missed_semaphore = static_cast<semaphore*>(routine->context_.data);
         missed_semaphore->get_queue(this)->push(id(), routine.release());
+        //int result =
+            //missed_semaphore->counter_.fetch_add(1, std::memory_order::memory_order_release);
         int result =
-            missed_semaphore->counter_.fetch_add(1, std::memory_order::memory_order_release);
-        if (0 <= result) missed_semaphore->pop_a_waiter(this);
+            missed_semaphore->counter_.fetch_add(1);
+        //if (0 < missed_semaphore->counter_) 
+        //missed_semaphore->pop_a_waiter(this);
         ++suspended_routines_;
       } break;
       case routine_status::finished: {
@@ -220,43 +224,53 @@ void thread::execute_scheduled_routines() {
   // This is made in two step to limit the syscall to get the current date
 
   // If finished and no more routines, exit
-  size_t nb_pending_commands = nb_pending_commands_.load(std::memory_order_acquire);
+  size_t nb_pending_commands = nb_pending_commands_;
   bool no_more_routines =
       scheduled_routines_.empty() && timed_routines_.empty() && 0 == suspended_routines_;
   if (no_more_routines) {
     if (thread_status::finishing == status_) {
       unregister_all_events();
       status_ = thread_status::finished;
+      return false;
     } else if (0 == nb_pending_commands) {
       engine_proxy_.notify_idle(0);
+      return false;
     }
   } else {
     if (scheduled_routines_.empty()) {
       if (0 == nb_pending_commands) {
         engine_proxy_.notify_idle(timed_routines_.size() + suspended_routines_);
+        return false;
       } else {
-        loop_.send_event(self_event_id_);
+        static int fail = 0;
+        //debug::log("Fail send {}", nb_pending_commands_.load());
+        loop_.send_event(engine_event_id_);
+        return true;
       }
     } else {
       // If some routines already are scheduled, then throw an event to force a loop execution
       loop_.send_event(self_event_id_);
+      return true;
     }
   }
+  return false;
 }
 
 void thread::loop() {
   using namespace std::chrono;
   current_thread() = this;
 
+  // Check if we should have a time out
+  int timeout_ms = -1;
   while (status_ != thread_status::finished) {
-    // Check if we should have a time out
-    int timeout_ms = -1;
     auto first_timed_routines = begin(timed_routines_);
-    if (!timed_routines_.empty()) {
-      // Compute next timeout
-      timeout_ms =
-          duration_cast<milliseconds>(first_timed_routines->first - high_resolution_clock::now())
-              .count();
+    if (0 != timeout_ms) {
+      if (!timed_routines_.empty()) {
+        // Compute next timeout
+        timeout_ms =
+            duration_cast<milliseconds>(first_timed_routines->first - high_resolution_clock::now())
+                .count();
+      }
     }
     auto return_code = loop_.loop(1, timeout_ms);
     switch (return_code) {
@@ -276,7 +290,7 @@ void thread::loop() {
         return;
     }
     // debug::log("Thread {} has {} scheduled routines.", id(), scheduled_routines_.size());
-    execute_scheduled_routines();
+    timeout_ms = execute_scheduled_routines() ? 0 : -1;
   }
 
   engine_proxy_.notify_end();
