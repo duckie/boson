@@ -198,8 +198,10 @@ bool thread::execute_scheduled_routines() {
         // int result =
         // missed_semaphore->counter_.fetch_add(1, std::memory_order::memory_order_release);
         int result = missed_semaphore->counter_.fetch_add(1);
+        if (0 <= result) {
+          missed_semaphore->pop_a_waiter(this);
+        }
         // if (0 < missed_semaphore->counter_)
-        // missed_semaphore->pop_a_waiter(this);
         ++suspended_routines_;
       } break;
       case routine_status::finished: {
