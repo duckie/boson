@@ -18,7 +18,7 @@
   <link rel="stylesheet" media="screen" href="extensions/scale/deck.scale.css">
 
   <!-- Style theme. More available in /themes/style/ or create your own. -->
-  <link rel="stylesheet" media="screen" href="themes/style/neon.css">
+  <link rel="stylesheet" media="screen" href="themes/style/jb.css">
 
   <!-- Transition theme. More available in /themes/transition/ or create your own. -->
   <link rel="stylesheet" media="screen" href="themes/transition/horizontal-slide.css">
@@ -37,17 +37,17 @@
     <section class="slide" id="frontpage">
       <div class="vcenter">
         <h1>The low-level awesomeness of Go</h1>
-        <h2>Seen from a C++ developer</h2>
+        <h2>Seen by a C++ developer</h2>
       </div>
     </section>
 
     <section class="slide" id="cpp-concurrent">
       <div class="vcenter">
-        <h2>Concurrent I/O programming in C++</h2>
+        <h1>Concurrent I/O programming in C++</h1>
         <h3>is a real pain</h3>
         <ul>
           <li class="slide" id="cpp-conc-complicated">
-            <strong>Complicated</strong>: The program intent is diluted into synchronisation tooling (threads lifecycle, mutexes, event loops).
+            <strong>Complicated</strong>: Program intent diluted into synchronisation tooling (threads lifecycle, mutexes, event loops).
           </li>
 
           <li class="slide" id="cpp-con-verbose">
@@ -63,7 +63,7 @@
 
     <section class="slide" id="go-awesomeness">
       <div class="vcenter">
-        <h2>Why Go looks awesome for backend C++ developers</h2>
+        <h1>Why Go appeals  C++ developers</h1>
         <ul>
           <li class="slide" id="go-clean">
             <strong>Clean</strong>: Write the tasks in the order they are supposed to happen.
@@ -80,156 +80,99 @@
       </div>
     </section>
 
-    <section class="slide" id="boson-features">
+    <section class="slide" id="goroutines1">
       <div class="vcenter">
-        <h3>Goroutines : how does it do it</h3>
-        <h2>ASM code</h2>
-        <ul>
-          <li class="slide" id="go-clean">
-            Go is written in assembly and Go exclusively (except for cgo).
-          </li>
-
-          <li class="slide" id="go-io-friendly">
-            Context-switching is written in ASM
-          </li>
-
-          <li class="slide" id="go-cpu-time">
-            Peculiar Thread Local Storage trick
-          </li>
-        </ul>
+        <h2>Goroutines : how does it do it</h2>
+        <h1>ASM code</h1>
+            <p>Go is written in <strong>assembly</strong> and <strong>Go</strong> exclusively (except for cgo).</p>
       </div>
     </section>
 
-    <section class="slide" id="go-ctx-switch-1">
+    <section class="slide" id="goroutines2">
       <div class="vcenter">
-        <h3>Goroutines : how does it do it</h3>
-        <h2>Context switching : one thread example</h2>
-        <ul>
-          <li class="slide" id="go-clean">
-            Routine A is executing and needs to pause on a I/O syscall.
-          </li>
-
-          <li class="slide" id="go-io-friendly">
-            Routine A context-switches to scheduler.
-          </li>
-
-          <li class="slide" id="go-cpu-time">
-            Scheduler context-switches to available routine B.
-          </li>
-        </ul>
+        <h2>Goroutines : how does it do it</h2>
+        <h1>Fast context switching</h1>
+        <p>Jumping the execution flow between a <strong>goroutine</strong> and the <strong>scheduler</strong> is fast</p>
       </div>
     </section>
 
-    <section class="slide" id="go-ctx-switch-1">
+    <section class="slide" id="goroutines3">
       <div class="vcenter">
-        <h3>Goroutines : how does it do it</h3>
-        <h2>Context switching : speed</h2>
-        <ul>
-          <li class="slide" id="go-clean">
-            Process context swich: 2500 to 4000 nanoseconds.
-          </li>
-
-          <li class="slide" id="go-io-friendly">
-            Process context swich: 1300 to 3000 nanoseconds.
-          </li>
-
-          <li class="slide" id="go-cpu-time">
-            Go routine / boost.context context switch: less than 10 nanoseconds.
-          </li>
-        </ul>
+        <h2>Goroutines : how does it do it</h2>
+        <h1>Fast context switching</h1>
+        <div class="measurepanel">
+          <div style="width:70%;height:100px;" class="measure">Process/Thread</div><div class="mvalue"> 3000 to 4500 ns</div>
+          <div style="width:30%;height:100px;" class="measure">CPU Affinity</div><div class="mvalue">1300 to 1900 ns</div>
+          <div style="width:0.15%;height:100px;" class="measure">CPU Affinity</div><div class="mvalue">Goroutine: &lt; 10 ns</div>
+        </div>
       </div>
     </section>
 
-    <section class="slide" id="go-io-loop">
+    <section class="slide" id="tls1">
       <div class="vcenter">
-        <h3>Net poller : how does it do it</h3>
-        <h2>I/O event loop</h2>
-        <ul>
-          <li class="slide" id="go-clean">
-            Per platform implementation: epoll, kqueue, I/O Completion Ports.
-          </li>
+        <h2>Goroutines : how does it do it</h2>
+        <h1>Thread Local Storage</h1>
+        <p><strong>TLS</strong> is used to jump from a Goroutine to the scheduler</p>
+        <p>Classic <strong>TLS</strong> can be costly depending on the platform</p>
+      </div>
+    </section>
 
-          <li class="slide" id="go-io-friendly">
-            Integrated into the scheduler.
-          </li>
+    <section class="slide" id="tls2">
+      <div class="vcenter">
+        <h2>Goroutines : how does it do it</h2>
+        <h1>Thread Local Storage</h1>
+        <p>Go takes advantage of a unused <strong>MMU registry</strong> if possible</p>
+      </div>
+    </section>
 
-          <li class="slide" id="go-cpu-time">
-            Transparent for the user : use classic syscalls.
-          </li>
-        </ul>
+    <section class="slide" id="np1">
+      <div class="vcenter">
+        <h2>Netpoller: how does it do it</h2>
+        <h1>Hidden in the scheduler</h1>
+        <p>The <strong>scheduler</strong> unparks <strong>Goroutines</strong> just when <strong>I/O is available.</strong></p>
+      </div>
+    </section>
+
+    <section class="slide" id="np1">
+      <div class="vcenter">
+        <h2>Netpoller: how does it do it</h2>
+        <h1>Syscalls depending on the OS</h1>
+        <p><code>epoll</code> for <strong>Linux</strong></p>
+        <p><code>kqueue</code> for <strong>Mac OS</strong></p>
+        <p><code>I/O Completion ports</code> for <strong>Windows</strong></p>
       </div>
     </section>
 
     <section class="slide" id="go-channels-1">
       <div class="vcenter">
-        <h3>Channels : how does it do it</h3>
-        <h2>I/O event loop</h2>
-        <ul>
-          <li class="slide" id="go-clean">
-            Per platform implementation: epoll, kqueue, I/O Completion Ports.
-          </li>
-
-          <li class="slide" id="go-io-friendly">
-            Integrated into the scheduler.
-          </li>
-
-          <li class="slide" id="go-cpu-time">
-            Transparent for the user : use classic syscalls.
-          </li>
-        </ul>
+        <h2>Channels : how does it do it</h2>
+        <h1>Limited usage of mutexes</h1>
+        <p><strong>Lock-free</strong> for a <strong>writer</strong> in a <strong>non-full</strong> channel.</p>
+        <p><strong>Lock-free</strong> for a <strong>reader</strong> in a <strong>non-empty</strong> channel.</p>
+        <p><strong>Critical section</strong> stays <strong>short</strong> for blocking calls.</p>
       </div>
     </section>
 
-    <section class="slide" id="boson-features">
+    <section class="slide" id="go-channels-2">
       <div class="vcenter">
-        <h3>Goroutines : how does it do it</h3>
-        <h2>ASM code</h2>
-        <p>The root of it all is assembly code, written by people smart enough to right OSes.</p>
+        <h2>Channels : how does it do it</h2>
+        <h1>Atomics</h1>
+        <p>Lock-free operations use atomic <strong>CopyAndSwap</strong> for modern processors</p>
       </div>
     </section>
 
-    <section class="slide" id="example-read">
-      <h2>Quick examples</h2>
-      <pre><code>
-    void read_socket(int fd) {
-      std::array&lt;char,1024&gt; buffer;
-      while(boson::read(fd, buffer.data(), buffer.size()-1)) {
-        std::cout &lt;&lt; buffer.data();
-      }
-    }
-
-    // ...
-
-    int fd1 = get_socket_fd1();  // A supposed socket
-    int fd2 = get_socket_fd2();  // A supposed socket
-    boson::engine instance(1);   // Start with 1 thread
-    instance.start(read_socket, fd1);
-    instance.start(read_socket, fd2);
-      </code></pre>
-    </section>
-
-    <section class="slide" id="example-channels">
-      <h2>Quick examples</h2>
-      <pre><code>
-    boson::channel&lt;int&gt; chan(5);  // Channel with a 5 long buffer
-    boson::engine instance(1);          // Start with 1 thread
-    instance.start([chan]() mutable {   // Channels must be passed by copy
-      for (int i = 0; i &lt; 10; ++i)
-        chan.push(i);
-      chan.close(); 
-    });
-    instance.start([chan]() mutable {
-      int i = 0;
-      while(chan.pop(i))
-        std::cout &lt;&lt; i &lt;&lt; "\n";
-    });
-      </code></pre>
+    <section class="slide" id="go-channels-3">
+      <div class="vcenter">
+        <h2>Channels : how does it do it</h2>
+        <h1>Fast mutexes</h1>
+        <p><strong>Go mutexes</strong> are implemented with <strong>futexes</strong> (Fast Userspace muTEX).</p>
+      </div>
     </section>
 
     <section class="slide" id="github">
       <div class="vcenter">
-        <h2>Meet the framework on github</h2>
-        <h2><a href="https://github.com/duckie/boson">https://github.com/duckie/boson</a></h2>
+        <h1>See those things implemented in C++</h1>
+        <h2><a href="https://duckie.github.io/boson/">duckie.github.io/boson</a></h2>
       </div>
     </section>
 
