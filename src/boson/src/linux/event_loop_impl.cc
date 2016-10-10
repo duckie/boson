@@ -130,7 +130,7 @@ void* event_loop_impl::unregister(int event_id) {
   void* data = event_data.data;
   epoll_event_t stale_event{0, {}};  // For compatibility with 2.6
   int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_DEL, event_fd, &stale_event);
-  if (return_code < 0) {
+  if (return_code < 0 && errno != EBADF) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
   if (event_data.type != event_type::event_fd) --nb_io_registered_;
