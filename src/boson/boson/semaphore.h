@@ -5,7 +5,7 @@
 #include <mutex>
 #include "internal/routine.h"
 #include "internal/thread.h"
-#include "queues/wfqueue.h"
+#include "queues/simple.h"
 
 namespace boson {
 
@@ -16,8 +16,7 @@ namespace boson {
  */
 class semaphore {
   friend class internal::thread;
-  // using queue_t = queues::base_wfqueue;
-  using queue_t = queues::simple_wfqueue;
+  using queue_t = queues::simple_queue;
   std::atomic<queue_t*> waiters_;
   std::atomic<int> counter_;
   std::mutex mut_;  // Only used at initialization

@@ -10,9 +10,10 @@
 #include <memory>
 #include <thread>
 #include <vector>
+#include <atomic>
 #include "boson/event_loop.h"
 #include "boson/logger.h"
-#include "boson/queues/wfqueue.h"
+#include "boson/queues/simple.h"
 #include "routine.h"
 
 namespace json_backbone {
@@ -96,8 +97,7 @@ class thread : public event_handler {
 
   friend class boson::semaphore;
   using routine_ptr_t = std::unique_ptr<routine>;
-  //using engine_queue_t = queues::base_wfqueue;
-  using engine_queue_t = queues::simple_wfqueue;
+  using engine_queue_t = queues::simple_queue;
 
   engine_proxy engine_proxy_;
   std::list<routine_ptr_t> scheduled_routines_;

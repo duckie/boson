@@ -7,7 +7,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <list>
-#include <mutex>
 #include <type_traits>
 #include <utility>
 #pragma GCC diagnostic push
@@ -19,21 +18,6 @@ extern "C" {
 
 namespace boson {
 namespace queues {
-
-class simple_wfqueue {
-  std::list<void*> queue_;
-  std::mutex mut_;
-
- public:
-  simple_wfqueue(int nprocs_);
-  simple_wfqueue(simple_wfqueue const&) = delete;
-  simple_wfqueue(simple_wfqueue&&) = default;
-  simple_wfqueue& operator=(simple_wfqueue const&) = delete;
-  simple_wfqueue& operator=(simple_wfqueue&&) = default;
-  void push(std::size_t proc_id, void* data);
-  void* pop(std::size_t proc_id);
-};
-
 /**
  * Wfqueue is a wait-free MPMC concurrent queue
  *
