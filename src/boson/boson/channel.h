@@ -176,7 +176,18 @@ class channel {
   }
 };
 
-// TODO: add specialization for channel<std::nullptr_t>
+template <class ContentType, std::size_t Size, class ValueType>
+inline auto operator << (channel<ContentType, Size>& channel, ValueType&& value) 
+-> typename std::enable_if<std::is_convertible<ValueType,ContentType>::value, bool>::type
+{
+  return channel.write(static_cast<ContentType>(std::forward<ValueType>(value)));
+}
+
+template <class ContentType, std::size_t Size>
+inline auto operator >> (channel<ContentType, Size>& channel, ContentType& value) 
+{
+  return channel.read(value);
+}
 
 }  // namespace bosn
 

@@ -30,12 +30,12 @@ int main(int argc, char* argv[]) {
       for (int i = 0; i < nb_iter; ++i) {
         // Send async
         for (int j = 0; j < channel_size; ++j) {
-          out.write(i * channel_size + j);
+          out << (i * channel_size + j);
           boson::debug::log("A: sent {}.", i * channel_size + j);
         }
         // get ack
         for (int j = 0; j < channel_size; ++j) {
-          in.read(ack_result);
+          in >> ack_result;
           if (ack_result == i * channel_size + j) boson::debug::log("A: ack succeeded.");
         }
       }
@@ -45,10 +45,10 @@ int main(int argc, char* argv[]) {
     start([](auto source_in, auto source_out, auto dest_in, auto dest_out){
       int result = 0;
       while (result < nb_iter * channel_size - 1) {
-        source_in.read(result);
-        dest_out.write(result);
-        dest_in.read(result);
-        source_out.write(result);
+        source_in >> result;
+        dest_out << result;
+        dest_in >> result;
+        source_out << result;
       }
     },dup(a2b), dup(b2a), dup(c2b), dup(b2c));
 
@@ -56,9 +56,9 @@ int main(int argc, char* argv[]) {
     start([](auto in, auto out) {
       int result = 0;
       while (result < nb_iter * channel_size - 1) {
-        in.read(result);
+        in >> result;
         boson::debug::log("C received: {}", result);
-        out.write(result);
+        out << result;
       }
     }, dup(b2c), dup(c2b));
   });

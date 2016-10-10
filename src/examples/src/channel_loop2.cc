@@ -19,11 +19,6 @@ constexpr size_t const nb_cons = 112;
 
 int main(int argc, char* argv[]) {
   boson::debug::logger_instance(&std::cout);
-
-  size_t nnb_iter = nb_iter;
-  // boson::queues::base_wfqueue queue(nb_threads + 1);
-  // boson::queues::simple_wfqueue queue(nb_threads + 1);
-
   std::array<vector<size_t>, nb_prod> input{};
   std::array<size_t, nb_cons> output{};
   std::array<std::thread, nb_prod> input_th;
@@ -42,11 +37,9 @@ int main(int argc, char* argv[]) {
         start(
             [&, index](auto chan) {
               for (size_t i = 0; i < input[index].size(); ++i) {
-                // queue.write(boson::internal::current_thread()->id(),
-                // static_cast<void*>(&input[index][i]));
-                chan.write(input[index][i]);
+                chan << input[index][i];
               }
-              chan.write(nnb_iter);
+              chan << nb_iter;
               // queue.write(boson::internal::current_thread()->id(), static_cast<void*>(&nnb_iter));
             },
             dup(chan));
@@ -57,12 +50,8 @@ int main(int argc, char* argv[]) {
               int val = 0;
               do {
                 val = 0;
-                // void* pval = queue.read(boson::internal::current_thread()->id());
-                if (chan.read(val)) {
-                  // if (pval) {
-                  // val = *static_cast<size_t*>(pval);
+                if (chan >> val) {
                   if (val != nb_iter) output[index] += val;
-                  //}
                 }
               } while (val != nb_iter);
             },
