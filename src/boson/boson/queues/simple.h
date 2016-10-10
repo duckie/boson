@@ -1,7 +1,7 @@
 #ifndef BOSON_QUEUES_SIMPLE_QUEUE_H_
 #define BOSON_QUEUES_SIMPLE_QUEUE_H_
 
-#include <list>
+#include <deque>
 #include <cstdint>
 #include <mutex>
 
@@ -9,7 +9,7 @@ namespace boson {
 namespace queues {
 
 class simple_queue {
-  std::list<void*> queue_;
+  std::deque<void*> queue_;
   std::mutex mut_;
 
  public:
