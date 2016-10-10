@@ -53,10 +53,8 @@ void semaphore::wait() {
     thread* this_thread = internal::current_thread();
     assert(this_thread);
     routine* current_routine = this_thread->running_routine();
-    current_routine->waiting_data_ = nullptr;
     current_routine->status_ = routine_status::wait_sema_wait;
     this_thread->context() = jump_fcontext(this_thread->context().fctx, this);
-    // result = counter_.fetch_sub(1, std::memory_order::memory_order_acquire);
     result = counter_.fetch_sub(1);
     current_routine->previous_status_ = routine_status::wait_sema_wait;
     current_routine->status_ = routine_status::running;
