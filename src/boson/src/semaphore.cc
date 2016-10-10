@@ -29,7 +29,7 @@ semaphore::~semaphore() {
 
 bool semaphore::pop_a_waiter(internal::thread* current) {
   using namespace internal;
-  routine* waiter = static_cast<routine*>(get_queue(current)->pop(current->id()));
+  routine* waiter = static_cast<routine*>(get_queue(current)->read(current->id()));
   if (waiter) {
     assert(waiter->thread_);
     thread* managing_thread = waiter->thread_;

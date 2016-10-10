@@ -6,12 +6,12 @@ namespace queues {
 simple_queue::simple_queue(int nprocs_) {
 }
 
-void simple_queue::push(std::size_t proc_id, void* data) {
+void simple_queue::write(std::size_t proc_id, void* data) {
   std::lock_guard<std::mutex> guard(mut_);
   queue_.push_back(data);
 }
 
-void* simple_queue::pop(std::size_t proc_id) {
+void* simple_queue::read(std::size_t proc_id) {
   std::lock_guard<std::mutex> guard(mut_);
   void* data = nullptr;
   if (!queue_.empty()) {

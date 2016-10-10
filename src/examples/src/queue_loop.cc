@@ -44,14 +44,14 @@ int main(int argc, char* argv[]) {
       instance.start(
           [&, index](int thread) {
             for (size_t i = 0; i < input[index].size(); ++i) {
-              // queue.push(boson::internal::current_thread()->id(),
+              // queue.write(boson::internal::current_thread()->id(),
               // static_cast<void*>(&input[index][i]));
-              queue.push(index, static_cast<void*>(&input[index][i]));
-              // queue.push(thread, static_cast<void*>(&input[index][i]));
+              queue.write(index, static_cast<void*>(&input[index][i]));
+              // queue.write(thread, static_cast<void*>(&input[index][i]));
             }
-            // queue.push(boson::internal::current_thread()->id(), static_cast<void*>(&nnb_iter));
-            queue.push(index, static_cast<void*>(&nnb_iter));
-            // queue.push(thread, static_cast<void*>(&nnb_iter));
+            // queue.write(boson::internal::current_thread()->id(), static_cast<void*>(&nnb_iter));
+            queue.write(index, static_cast<void*>(&nnb_iter));
+            // queue.write(thread, static_cast<void*>(&nnb_iter));
           },
           thread_index);
       thread_index = (thread_index + 1) % nb_threads;
@@ -62,9 +62,9 @@ int main(int argc, char* argv[]) {
             size_t val = 0;
             do {
               val = 0;
-              // void* pval = queue.pop(boson::internal::current_thread()->id());
-              void* pval = queue.pop(index);
-              // void* pval = queue.pop(thread);
+              // void* pval = queue.read(boson::internal::current_thread()->id());
+              void* pval = queue.read(index);
+              // void* pval = queue.read(thread);
               if (pval) {
                 val = *static_cast<size_t*>(pval);
                 if (val != nb_iter) output[index] += val;

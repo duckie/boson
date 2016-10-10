@@ -56,7 +56,7 @@ void engine_proxy::set_id() {
 
 void thread::handle_engine_event() {
   thread_command* received_command = nullptr;
-  while ((received_command = static_cast<thread_command*>(engine_queue_.pop(id())))) {
+  while ((received_command = static_cast<thread_command*>(engine_queue_.read(id())))) {
     static int sub = 0;
     // nb_pending_commands_.fetch_sub(1,std::memory_order_release);
     nb_pending_commands_.fetch_sub(1);
@@ -122,7 +122,7 @@ void thread::write(int fd, void* data) {
 // called by engine
 void thread::push_command(thread_id from, std::unique_ptr<thread_command> command) {
   nb_pending_commands_.fetch_add(1);
-  engine_queue_.push(from, command.release());
+  engine_queue_.write(from, command.release());
   loop_.send_event(engine_event_id_);
 };
 
@@ -194,7 +194,7 @@ bool thread::execute_scheduled_routines() {
         // debug::log("Routine {}:{}:{} is pushed", id(), routine->id(),
         // static_cast<int>(routine->status()));
         semaphore* missed_semaphore = static_cast<semaphore*>(routine->context_.data);
-        missed_semaphore->get_queue(this)->push(id(), routine.release());
+        missed_semaphore->get_queue(this)->write(id(), routine.release());
         // int result =
         // missed_semaphore->counter_.fetch_add(1, std::memory_order::memory_order_release);
         int result = missed_semaphore->counter_.fetch_add(1);

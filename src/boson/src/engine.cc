@@ -6,14 +6,14 @@ namespace boson {
 void engine::push_command(thread_id from, std::unique_ptr<command> new_command) {
   command_pushers_.fetch_add(std::memory_order_release);
   // command_waiter_.notify_one();
-  command_queue_.push(static_cast<int>(from), new_command.release());
+  command_queue_.write(static_cast<int>(from), new_command.release());
   command_waiter_.notify_one();
 }
 
 void engine::execute_commands() {
   std::unique_ptr<command> new_command;
   do {
-    new_command.reset(static_cast<command*>(command_queue_.pop(max_nb_cores_)));
+    new_command.reset(static_cast<command*>(command_queue_.read(max_nb_cores_)));
     if (new_command) {
       switch (new_command->type) {
         case command_type::add_routine: {

@@ -29,7 +29,7 @@ TEST_CASE("Queues - WeakRB - serial random integers", "[queues][weakrb]") {
       int value = v;
       // Ugly spin lock, osef
       while (!success) {
-        success = queue.push(value);
+        success = queue.write(value);
       }
     }
   });
@@ -40,7 +40,7 @@ TEST_CASE("Queues - WeakRB - serial random integers", "[queues][weakrb]") {
       int result{};
       // Ugly spin lock, osef
       while (!success) {
-        success = queue.pop(result);
+        success = queue.read(result);
       }
       destination.emplace_back(result);
     }

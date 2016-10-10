@@ -42,12 +42,12 @@ int main(int argc, char* argv[]) {
         start(
             [&, index](auto chan) {
               for (size_t i = 0; i < input[index].size(); ++i) {
-                // queue.push(boson::internal::current_thread()->id(),
+                // queue.write(boson::internal::current_thread()->id(),
                 // static_cast<void*>(&input[index][i]));
-                chan.push(input[index][i]);
+                chan.write(input[index][i]);
               }
-              chan.push(nnb_iter);
-              // queue.push(boson::internal::current_thread()->id(), static_cast<void*>(&nnb_iter));
+              chan.write(nnb_iter);
+              // queue.write(boson::internal::current_thread()->id(), static_cast<void*>(&nnb_iter));
             },
             dup(chan));
       }
@@ -57,8 +57,8 @@ int main(int argc, char* argv[]) {
               int val = 0;
               do {
                 val = 0;
-                // void* pval = queue.pop(boson::internal::current_thread()->id());
-                if (chan.pop(val)) {
+                // void* pval = queue.read(boson::internal::current_thread()->id());
+                if (chan.read(val)) {
                   // if (pval) {
                   // val = *static_cast<size_t*>(pval);
                   if (val != nb_iter) output[index] += val;

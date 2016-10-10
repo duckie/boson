@@ -36,7 +36,7 @@ class channel_impl {
    * Returns false only if the channel is closed.
    */
   template <class... Args>
-  bool push(thread_id tid, Args&&... args) {
+  bool write(thread_id tid, Args&&... args) {
     writer_slots_.wait();
     size_t head = head_.fetch_add(1, std::memory_order_acq_rel);
     buffer_[head % Size] = ContentType(std::forward<Args>(args)...);
@@ -44,7 +44,7 @@ class channel_impl {
     return true;
   }
 
-  bool pop(thread_id tid, ContentType& value) {
+  bool read(thread_id tid, ContentType& value) {
     readers_slots_.wait();
     size_t tail = tail_.fetch_add(1, std::memory_order_acq_rel);
     value = std::move(buffer_[tail % Size]);
@@ -77,14 +77,14 @@ class channel_impl<ContentType, 0> {
    * Returns false only if the channel is closed.
    */
   template <class... Args>
-  bool push(thread_id tid, Args&&... args) {
+  bool write(thread_id tid, Args&&... args) {
     writer_slots_.wait();
     buffer_ = ContentType(std::forward<Args>(args)...);
     readers_slots_.post();
     return true;
   }
 
-  bool pop(thread_id tid, ContentType& value) {
+  bool read(thread_id tid, ContentType& value) {
     readers_slots_.wait();
     value = std::move(buffer_);
     writer_slots_.post();
@@ -112,12 +112,12 @@ class channel_impl<std::nullptr_t, Size> {
    * Returns false only if the channel is closed.
    */
   template <class... Args>
-  bool push(thread_id tid, Args&&... args) {
+  bool write(thread_id tid, Args&&... args) {
     semaphore_.post();
     return true;
   }
 
-  bool pop(thread_id tid, std::nullptr_t& value) {
+  bool read(thread_id tid, std::nullptr_t& value) {
     semaphore_.wait();
     value = nullptr;
     return true;
@@ -167,12 +167,12 @@ class channel {
   channel& operator=(channel&&) = default;
 
   template <class... Args>
-  inline bool push(Args&&... args) {
-    return channel_->push(get_id(), std::forward<Args>(args)...);
+  inline bool write(Args&&... args) {
+    return channel_->write(get_id(), std::forward<Args>(args)...);
   }
 
-  inline bool pop(ContentType& value) {
-    return channel_->pop(get_id(), value);
+  inline bool read(ContentType& value) {
+    return channel_->read(get_id(), value);
   }
 };
 

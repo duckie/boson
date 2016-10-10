@@ -40,8 +40,8 @@ class base_wfqueue {
   base_wfqueue& operator=(base_wfqueue const&) = delete;
   base_wfqueue& operator=(base_wfqueue&&) = default;
   ~base_wfqueue();
-  void push(std::size_t proc_id, void* data);
-  void* pop(std::size_t proc_id);
+  void write(std::size_t proc_id, void* data);
+  void* read(std::size_t proc_id);
 };
 
 };  // namespace queues

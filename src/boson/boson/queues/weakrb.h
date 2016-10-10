@@ -53,7 +53,7 @@ class weakrb {
   ~weakrb() = default;
 
   template <class... Args>
-  bool push(Args&&... args) {
+  bool write(Args&&... args) {
     size_t back, front;
     back = back_.load(order_relaxed);
     if (pfront_ + size_ - back < 1) {
@@ -65,7 +65,7 @@ class weakrb {
     return true;
   };
 
-  bool pop(content_type& element) {
+  bool read(content_type& element) {
     size_t back, front;
     front = front_.load(std::memory_order::memory_order_relaxed);
     if (cback_ - front < 1) {

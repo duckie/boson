@@ -18,15 +18,15 @@ using namespace std;
 TEST_CASE("Queues - WfQueue - simple case", "[queues][wfqueue]") {
   // boson::queues::wfqueue<int*> queue(2);
   // int i = 0;
-  // void* none = queue.pop(0);
+  // void* none = queue.read(0);
   // CHECK(none == nullptr);
-  // queue.push(0,&i);
-  // void* val = queue.pop(0);
+  // queue.write(0,&i);
+  // void* val = queue.read(0);
   // CHECK(val == &i);
-  // none = queue.pop(0);
+  // none = queue.read(0);
   // CHECK(none == nullptr);
-  // queue.push(0,nullptr);
-  // none = queue.pop(0);
+  // queue.write(0,nullptr);
+  // none = queue.read(0);
   // CHECK(none == nullptr);
   // queue_
 }
@@ -60,9 +60,9 @@ TEST_CASE("Queues - WfQueue - sums", "[queues][wfqueue]") {
         input_th[index] = std::thread(
             [&](int index) {
               for (size_t i = 0; i < input[index].size(); ++i) {
-                queue.push(index, static_cast<void*>(&input[index][i]));
+                queue.write(index, static_cast<void*>(&input[index][i]));
               }
-              queue.push(index, static_cast<void*>(&nnb_iter));
+              queue.write(index, static_cast<void*>(&nnb_iter));
             },
             index);
       }
@@ -74,7 +74,7 @@ TEST_CASE("Queues - WfQueue - sums", "[queues][wfqueue]") {
               size_t val = 0;
               do {
                 val = 0;
-                void* pval = queue.pop(index + nb_prod);
+                void* pval = queue.read(index + nb_prod);
                 if (pval) {
                   val = *static_cast<size_t*>(pval);
                   if (val != nb_iter) output[index] += val;

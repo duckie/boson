@@ -179,8 +179,8 @@ class routine {
    *
    */
   void resume(thread* managing_thread);
-  // void queue_push(queues::base_wfqueue& queue, void* data);
-  // void* queue_pop(queues::base_wfqueue& queue);
+  // void queue_write(queues::base_wfqueue& queue, void* data);
+  // void* queue_read(queues::base_wfqueue& queue);
 
   /**
    * Tells the routine it can be executed

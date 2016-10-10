@@ -18,8 +18,8 @@ class simple_queue {
   simple_queue(simple_queue&&) = default;
   simple_queue& operator=(simple_queue const&) = delete;
   simple_queue& operator=(simple_queue&&) = default;
-  void push(std::size_t proc_id, void* data);
-  void* pop(std::size_t proc_id);
+  void write(std::size_t proc_id, void* data);
+  void* read(std::size_t proc_id);
 };
 
 }

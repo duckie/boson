@@ -30,12 +30,12 @@ int main(int argc, char* argv[]) {
       for (int i = 0; i < nb_iter; ++i) {
         // Send async
         for (int j = 0; j < channel_size; ++j) {
-          out.push(i * channel_size + j);
+          out.write(i * channel_size + j);
           boson::debug::log("A: sent {}.", i * channel_size + j);
         }
         // get ack
         for (int j = 0; j < channel_size; ++j) {
-          in.pop(ack_result);
+          in.read(ack_result);
           if (ack_result == i * channel_size + j) boson::debug::log("A: ack succeeded.");
         }
       }
@@ -45,10 +45,10 @@ int main(int argc, char* argv[]) {
     start([](auto source_in, auto source_out, auto dest_in, auto dest_out){
       int result = 0;
       while (result < nb_iter * channel_size - 1) {
-        source_in.pop(result);
-        dest_out.push(result);
-        dest_in.pop(result);
-        source_out.push(result);
+        source_in.read(result);
+        dest_out.write(result);
+        dest_in.read(result);
+        source_out.write(result);
       }
     },dup(a2b), dup(b2a), dup(c2b), dup(b2c));
 
@@ -56,9 +56,9 @@ int main(int argc, char* argv[]) {
     start([](auto in, auto out) {
       int result = 0;
       while (result < nb_iter * channel_size - 1) {
-        in.pop(result);
+        in.read(result);
         boson::debug::log("C received: {}", result);
-        out.push(result);
+        out.write(result);
       }
     }, dup(b2c), dup(c2b));
   });

@@ -36,12 +36,12 @@ base_wfqueue::~base_wfqueue() {
   free(queue_);
   free(hds_);
 }
-void base_wfqueue::push(std::size_t proc_id, void* data) {
+void base_wfqueue::write(std::size_t proc_id, void* data) {
   assert(proc_id < nprocs_);
   enqueue(queue_, get_handle(proc_id), data);
 }
 
-void* base_wfqueue::pop(std::size_t proc_id) {
+void* base_wfqueue::read(std::size_t proc_id) {
   assert(proc_id < nprocs_);
   void* result = dequeue(queue_, get_handle(proc_id));
   // return reinterpret_cast<void*>(0xffffffffffffffff) == result ? nullptr :
