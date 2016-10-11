@@ -10,7 +10,7 @@
 using namespace std::literals;
 using namespace std::chrono;
 
-static constexpr int nb_iter = 1e4;
+static constexpr int nb_iter = 2*1e5;
 static constexpr int nb_threads = 16;
 
 int main(int argc, char* argv[]) {

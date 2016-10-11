@@ -3,3 +3,7 @@ wfqueue.h
 primitives.h
 align.h
 queue.h
+hzdptr.h
+hzdptr.c
+xxhash.c
+xxhash.h

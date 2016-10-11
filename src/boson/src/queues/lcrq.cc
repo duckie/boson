@@ -1,11 +1,11 @@
-#include "boson/queues/wfqueue.h"
+#include "boson/queues/lcrq.h"
 
 namespace boson {
 namespace queues {
 
-//base_wfqueue::handle_t * volatile base_wfqueue::_tail = nullptr;
+//lcrq::handle_t * volatile lcrq::_tail = nullptr;
 
-auto base_wfqueue::get_handle(std::size_t proc_id) -> handle_t* {
+auto lcrq::get_handle(std::size_t proc_id) -> handle_t* {
   handle_t* hd = hds_[proc_id];
   if (hd == nullptr) {
     // This handler has not been initialized yet
@@ -16,7 +16,7 @@ auto base_wfqueue::get_handle(std::size_t proc_id) -> handle_t* {
   }
   return hd;
 }
-base_wfqueue::base_wfqueue(int nprocs) : nprocs_{nprocs} {
+lcrq::lcrq(int nprocs) : nprocs_{nprocs} {
   queue_ = static_cast<queue_t*>(align_malloc(PAGE_SIZE, sizeof(queue_t)));
   queue_init(queue_,
              nprocs);  // We add 1 proc to be used at destruction to maje sure the queue is empty
@@ -24,34 +24,32 @@ base_wfqueue::base_wfqueue(int nprocs) : nprocs_{nprocs} {
   ;
   for (std::size_t index = 0; index < nprocs + 1; ++index) hds_[index] = nullptr;
 }
-base_wfqueue::~base_wfqueue() {
+lcrq::~lcrq() {
   // Create one handler to force memory reclamation algorithm
   enqueue(queue_, get_handle(nprocs_), nullptr);
-  // while(reinterpret_cast<void*>(0xffffffffffffffff) != (data = dequeue(queue_,
-  // get_handle(nprocs_))))
   void* data = nullptr;
-  while (nullptr != (data = dequeue(queue_, get_handle(nprocs_))))
-    ;
+  //while (nullptr != (data = dequeue(queue_, get_handle(nprocs_))));
+  while(reinterpret_cast<void*>(0xffffffffffffffff) != (data = dequeue(queue_, get_handle(nprocs_))));
   for (int index = 0; index < nprocs_+1; ++index) {
     if (hds_[index]) {
-      queue_free(queue_, hds_[index]);
+      //queue_free(queue_, hds_[index]);
       //free(hds_[index]);
     }
   }
   free(queue_);
   free(hds_);
 }
-void base_wfqueue::write(std::size_t proc_id, void* data) {
+void lcrq::write(std::size_t proc_id, void* data) {
   assert(proc_id < nprocs_);
   enqueue(queue_, get_handle(proc_id), data);
 }
 
-void* base_wfqueue::read(std::size_t proc_id) {
+void* lcrq::read(std::size_t proc_id) {
   assert(proc_id < nprocs_);
   void* result = dequeue(queue_, get_handle(proc_id));
-  // return reinterpret_cast<void*>(0xffffffffffffffff) == result ? nullptr :
-  // static_cast<ContentType>(result);
-  return result;
+  return reinterpret_cast<void*>(0xffffffffffffffff) == result ? nullptr : result;
+  //// static_cast<ContentType>(result);
+  //return result;
 }
 }
 }

@@ -8,6 +8,7 @@
 #include "boson/mutex.h"
 #include "boson/queues/wfqueue.h"
 #include "boson/queues/simple.h"
+#include "boson/queues/lcrq.h"
 
 using namespace std::literals;
 using namespace std::chrono;
@@ -23,9 +24,10 @@ int main(int argc, char* argv[]) {
 
   size_t nnb_iter = nb_iter;
   // boson::queues::base_wfqueue queue(nb_threads);
-  // boson::queues::base_wfqueue queue(nb_prod+nb_cons);
-  boson::queues::simple_queue queue(
-      0);  // Just to bugfix, this example does not work and exposes an unsolved bug
+  //boson::queues::base_wfqueue queue(nb_prod+nb_cons);
+  boson::queues::lcrq queue(nb_prod+nb_cons);
+  //boson::queues::simple_queue queue(
+      //0);  // Just to bugfix, this example does not work and exposes an unsolved bug
 
   std::array<vector<size_t>, nb_prod> input{};
   std::array<size_t, nb_cons> output{};
