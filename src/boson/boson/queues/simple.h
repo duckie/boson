@@ -1,8 +1,8 @@
 #ifndef BOSON_QUEUES_SIMPLE_QUEUE_H_
 #define BOSON_QUEUES_SIMPLE_QUEUE_H_
 
-#include <list>
 #include <cstdint>
+#include <list>
 #include <mutex>
 
 namespace boson {
@@ -21,7 +21,6 @@ class simple_queue {
   void write(std::size_t proc_id, void* data);
   void* read(std::size_t proc_id);
 };
-
 }
 }
 

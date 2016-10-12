@@ -1,4 +1,3 @@
-#include "boson/mutex.h"
 #include <unistd.h>
 #include <chrono>
 #include <fstream>
@@ -6,11 +5,12 @@
 #include <mutex>
 #include "boson/boson.h"
 #include "boson/logger.h"
+#include "boson/mutex.h"
 
 using namespace std::literals;
 using namespace std::chrono;
 
-static constexpr int nb_iter = 2*1e5;
+static constexpr int nb_iter = 2 * 1e5;
 static constexpr int nb_threads = 16;
 
 int main(int argc, char* argv[]) {

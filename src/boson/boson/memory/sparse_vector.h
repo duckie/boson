@@ -44,7 +44,7 @@ class sparse_vector {
     }
   }
 
-  std::vector<ValueType> const& data() const& {
+  std::vector<ValueType> const& data() const & {
     return data_;
   }
 

@@ -184,8 +184,7 @@ bool thread::execute_scheduled_routines() {
         if (!target_event.is_same_as_previous_event) {
           clear_previous_io_event(*routine, loop_);
           target_event.event_id = loop_.register_write(target_event.fd, routine.release());
-        }
-        else {
+        } else {
           routine.release();
         }
       } break;
@@ -243,7 +242,7 @@ bool thread::execute_scheduled_routines() {
       }
     } else {
       // If some routines already are scheduled, then throw an event to force a loop execution
-      //loop_.send_event(self_event_id_);
+      // loop_.send_event(self_event_id_);
       return true;
     }
   }

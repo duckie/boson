@@ -1,10 +1,10 @@
-#include "boson/channel.h"
 #include <unistd.h>
 #include <chrono>
 #include <fstream>
 #include <iostream>
 #include <mutex>
 #include "boson/boson.h"
+#include "boson/channel.h"
 #include "boson/logger.h"
 #include "boson/mutex.h"
 
@@ -47,7 +47,8 @@ int main(int argc, char* argv[]) {
                 chan.write(input[index][i]);
               }
               chan.write(nnb_iter);
-              // queue.write(boson::internal::current_thread()->id(), static_cast<void*>(&nnb_iter));
+              // queue.write(boson::internal::current_thread()->id(),
+              // static_cast<void*>(&nnb_iter));
             },
             dup(chan));
       }

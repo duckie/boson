@@ -3,7 +3,7 @@
 namespace boson {
 namespace queues {
 
-//base_wfqueue::handle_t * volatile base_wfqueue::_tail = nullptr;
+std::atomic<base_wfqueue::handle_t*> base_wfqueue::_tail{nullptr};
 
 auto base_wfqueue::get_handle(std::size_t proc_id) -> handle_t* {
   handle_t* hd = hds_[proc_id];
@@ -32,10 +32,10 @@ base_wfqueue::~base_wfqueue() {
   void* data = nullptr;
   while (nullptr != (data = dequeue(queue_, get_handle(nprocs_))))
     ;
-  for (int index = 0; index < nprocs_+1; ++index) {
+  for (int index = 0; index < nprocs_ + 1; ++index) {
     if (hds_[index]) {
       queue_free(queue_, hds_[index]);
-      //free(hds_[index]);
+      // free(hds_[index]);
     }
   }
   free(queue_);
@@ -55,4 +55,3 @@ void* base_wfqueue::read(std::size_t proc_id) {
 }
 }
 }
-

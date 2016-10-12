@@ -5,9 +5,9 @@
 #include <random>
 #include <thread>
 #include <vector>
-#include "boson/queues/wfqueue.h"
+//#include "boson/queues/wfqueue.h"
+#include "boson/queues/lcrq.h"
 #include "catch.hpp"
-#include "wfqueue/wfqueue.h"
 
 namespace {
 static constexpr size_t nb_iter = 1e5 + 153;
@@ -43,7 +43,8 @@ TEST_CASE("Queues - WfQueue - sums", "[queues][wfqueue]") {
   for (int j = 0; j < nb_main_threads; ++j) {
     main_threads[j] = std::thread([&]() {
       size_t nnb_iter = nb_iter;
-      boson::queues::base_wfqueue queue(nb_prod + nb_cons);
+      // boson::queues::base_wfqueue queue(nb_prod + nb_cons);
+      boson::queues::lcrq queue(nb_prod + nb_cons);
 
       std::array<vector<size_t>, nb_prod> input{};
       std::array<size_t, nb_cons> output{};
