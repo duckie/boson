@@ -12,7 +12,7 @@ using namespace std::literals;
 using namespace std::chrono;
 using namespace std;
 
-static constexpr int nb_iter = 1e5;
+static constexpr int nb_iter = 2*1e4;
 static constexpr int nb_threads = 7;
 constexpr size_t const nb_prod = 12;
 constexpr size_t const nb_cons = 12;

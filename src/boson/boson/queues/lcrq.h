@@ -22,6 +22,13 @@ extern "C" {
 namespace boson {
 namespace queues {
 
+  constexpr int HZDPTR_THRESHOLD(int nprocs) {
+    return 2 * nprocs;
+  }
+  constexpr int HZDPTR_HTBL_SIZE(int nprocs, int nptrs) {
+    return 4 * nprocs * nptrs;
+  }
+
 class lcrq {
   typedef struct _hzdptr_t {
     struct _hzdptr_t *next;
@@ -33,12 +40,6 @@ class lcrq {
 
   static constexpr size_t RING_SIZE = (1ull << 12);
 
-  constexpr int HZDPTR_THRESHOLD(int nprocs) {
-    return 2 * nprocs;
-  }
-  constexpr int HZDPTR_HTBL_SIZE(int nprocs, int nptrs) {
-    return 4 * nprocs * nptrs;
-  }
 
   typedef struct _node_t { struct _node_t *next; } node_t;
 
