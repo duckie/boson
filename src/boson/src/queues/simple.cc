@@ -20,7 +20,5 @@ void* simple_queue::read(std::size_t proc_id) {
   }
   return data;
 }
-
 }
 }
-

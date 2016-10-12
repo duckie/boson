@@ -21,7 +21,6 @@ class simple_queue {
   void write(std::size_t proc_id, void* data);
   void* read(std::size_t proc_id);
 };
-
 }
 }
 

@@ -4,24 +4,20 @@
 #include <unistd.h>
 #include <chrono>
 #include <iostream>
+#include <set>
 #include "boson/boson.h"
 #include "boson/channel.h"
 #include "boson/exception.h"
 #include "boson/logger.h"
-#include <set>
 
 using namespace std::literals;
 using namespace boson;
 
-enum class command_type {
-  add,
-  write,
-  remove
-};
+enum class command_type { add, write, remove };
 
 struct command {
   command_type type;
-  json_backbone::variant<int, std::pair<int,std::string>> data;
+  json_backbone::variant<int, std::pair<int, std::string>> data;
 };
 
 int create_listening_socket() {
@@ -48,41 +44,40 @@ int create_listening_socket() {
   return sockfd;
 }
 
-void listen_client(int fd, channel<command,5> main_loop) {
+void listen_client(int fd, channel<command, 5> main_loop) {
   std::array<char, 2048> buffer;
   ssize_t nread = 0;
   while ((nread = boson::recv(fd, buffer.data(), buffer.size(), 0))) {
     std::string data(buffer.data(), nread);
     std::cout << fmt::format("Client {} says: {}", fd, data);
     if (data.substr(0, 4) == "quit") {
-      main_loop.write(command { command_type::remove, fd });
+      main_loop.write(command{command_type::remove, fd});
       break;
-    }
-    else {
-      main_loop.write(command { command_type::write, {fd,data.substr(0,data.size()-1)} });
+    } else {
+      main_loop.write(command{command_type::write, {fd, data.substr(0, data.size() - 1)}});
     }
   }
 }
 
-void server_loop(channel<command,5> channel) {
+void server_loop(channel<command, 5> channel) {
   command new_command;
   std::set<int> conns;
-  while(channel.read(new_command)) {
-    switch(new_command.type) {
+  while (channel.read(new_command)) {
+    switch (new_command.type) {
       case command_type::add: {
         int new_conn = new_command.data.get<int>();
         std::cout << "Opening connection on " << new_command.data.get<int>() << std::endl;
         conns.insert(new_conn);
         start(listen_client, new_conn, dup(channel));
-        //channel.write(command { command_type::write, {new_conn, "just joined."}});
+        // channel.write(command { command_type::write, {new_conn, "just joined."}});
       } break;
       case command_type::write: {
         int client = -1;
         std::string data;
-        std::tie(client,data) = new_command.data.get<std::pair<int,std::string>>();
+        std::tie(client, data) = new_command.data.get<std::pair<int, std::string>>();
         auto message = fmt::format("Client {} says: \"{}\"", client, data);
-        for(auto dest : conns) {
-          boson::send(dest,message.c_str(), message.size(),0);
+        for (auto dest : conns) {
+          boson::send(dest, message.c_str(), message.size(), 0);
         }
       } break;
       case command_type::remove:
@@ -90,12 +85,11 @@ void server_loop(channel<command,5> channel) {
         conns.erase(old_conn);
         ::shutdown(old_conn, SHUT_WR);
         ::close(old_conn);
-        //channel.write(command { command_type::write, { old_conn, "just exited"} });
+        // channel.write(command { command_type::write, { old_conn, "just exited"} });
         break;
     }
   };
 }
-
 
 int main(int argc, char *argv[]) {
   // Set global logger
@@ -104,7 +98,7 @@ int main(int argc, char *argv[]) {
   // Execute a routine communication through channels
   boson::run(1, []() {
     // Create a channel
-    channel<command,5> loop_input;
+    channel<command, 5> loop_input;
 
     // Start the loop
     start(server_loop, dup(loop_input));
@@ -117,7 +111,7 @@ int main(int argc, char *argv[]) {
     clilen = sizeof(cli_addr);
     int newsockfd = -1;
     while ((newsockfd = boson::accept(sockfd, (struct sockaddr *)&cli_addr, &clilen))) {
-      loop_input.write(command {command_type::add, newsockfd });
+      loop_input.write(command{command_type::add, newsockfd});
     }
   });
 }

@@ -8,7 +8,6 @@
 #include "engine.h"
 #include "internal/routine.h"
 #include "internal/thread.h"
-#include "queues/wfqueue.h"
 
 namespace boson {
 

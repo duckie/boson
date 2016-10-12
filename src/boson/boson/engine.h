@@ -12,7 +12,7 @@
 #include "internal/routine.h"
 #include "internal/thread.h"
 #include "json_backbone.hpp"
-#include "queues/simple.h"
+#include "queues/lcrq.h"
 
 namespace boson {
 
@@ -80,7 +80,7 @@ class engine {
    */
   thread_id register_thread_id();
 
-  using queue_t = queues::simple_queue;
+  using queue_t = queues::lcrq;
   queue_t command_queue_;
   std::condition_variable command_waiter_;
   std::atomic<size_t> command_pushers_;

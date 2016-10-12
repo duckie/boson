@@ -1,10 +1,10 @@
-#include "boson/channel.h"
 #include <unistd.h>
 #include <chrono>
 #include <fstream>
 #include <iostream>
 #include <mutex>
 #include "boson/boson.h"
+#include "boson/channel.h"
 #include "boson/logger.h"
 #include "boson/mutex.h"
 

@@ -1,8 +1,8 @@
-#include "boson/channel.h"
 #include <unistd.h>
 #include <chrono>
 #include <iostream>
 #include "boson/boson.h"
+#include "boson/channel.h"
 #include "boson/logger.h"
 
 using namespace std::literals;

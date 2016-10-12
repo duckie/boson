@@ -1,5 +1,5 @@
-wfqueue.c
-wfqueue.h
 primitives.h
 align.h
-queue.h
+hzdptr.h
+xxhash.c
+xxhash.h

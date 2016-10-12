@@ -2,6 +2,7 @@
 #define BOSON_THREAD_H_
 #pragma once
 
+#include <atomic>
 #include <cassert>
 #include <chrono>
 #include <json_backbone.hpp>
@@ -10,10 +11,9 @@
 #include <memory>
 #include <thread>
 #include <vector>
-#include <atomic>
 #include "boson/event_loop.h"
 #include "boson/logger.h"
-#include "boson/queues/simple.h"
+#include "boson/queues/lcrq.h"
 #include "routine.h"
 
 namespace json_backbone {
@@ -97,7 +97,7 @@ class thread : public event_handler {
 
   friend class boson::semaphore;
   using routine_ptr_t = std::unique_ptr<routine>;
-  using engine_queue_t = queues::simple_queue;
+  using engine_queue_t = queues::lcrq;
 
   engine_proxy engine_proxy_;
   std::list<routine_ptr_t> scheduled_routines_;
