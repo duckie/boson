@@ -40,7 +40,6 @@ class lcrq {
 
   static constexpr size_t RING_SIZE = (1ull << 12);
 
-
   typedef struct _node_t { struct _node_t *next; } node_t;
 
   int htable_insert(void **tbl, size_t size, void *ptr);
@@ -345,10 +344,6 @@ class lcrq {
   void *dequeue(queue_t *q, handle_t *th) {
     return (void *)lcrq_get(q, th);
   }
-
-  // void queue_free(queue_t* q, int nprocs) {}
-
-  //////////////
 
   queue_t *queue_;
   handle_t **hds_;

@@ -1,5 +1,5 @@
 #include "boson/queues/lcrq.h"
-#include <set>
+#include <vector>
 
 namespace boson {
 namespace queues {
@@ -125,6 +125,9 @@ lcrq::lcrq(int nprocs) : nprocs_{nprocs} {
   for (std::size_t index = 0; index < nprocs + 1; ++index) hds_[index] = nullptr;
 }
 lcrq::~lcrq() {
+  //
+  // Empty queue
+  //
   // Create one handler to force memory reclamation algorithm
   enqueue(queue_, get_handle(nprocs_), nullptr);
   void *data = nullptr;
@@ -132,90 +135,35 @@ lcrq::~lcrq() {
          (data = dequeue(queue_, get_handle(nprocs_))))
     ;
 
-  // Empty hazard pointers
-  std::set<void *> already_freed;
-  
-  // Freeing RingQueues
-  std::set<void *> to_free;
-  RingQueue* rq = queue_->head;
-  //RingQueue* iq = queue_->head;
-  //while(rq != nullptr) {
-    ////if (std::end(already_freed) == already_freed.find(rq)) {
-    //auto nrq = rq->next;
-    //to_free.insert(rq);
-      ////free(rq);
-      ////if (nrq == iq)
-        ////break;
-    ////}
-    //rq = nrq;
-  //}
-//
-  //rq = queue_->tail;
-  ////RingQueue* iq = queue_->head;
-  //while(rq != nullptr) {
-    ////if (std::end(already_freed) == already_freed.find(rq)) {
-    //auto nrq = rq->next;
-    //to_free.insert(rq);
-      ////free(rq);
-      ////if (nrq == iq)
-        ////break;
-    ////}
-    //rq = nrq;
-  //}
-
-  //rq = queue_->tail;
-  //iq = queue_->tail;
-  //while(rq != nullptr) {
-    //RingQueue* nrq = nullptr;
-    //if (std::end(already_freed) == already_freed.find(rq)) {
-      //nrq = rq->next;
-      //already_freed.insert(rq);
-      //free(rq);
-      //if (nrq == iq)
-        //break;
-    //}
-    //rq = nrq;
-  //}
+  //
+  // Free hazard pointers
+  //
+  std::vector<void *> to_free(10u,nullptr);
+  auto insert = [&to_free](void* ptr) {
+    for (auto cur_ptr : to_free)
+      if (cur_ptr == ptr) return;
+    to_free.emplace_back(ptr);
+  };
   
   // Clean tail
-  auto init_tail = _tail;
   auto tail = _tail;
   while (tail) {
     auto next_tail = tail->next;
-    if (init_tail == next_tail)
+    if (_tail == next_tail)
       break;
     for(int i=0; i < tail->nptrs; ++i)
-      to_free.insert(tail->ptrs[i]);
-    to_free.insert(tail->ptrs);
-
-    //if (std::end(already_freed) == already_freed.find(tail->ptrs)) {
-      //if (std::end(already_freed) == already_freed.find(tail->ptrs[0])) {
-        //already_freed.insert(tail->ptrs[0]);
-        //free(tail->ptrs[0]);
-      //}
-      //already_freed.insert(tail->ptrs);
-      //free(tail->ptrs);
-    //}
+      insert(tail->ptrs[i]);
+    insert(tail->ptrs);
     tail = next_tail;
   }
-  //to_free.insert(_tail);
 
-  // Empty local data
+  // Clean local handlers
   for (int index = 0; index < nprocs_ + 1; ++index) {
     if (hds_[index]) {
-      to_free.insert(hds_[index]->hzdptr.ptrs);
+      insert(hds_[index]->hzdptr.ptrs);
       for (int i=0; i < hds_[index]->hzdptr.nptrs; ++i)
-        to_free.insert(hds_[index]->hzdptr.ptrs[i]);
-      to_free.insert(hds_[index]);
-      //if (std::end(already_freed) == already_freed.find(hds_[index]->hzdptr.ptrs)) {
-        //if (std::end(already_freed) == already_freed.find(hds_[index]->hzdptr.ptrs[0])) {
-          //already_freed.insert(hds_[index]->hzdptr.ptrs[0]);
-          //free(hds_[index]->hzdptr.ptrs[0]);
-        //}
-        //already_freed.insert(hds_[index]->hzdptr.ptrs);
-        //free(hds_[index]->hzdptr.ptrs);
-      //}
-      //free(hds_[index]);
+        insert(hds_[index]->hzdptr.ptrs[i]);
+      insert(hds_[index]);
     }
   }
 
@@ -223,10 +171,13 @@ lcrq::~lcrq() {
     free(ptr);
   }
 
-
+  //
+  // Free main structs
+  //
   free(queue_);
   free(hds_);
 }
+
 void lcrq::write(std::size_t proc_id, void *data) {
   assert(proc_id < nprocs_);
   enqueue(queue_, get_handle(proc_id), data);
