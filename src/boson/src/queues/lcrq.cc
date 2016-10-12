@@ -134,21 +134,95 @@ lcrq::~lcrq() {
 
   // Empty hazard pointers
   std::set<void *> already_freed;
+  
+  // Freeing RingQueues
+  std::set<void *> to_free;
+  RingQueue* rq = queue_->head;
+  //RingQueue* iq = queue_->head;
+  //while(rq != nullptr) {
+    ////if (std::end(already_freed) == already_freed.find(rq)) {
+    //auto nrq = rq->next;
+    //to_free.insert(rq);
+      ////free(rq);
+      ////if (nrq == iq)
+        ////break;
+    ////}
+    //rq = nrq;
+  //}
+//
+  //rq = queue_->tail;
+  ////RingQueue* iq = queue_->head;
+  //while(rq != nullptr) {
+    ////if (std::end(already_freed) == already_freed.find(rq)) {
+    //auto nrq = rq->next;
+    //to_free.insert(rq);
+      ////free(rq);
+      ////if (nrq == iq)
+        ////break;
+    ////}
+    //rq = nrq;
+  //}
+
+  //rq = queue_->tail;
+  //iq = queue_->tail;
+  //while(rq != nullptr) {
+    //RingQueue* nrq = nullptr;
+    //if (std::end(already_freed) == already_freed.find(rq)) {
+      //nrq = rq->next;
+      //already_freed.insert(rq);
+      //free(rq);
+      //if (nrq == iq)
+        //break;
+    //}
+    //rq = nrq;
+  //}
+  
+  // Clean tail
+  auto init_tail = _tail;
+  auto tail = _tail;
+  while (tail) {
+    auto next_tail = tail->next;
+    if (init_tail == next_tail)
+      break;
+    for(int i=0; i < tail->nptrs; ++i)
+      to_free.insert(tail->ptrs[i]);
+    to_free.insert(tail->ptrs);
+
+    //if (std::end(already_freed) == already_freed.find(tail->ptrs)) {
+      //if (std::end(already_freed) == already_freed.find(tail->ptrs[0])) {
+        //already_freed.insert(tail->ptrs[0]);
+        //free(tail->ptrs[0]);
+      //}
+      //already_freed.insert(tail->ptrs);
+      //free(tail->ptrs);
+    //}
+    tail = next_tail;
+  }
+  //to_free.insert(_tail);
 
   // Empty local data
   for (int index = 0; index < nprocs_ + 1; ++index) {
     if (hds_[index]) {
-      if (std::end(already_freed) == already_freed.find(hds_[index]->hzdptr.ptrs[0])) {
-        already_freed.insert(hds_[index]->hzdptr.ptrs[0]);
-        free(hds_[index]->hzdptr.ptrs[0]);
-      }
-      if (std::end(already_freed) == already_freed.find(hds_[index]->hzdptr.ptrs)) {
-        already_freed.insert(hds_[index]->hzdptr.ptrs);
-        free(hds_[index]->hzdptr.ptrs);
-      }
-      free(hds_[index]);
+      to_free.insert(hds_[index]->hzdptr.ptrs);
+      for (int i=0; i < hds_[index]->hzdptr.nptrs; ++i)
+        to_free.insert(hds_[index]->hzdptr.ptrs[i]);
+      to_free.insert(hds_[index]);
+      //if (std::end(already_freed) == already_freed.find(hds_[index]->hzdptr.ptrs)) {
+        //if (std::end(already_freed) == already_freed.find(hds_[index]->hzdptr.ptrs[0])) {
+          //already_freed.insert(hds_[index]->hzdptr.ptrs[0]);
+          //free(hds_[index]->hzdptr.ptrs[0]);
+        //}
+        //already_freed.insert(hds_[index]->hzdptr.ptrs);
+        //free(hds_[index]->hzdptr.ptrs);
+      //}
+      //free(hds_[index]);
     }
   }
+
+  for (void* ptr : to_free) {
+    free(ptr);
+  }
+
 
   free(queue_);
   free(hds_);

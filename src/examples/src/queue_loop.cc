@@ -7,8 +7,6 @@
 #include "boson/logger.h"
 #include "boson/mutex.h"
 #include "boson/queues/lcrq.h"
-#include "boson/queues/simple.h"
-#include "boson/queues/wfqueue.h"
 
 using namespace std::literals;
 using namespace std::chrono;
@@ -23,8 +21,6 @@ int main(int argc, char* argv[]) {
   boson::debug::logger_instance(&std::cout);
 
   size_t nnb_iter = nb_iter;
-  // boson::queues::base_wfqueue queue(nb_threads);
-  // boson::queues::base_wfqueue queue(nb_prod+nb_cons);
   boson::queues::lcrq queue(nb_prod + nb_cons);
   // boson::queues::simple_queue queue(
   // 0);  // Just to bugfix, this example does not work and exposes an unsolved bug
@@ -46,14 +42,14 @@ int main(int argc, char* argv[]) {
       instance.start(
           [&, index](int thread) {
             for (size_t i = 0; i < input[index].size(); ++i) {
-              // queue.write(boson::internal::current_thread()->id(),
-              // static_cast<void*>(&input[index][i]));
-              queue.write(index, static_cast<void*>(&input[index][i]));
-              // queue.write(thread, static_cast<void*>(&input[index][i]));
+              queue.write(boson::internal::current_thread()->id(),
+               static_cast<void*>(&input[index][i]));
+              //queue.write(index, static_cast<void*>(&input[index][i]));
+              //queue.write(thread, static_cast<void*>(&input[index][i]));
             }
-            // queue.write(boson::internal::current_thread()->id(), static_cast<void*>(&nnb_iter));
-            queue.write(index, static_cast<void*>(&nnb_iter));
-            // queue.write(thread, static_cast<void*>(&nnb_iter));
+            queue.write(boson::internal::current_thread()->id(), static_cast<void*>(&nnb_iter));
+            //queue.write(index, static_cast<void*>(&nnb_iter));
+            //queue.write(thread, static_cast<void*>(&nnb_iter));
           },
           thread_index);
       thread_index = (thread_index + 1) % nb_threads;
@@ -64,9 +60,9 @@ int main(int argc, char* argv[]) {
             size_t val = 0;
             do {
               val = 0;
-              // void* pval = queue.read(boson::internal::current_thread()->id());
-              void* pval = queue.read(index);
-              // void* pval = queue.read(thread);
+              void* pval = queue.read(boson::internal::current_thread()->id());
+              //void* pval = queue.read(index+nb_prod);
+              //void* pval = queue.read(thread);
               if (pval) {
                 val = *static_cast<size_t*>(pval);
                 if (val != nb_iter) output[index] += val;
