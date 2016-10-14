@@ -1,4 +1,5 @@
 #include "boson/event_loop.h"
+#include "boson/system.h"
 #include <unistd.h>
 #include <thread>
 #include "catch.hpp"
@@ -62,36 +63,34 @@ TEST_CASE("Event Loop - FD Read/Write", "[eventloop][read/write]") {
 }
 
 TEST_CASE("Event Loop - FD Read/Write same FD", "[eventloop][read/write]") {
-  FILE* tmp_file = std::tmpfile();
-  int fd = ::fileno(tmp_file);
-  // Write some data
-  ::fputs("data",tmp_file);
-  ::fseek(tmp_file,0,0);
+#ifdef WINDOWS
+#else
+  int sv[2] = {};
+  int rc = ::socketpair(AF_UNIX, SOCK_STREAM, 0, sv);
+  REQUIRE(rc == 0);
 
-  // Check independant events
 
   handler01 handler_instance;
   boson::event_loop loop(handler_instance);
-  //int event_read = loop.register_read(fd, nullptr);
+  int event_read = loop.register_read(sv[0], nullptr);
+  int event_write = loop.register_write(sv[0], nullptr);
+
   loop.loop(1);
-  //CHECK(handler_instance.last_read_fd == fd);
+  CHECK(handler_instance.last_read_fd == -1);
+  CHECK(handler_instance.last_write_fd == sv[0]);
 
-
-  //int pipe_fds[2];
-  //::pipe(pipe_fds);
-//
-  //boson::event_loop loop(handler_instance);
-  //loop.register_read(pipe_fds[0], nullptr);
-  //loop.register_write(pipe_fds[1], nullptr);
-//
-  //loop.loop(1);
-  //CHECK(handler_instance.last_fd == pipe_fds[1]);
-  //CHECK(handler_instance.last_data == nullptr);
-//
-  //size_t data{1};
-  //::write(pipe_fds[1], &data, sizeof(size_t));
-//
-  //loop.loop(1);
-  //CHECK(handler_instance.last_fd == pipe_fds[0]);
-  //CHECK(handler_instance.last_data == nullptr);
+  loop.unregister(event_write);
+  // Write at the other end, it should work even though we suppressed the other event
+  size_t data{1};
+  ::send(sv[1],&data, sizeof(size_t),0);
+  handler_instance.last_write_fd = -1;
+  loop.loop(1);
+  CHECK(handler_instance.last_read_fd == sv[0]);
+  CHECK(handler_instance.last_write_fd == -1);
+  
+  ::shutdown(sv[0], SHUT_WR);
+  ::shutdown(sv[1], SHUT_WR);
+  ::close(sv[0]);
+  ::close(sv[1]);
+#endif
 }

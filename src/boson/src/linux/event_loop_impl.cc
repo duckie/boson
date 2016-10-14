@@ -7,6 +7,35 @@
 #include "system.h"
 
 namespace boson {
+event_loop_impl::fd_data& event_loop_impl::get_fd_data(int fd) {
+  size_t index = static_cast<size_t>(fd);
+  if (fd_data_.size() <= index) {
+    fd_data_.resize(index+1);
+  }
+  return fd_data_[index];
+}
+
+void event_loop_impl::epoll_update(int fd, fd_data& fddata, bool del_if_no_event) {
+  if (events_.size() < events_data_.data().size()) events_.resize(events_data_.data().size());
+  epoll_event_t new_event{(0 <= fddata.idx_read ? EPOLLIN : 0) | (0 <= fddata.idx_write ? EPOLLOUT : 0), {}};
+  new_event.data.fd = fd;
+  int return_code = -1;
+  if (0 != new_event.events) {
+    return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_MOD, fd, &new_event);
+    if (return_code < 0 && ENOENT == errno) {
+      return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, fd, &new_event);
+    }
+    if (return_code < 0) {
+      throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
+    }
+  }
+  else {
+    return_code = ::epoll_ctl(loop_fd_, del_if_no_event ? EPOLL_CTL_DEL : EPOLL_CTL_MOD, fd, &new_event);
+    if (return_code < 0 && errno != EBADF) {
+      throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
+    }
+  }
+}
 
 event_loop_impl::event_loop_impl(event_handler& handler)
     : handler_{handler},
@@ -29,16 +58,11 @@ int event_loop_impl::register_event(void* data) {
   ev_data.fd = event_fd;
   ev_data.type = event_type::event_fd;
   ev_data.data = data;
+  auto& fddata = get_fd_data(event_fd);
+  fddata.idx_read = event_id;
 
-  // Register in epoll loop
-  epoll_event_t new_event{EPOLLIN, {}};
-  new_event.data.u64 = event_id;
-  if (events_.size() < events_data_.data().size()) events_.resize(events_data_.data().size());
-  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, event_fd, &new_event);
-
-  if (return_code < 0) {
-    throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
-  }
+  // Register
+  epoll_update(event_fd,fddata,false);
 
   // Casted to int, we dont have to worry about scaling here, int is waaaaay large enough
   return event_id;
@@ -59,21 +83,13 @@ int event_loop_impl::register_read(int fd, void* data) {
   size_t event_id = static_cast<int>(events_data_.allocate());
   event_data& ev_data = events_data_[event_id];
   ev_data.fd = fd;
-  ev_data.events = EPOLLIN;
   ev_data.type = event_type::read;
   ev_data.data = data;
+  auto& fddata = get_fd_data(fd);
+  fddata.idx_read = event_id;
 
   // Register in epoll loop
-  epoll_event_t new_event{ev_data.events, {}};
-  new_event.data.u64 = event_id;
-  if (events_.size() < events_data_.data().size()) events_.resize(events_data_.data().size());
-  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_MOD, fd, &new_event);
-  if (return_code < 0 && ENOENT == errno) {
-    return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, fd, &new_event);
-  }
-  if (return_code < 0) {
-    throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
-  }
+  epoll_update(fd,fddata,false);
 
   ++nb_io_registered_;
   return event_id;
@@ -84,21 +100,13 @@ int event_loop_impl::register_write(int fd, void* data) {
   size_t event_id = static_cast<int>(events_data_.allocate());
   event_data& ev_data = events_data_[event_id];
   ev_data.fd = fd;
-  ev_data.events = EPOLLOUT;
   ev_data.type = event_type::write;
   ev_data.data = data;
+  auto& fddata = get_fd_data(fd);
+  fddata.idx_write = event_id;
 
   // Register in epoll loop
-  epoll_event_t new_event{ev_data.events, {}};
-  new_event.data.u64 = event_id;
-  if (events_.size() < events_data_.data().size()) events_.resize(events_data_.data().size());
-  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_MOD, fd, &new_event);
-  if (return_code < 0 && ENOENT == errno) {
-    return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, fd, &new_event);
-  }
-  if (return_code < 0) {
-    throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
-  }
+  epoll_update(fd,fddata,false);
 
   ++nb_io_registered_;
   return event_id;
@@ -106,36 +114,58 @@ int event_loop_impl::register_write(int fd, void* data) {
 
 void event_loop_impl::disable(int event_id) {
   auto& event_data = events_data_[event_id];
-  epoll_event_t stale_event{0, {}};  // For compatibility with 2.6
-  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_MOD, event_data.fd, &stale_event);
-  if (return_code < 0) {
-    throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
-  }
+  auto& fddata = get_fd_data(event_data.fd);
+  if (event_data.type == event_type::read || event_data.type == event_type::event_fd)
+    fddata.idx_read = -1;
+  else if (event_data.type == event_type::write)
+    fddata.idx_write = -1;
+
+  epoll_update(event_data.fd,fddata,false);
   if (event_data.type != event_type::event_fd) --nb_io_registered_;
 }
 
 void event_loop_impl::enable(int event_id) {
   auto& event_data = events_data_[event_id];
-  epoll_event_t new_event{event_data.events, event_data.data};  // For compatibility with 2.6
-  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_MOD, event_data.fd, &new_event);
-  if (return_code < 0) {
-    throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
-  }
+  auto& fddata = get_fd_data(event_data.fd);
+  if (event_data.type == event_type::read || event_data.type == event_type::event_fd)
+    fddata.idx_read = event_id;
+  else if (event_data.type == event_type::write)
+    fddata.idx_write = event_id;
+  epoll_update(event_data.fd,fddata,false);
   if (event_data.type != event_type::event_fd) ++nb_io_registered_;
 }
 
 void* event_loop_impl::unregister(int event_id) {
   auto& event_data = events_data_[event_id];
-  int event_fd = event_data.fd;
-  void* data = event_data.data;
-  epoll_event_t stale_event{0, {}};  // For compatibility with 2.6
-  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_DEL, event_fd, &stale_event);
-  if (return_code < 0 && errno != EBADF) {
-    throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
-  }
+  auto& fddata = get_fd_data(event_data.fd);
+  if (event_data.type == event_type::read || event_data.type == event_type::event_fd)
+    fddata.idx_read = -1;
+  else if (event_data.type == event_type::write)
+    fddata.idx_write = -1;
+
+  epoll_update(event_data.fd, fddata,true);
   if (event_data.type != event_type::event_fd) --nb_io_registered_;
+  void* data = event_data.data;
   events_data_.free(event_id);
   return data;
+}
+
+void event_loop_impl::dispatch_event(int event_id) {
+  auto& data = events_data_[event_id];
+  switch (data.type) {
+    case event_type::event_fd: {
+      size_t buffer{0};
+      ssize_t nb_bytes = ::read(data.fd, &buffer, 8u);
+      assert(nb_bytes == 8);
+      handler_.event(event_id, data.data);
+    } break;
+    case event_type::read: {
+      handler_.read(data.fd, data.data);
+    } break;
+    case event_type::write: {
+      handler_.write(data.fd, data.data);
+    } break;
+  }
 }
 
 loop_end_reason event_loop_impl::loop(int max_iter, int timeout_ms) {
@@ -164,21 +194,11 @@ loop_end_reason event_loop_impl::loop(int max_iter, int timeout_ms) {
     // Success, get on on with dispatching events
     for (int index = 0; index < return_code; ++index) {
       auto& epoll_event = events_[index];
-      auto& event_data = events_data_[epoll_event.data.u64];
-      switch (event_data.type) {
-        case event_type::event_fd: {
-          size_t buffer{0};
-          ssize_t nb_bytes = ::read(event_data.fd, &buffer, 8u);
-          assert(nb_bytes == 8);
-          handler_.event(static_cast<int>(epoll_event.data.u64), event_data.data);
-        } break;
-        case event_type::read: {
-          handler_.read(event_data.fd, event_data.data);
-        } break;
-        case event_type::write: {
-          handler_.write(event_data.fd, event_data.data);
-        } break;
-      }
+      auto& fddata = get_fd_data(epoll_event.data.fd);
+      if (epoll_event.events & EPOLLIN)
+        dispatch_event(fddata.idx_read);
+      if (epoll_event.events & EPOLLOUT)
+        dispatch_event(fddata.idx_write);
     }
   }
   return loop_end_reason::max_iter_reached;

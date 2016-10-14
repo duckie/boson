@@ -22,6 +22,12 @@ set(CMAKE_VERBOSE_MAKEFILE OFF)
 # Check for C++11/14 support
 project_check_cpp_version()
 
+# Check OS
+if (WIN32)
+  add_definitions(-DWINDOWS)
+else()
+endif()
+
 ## Snippets to enforce a C++ version
 #if (not CPP14_SUPPORT)
 #  message(FATAL_ERROR "C++14 support is required.")
