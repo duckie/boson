@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/fcntl.h>
 #include <unistd.h>
 #include <netdb.h>
 //#define closesocket(s) close(s)
@@ -33,9 +34,9 @@ static constexpr int const INVALID_SOCKET = -1;
 static constexpr int const SOCKET_ERROR = -1;
 using fd_t = int;
 using socket_t = int;
-using sockaddr_in = struct ::sockaddr_in;
-using sockaddr = struct ::sockaddr;
-using in_addr = struct ::in_addr;
+using sockaddr_in = ::sockaddr_in;
+using sockaddr = ::sockaddr;
+using in_addr = ::in_addr;
 
 #endif
 }  // namespace boson

@@ -9,6 +9,7 @@
 
 #include "engine.h"
 #include "syscalls.h"
+#include "types.h"
 #include "utility.h"
 
 #endif  // BOSON_BOSON_H_
