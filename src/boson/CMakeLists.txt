@@ -11,7 +11,7 @@ add_library(boson_fcontext OBJECT
   )
 
 # Import configuration options into code
-file(GLOB lib_sources src/*.cc src/internal/*.cc src/queues/*.cc)
+file(GLOB lib_sources src/*.cc src/internal/*.cc src/queues/*.cc src/net/*.cc)
 file(GLOB lib_linux_sources src/linux/*.cc)
 set(lib_sources ${lib_sources} ${lib_linux_sources})
 
