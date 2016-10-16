@@ -85,7 +85,7 @@ void thread::handle_engine_event() {
 
 void thread::unregister_all_events() {
   loop_.unregister(engine_event_id_);
-  loop_.unregister(self_event_id_);
+  //loop_.unregister(self_event_id_);
 }
 
 thread::thread(engine& parent_engine)
@@ -93,7 +93,7 @@ thread::thread(engine& parent_engine)
       loop_(*this),
       engine_queue_{static_cast<int>(parent_engine.max_nb_cores() + 1)} {
   engine_event_id_ = loop_.register_event(&engine_event_id_);
-  self_event_id_ = loop_.register_event(&self_event_id_);
+  //self_event_id_ = loop_.register_event(&self_event_id_);
   engine_proxy_.set_id();  // Tells the engine which thread id we got
 }
 
@@ -232,21 +232,21 @@ bool thread::execute_scheduled_routines() {
     }
   } else {
     if (scheduled_routines_.empty()) {
+      size_t nb_routines = timed_routines_.size() + suspended_routines_;
       if (0 == nb_pending_commands) {
-        engine_proxy_.notify_idle(timed_routines_.size() + suspended_routines_);
+        if (0 == nb_routines) engine_proxy_.notify_idle(0);
         return false;
       } else {
-        static int fail = 0;
+        // Schedule pending commands immediately
         loop_.send_event(engine_event_id_);
         return true;
       }
     } else {
       // If some routines already are scheduled, then throw an event to force a loop execution
-      // loop_.send_event(self_event_id_);
       return true;
     }
   }
-  return false;
+  return true;
 }
 
 void thread::loop() {
@@ -257,12 +257,17 @@ void thread::loop() {
   int timeout_ms = -1;
   while (status_ != thread_status::finished) {
     auto first_timed_routines = begin(timed_routines_);
+    bool fire_timed_out_routines = false;
     if (0 != timeout_ms) {
       if (!timed_routines_.empty()) {
         // Compute next timeout
         timeout_ms =
             duration_cast<milliseconds>(first_timed_routines->first - high_resolution_clock::now())
                 .count();
+        if (timeout_ms < 0)
+          timeout_ms = 0;
+        if (timeout_ms == 0)
+          fire_timed_out_routines = true;
       }
     }
     auto return_code = loop_.loop(1, timeout_ms);
@@ -270,17 +275,20 @@ void thread::loop() {
       case loop_end_reason::max_iter_reached:
         break;
       case loop_end_reason::timed_out:
-        // Schedule routines that timed out
-        for (auto& timed_routine : first_timed_routines->second) {
-          timed_routine->expected_event_happened();
-          scheduled_routines_.emplace_back(timed_routine.release());
-        }
-        timed_routines_.erase(first_timed_routines);
+        fire_timed_out_routines = true;
         break;
       case loop_end_reason::error_occured:
       default:
         throw exception("Boson unknown error");
         return;
+    }
+    if (fire_timed_out_routines) {
+      // Schedule routines that timed out
+      for (auto& timed_routine : first_timed_routines->second) {
+        timed_routine->expected_event_happened();
+        scheduled_routines_.emplace_back(timed_routine.release());
+      }
+      timed_routines_.erase(first_timed_routines);
     }
     timeout_ms = execute_scheduled_routines() ? 0 : -1;
   }

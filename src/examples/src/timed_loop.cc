@@ -12,13 +12,14 @@ int main(int argc, char* argv[]) {
     using namespace boson;
     start([]() {
       for (int i = 0; i < 10; ++i) {
-        boson::sleep(1s);
+        boson::sleep(40ms);
+
         boson::debug::log("A: {}", i);
       }
     });
     start([]() {
       for (int i = 0; i < 40; ++i) {
-        boson::sleep(250ms);
+        boson::sleep(10ms);
         boson::debug::log("B: {}", i);
       }
     });

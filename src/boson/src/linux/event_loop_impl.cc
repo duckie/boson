@@ -60,6 +60,7 @@ int event_loop_impl::register_event(void* data) {
   ev_data.data = data;
   auto& fddata = get_fd_data(event_fd);
   fddata.idx_read = event_id;
+  noio_events_.insert(event_id);
 
   // Register
   epoll_update(event_fd,fddata,false);
@@ -144,7 +145,10 @@ void* event_loop_impl::unregister(int event_id) {
     fddata.idx_write = -1;
 
   epoll_update(event_data.fd, fddata,true);
-  if (event_data.type != event_type::event_fd) --nb_io_registered_;
+  if (event_data.type == event_type::event_fd)
+    noio_events_.erase(event_id);
+  else
+    --nb_io_registered_;
   void* data = event_data.data;
   events_data_.free(event_id);
   return data;
@@ -190,15 +194,23 @@ loop_end_reason event_loop_impl::loop(int max_iter, int timeout_ms) {
         default:
           break;
       }
+      // Success, get on on with dispatching events
+      for (int index = 0; index < return_code; ++index) {
+        auto& epoll_event = events_[index];
+        auto& fddata = get_fd_data(epoll_event.data.fd);
+        if (epoll_event.events & EPOLLIN)
+          dispatch_event(fddata.idx_read);
+        if (epoll_event.events & EPOLLOUT)
+          dispatch_event(fddata.idx_write);
+      }
     }
-    // Success, get on on with dispatching events
-    for (int index = 0; index < return_code; ++index) {
-      auto& epoll_event = events_[index];
-      auto& fddata = get_fd_data(epoll_event.data.fd);
-      if (epoll_event.events & EPOLLIN)
-        dispatch_event(fddata.idx_read);
-      if (epoll_event.events & EPOLLOUT)
-        dispatch_event(fddata.idx_write);
+    else {
+      if (trigger_fd_events_) {
+        for (auto event_id : noio_events_) {
+          dispatch_event(event_id);
+        }
+        trigger_fd_events_.store(false);
+      }
     }
   }
   return loop_end_reason::max_iter_reached;

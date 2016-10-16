@@ -8,6 +8,7 @@
 #include "event_loop.h"
 #include "system.h"
 #include "memory/sparse_vector.h"
+#include "memory/flat_unordered_set.h"
 
 namespace boson {
 using epoll_event_t = struct epoll_event;
@@ -39,6 +40,8 @@ class event_loop_impl {
   event_handler& handler_;
   int loop_fd_{-1};
   memory::sparse_vector<event_data> events_data_;
+
+  memory::flat_unordered_set<int> noio_events_;
   
   /**
    * FD data is a join table of FDs to distinguish events used by more than one routine

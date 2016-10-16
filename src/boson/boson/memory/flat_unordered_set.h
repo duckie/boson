@@ -53,6 +53,14 @@ class flat_unordered_set {
     return {position, inserted};
   }
 
+  std::size_t erase(Value const& value) {
+    auto pos = std::find(std::begin(values_),std::end(values_), value);
+    if (pos == std::end(values_))
+      return 0;
+    values_.erase(pos);
+    return 1;
+  }
+
   inline std::size_t size() const {
     return values_.size();
   }
