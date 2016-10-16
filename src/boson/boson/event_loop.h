@@ -48,7 +48,7 @@ class event_loop {
    * lifespan
    *
    */
-  event_loop(event_handler& handler);
+  event_loop(event_handler& handler, int nprocs);
 
   /**
    * Registers for a long running event listening
@@ -96,7 +96,7 @@ class event_loop {
    *
    * This can be useful to interrupt listening servers
    */
-  void send_fd_panic(int fd);
+  void send_fd_panic(int proc_from, int fd);
 
   /**
    * Executes the event loop

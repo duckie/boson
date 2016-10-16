@@ -90,7 +90,7 @@ void thread::unregister_all_events() {
 
 thread::thread(engine& parent_engine)
     : engine_proxy_(parent_engine),
-      loop_(*this),
+      loop_(*this,static_cast<int>(parent_engine.max_nb_cores() + 1)),
       engine_queue_{static_cast<int>(parent_engine.max_nb_cores() + 1)} {
   engine_event_id_ = loop_.register_event(&engine_event_id_);
   //self_event_id_ = loop_.register_event(&self_event_id_);

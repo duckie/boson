@@ -104,7 +104,7 @@ class thread : public event_handler {
   thread_status status_{thread_status::idle};
 
   /**
-   * Execution context used to jump betweent thread and its routines
+   * Execution context used to jump between thread and its routines
    *
    * Useful to get it from the TLS
    */

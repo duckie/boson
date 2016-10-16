@@ -6,7 +6,7 @@ namespace boson {
 event_loop::~event_loop() {
 }
 
-event_loop::event_loop(event_handler& handler) : loop_impl_{new event_loop_impl{handler}} {
+event_loop::event_loop(event_handler& handler, int nprocs) : loop_impl_{new event_loop_impl{handler,nprocs}} {
 }
 
 int event_loop::register_event(void* data) {
@@ -35,6 +35,10 @@ void event_loop::enable(int event_id) {
 
 void* event_loop::unregister(int event_id) {
   return loop_impl_->unregister(event_id);
+}
+
+void event_loop::send_fd_panic(int proc_from, int fd) {
+  loop_impl_->send_fd_panic(proc_from, fd);
 }
 
 loop_end_reason event_loop::loop(int max_iter, int timeout_ms) {

@@ -35,7 +35,7 @@ struct handler01 : public event_handler {
 TEST_CASE("Event Loop - Event notification", "[eventloop][notif]") {
   handler01 handler_instance;
 
-  boson::event_loop loop(handler_instance);
+  boson::event_loop loop(handler_instance,1);
   int event_id = loop.register_event(nullptr);
 
   std::thread t1{[&loop]() { loop.loop(1); }};
@@ -53,7 +53,7 @@ TEST_CASE("Event Loop - FD Read/Write", "[eventloop][read/write]") {
   int pipe_fds[2];
   ::pipe(pipe_fds);
 
-  boson::event_loop loop(handler_instance);
+  boson::event_loop loop(handler_instance,1);
   loop.register_read(pipe_fds[0], nullptr);
   loop.register_write(pipe_fds[1], nullptr);
 
@@ -79,7 +79,7 @@ TEST_CASE("Event Loop - FD Read/Write same FD", "[eventloop][read/write]") {
 
 
   handler01 handler_instance;
-  boson::event_loop loop(handler_instance);
+  boson::event_loop loop(handler_instance,1);
   int event_read = loop.register_read(sv[0], nullptr);
   int event_write = loop.register_write(sv[0], nullptr);
 
@@ -103,4 +103,26 @@ TEST_CASE("Event Loop - FD Read/Write same FD", "[eventloop][read/write]") {
   ::close(sv[0]);
   ::close(sv[1]);
 #endif
+}
+
+TEST_CASE("Event Loop - FD Panic Read/Write", "[eventloop][panic]") {
+  handler01 handler_instance;
+  int pipe_fds[2];
+  ::pipe(pipe_fds);
+
+  boson::event_loop loop(handler_instance,1);
+  loop.register_read(pipe_fds[0], nullptr);
+  loop.register_write(pipe_fds[1], nullptr);
+
+  loop.loop(1);
+  CHECK(handler_instance.last_write_fd == pipe_fds[1]);
+  CHECK(handler_instance.last_data == nullptr);
+  CHECK(handler_instance.last_status == event_status::ok);
+
+  size_t data{1};
+  ::write(pipe_fds[1], &data, sizeof(size_t));
+
+  loop.loop(1);
+  CHECK(handler_instance.last_read_fd == pipe_fds[0]);
+  CHECK(handler_instance.last_data == nullptr);
 }
