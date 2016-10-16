@@ -161,13 +161,13 @@ void event_loop_impl::dispatch_event(int event_id) {
       size_t buffer{0};
       ssize_t nb_bytes = ::read(data.fd, &buffer, 8u);
       assert(nb_bytes == 8);
-      handler_.event(event_id, data.data);
+      handler_.event(event_id, data.data, event_status::ok);
     } break;
     case event_type::read: {
-      handler_.read(data.fd, data.data);
+      handler_.read(data.fd, data.data, event_status::ok);
     } break;
     case event_type::write: {
-      handler_.write(data.fd, data.data);
+      handler_.write(data.fd, data.data, event_status::ok);
     } break;
   }
 }
@@ -202,14 +202,6 @@ loop_end_reason event_loop_impl::loop(int max_iter, int timeout_ms) {
           dispatch_event(fddata.idx_read);
         if (epoll_event.events & EPOLLOUT)
           dispatch_event(fddata.idx_write);
-      }
-    }
-    else {
-      if (trigger_fd_events_) {
-        for (auto event_id : noio_events_) {
-          dispatch_event(event_id);
-        }
-        trigger_fd_events_.store(false);
       }
     }
   }

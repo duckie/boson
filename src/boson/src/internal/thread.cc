@@ -97,7 +97,7 @@ thread::thread(engine& parent_engine)
   engine_proxy_.set_id();  // Tells the engine which thread id we got
 }
 
-void thread::event(int event_id, void* data) {
+void thread::event(int event_id, void* data, event_status status) {
   if (event_id == engine_event_id_) {
     handle_engine_event();
   } else if (event_id == self_event_id_) {
@@ -105,14 +105,14 @@ void thread::event(int event_id, void* data) {
   }
 }
 
-void thread::read(int fd, void* data) {
+void thread::read(int fd, void* data, event_status status) {
   routine* target_routine = static_cast<routine*>(data);
   target_routine->expected_event_happened();
   --suspended_routines_;
   scheduled_routines_.emplace_back(target_routine);
 }
 
-void thread::write(int fd, void* data) {
+void thread::write(int fd, void* data, event_status status) {
   routine* target_routine = static_cast<routine*>(data);
   target_routine->expected_event_happened();
   --suspended_routines_;

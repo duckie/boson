@@ -38,9 +38,18 @@ class event_loop_impl {
   };
 
   event_handler& handler_;
+
+  // epoll fd
   int loop_fd_{-1};
+
+  /**
+   * Data attached to each event
+   */
   memory::sparse_vector<event_data> events_data_;
 
+  /**
+   * List of event fd events
+   */
   memory::flat_unordered_set<int> noio_events_;
   
   /**
@@ -54,7 +63,19 @@ class event_loop_impl {
    * events_ is the array used in the epoll call to store the result
    */
   std::vector<epoll_event_t> events_;
+
+  /**
+   * Number of fds registered for read/write event
+   *
+   * This is used to by pass an epoll_wait call if possible. Event FDs
+   * are not considered as a read here, even if they are implemented as
+   * such
+   */
   size_t nb_io_registered_;
+
+  /**
+   * A flag to avoid an epoll_wait if possible
+   */
   std::atomic<bool> trigger_fd_events_;  // Only used for fd_event to bypass epoll
 
   fd_data& get_fd_data(int fd);

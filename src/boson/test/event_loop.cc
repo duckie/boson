@@ -5,24 +5,30 @@
 #include "catch.hpp"
 #include <cstdio>
 
-struct handler01 : public boson::event_handler {
+using namespace boson;
+
+struct handler01 : public event_handler {
   int last_id{0};
   int last_read_fd{-1};
   int last_write_fd{-1};
   void* last_data{nullptr};
+  event_status last_status {event_status::ok};
 
-  void event(int event_id, void* data) override {
+  void event(int event_id, void* data, event_status status) override {
     last_id = event_id;
     last_data = data;
+    last_status = status;
   }
-  void read(int fd, void* data) override {
+  void read(int fd, void* data, event_status status) override {
     last_read_fd = fd;
     last_data = data;
+    last_status = status;
   }
-  void write(int fd, void* data) override {
+  void write(int fd, void* data, event_status status) override {
     last_id = -1;
     last_write_fd = fd;
     last_data = data;
+    last_status = status;
   }
 };
 
@@ -39,6 +45,7 @@ TEST_CASE("Event Loop - Event notification", "[eventloop][notif]") {
 
   CHECK(handler_instance.last_id == event_id);
   CHECK(handler_instance.last_data == nullptr);
+  CHECK(handler_instance.last_status == event_status::ok);
 }
 
 TEST_CASE("Event Loop - FD Read/Write", "[eventloop][read/write]") {
@@ -53,6 +60,7 @@ TEST_CASE("Event Loop - FD Read/Write", "[eventloop][read/write]") {
   loop.loop(1);
   CHECK(handler_instance.last_write_fd == pipe_fds[1]);
   CHECK(handler_instance.last_data == nullptr);
+  CHECK(handler_instance.last_status == event_status::ok);
 
   size_t data{1};
   ::write(pipe_fds[1], &data, sizeof(size_t));
@@ -78,6 +86,7 @@ TEST_CASE("Event Loop - FD Read/Write same FD", "[eventloop][read/write]") {
   loop.loop(1);
   CHECK(handler_instance.last_read_fd == -1);
   CHECK(handler_instance.last_write_fd == sv[0]);
+  CHECK(handler_instance.last_status == event_status::ok);
 
   loop.unregister(event_write);
   // Write at the other end, it should work even though we suppressed the other event
@@ -87,6 +96,7 @@ TEST_CASE("Event Loop - FD Read/Write same FD", "[eventloop][read/write]") {
   loop.loop(1);
   CHECK(handler_instance.last_read_fd == sv[0]);
   CHECK(handler_instance.last_write_fd == -1);
+  CHECK(handler_instance.last_status == event_status::ok);
   
   ::shutdown(sv[0], SHUT_WR);
   ::shutdown(sv[1], SHUT_WR);

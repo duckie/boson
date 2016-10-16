@@ -7,10 +7,12 @@
 
 namespace boson {
 
+enum class event_status { ok, panic };
+
 struct event_handler {
-  virtual void event(int event_id, void* data) = 0;
-  virtual void read(int fd, void* data) = 0;
-  virtual void write(int fd, void* data) = 0;
+  virtual void event(int event_id, void* data, event_status status) = 0;
+  virtual void read(int fd, void* data, event_status status) = 0;
+  virtual void write(int fd, void* data, event_status status) = 0;
 };
 
 enum class loop_end_reason { max_iter_reached, timed_out, error_occured };
@@ -88,6 +90,13 @@ class event_loop {
    * Unregister the event and give back its data
    */
   void* unregister(int event_id);
+
+  /**
+   * Force loop unlock for a given fd and a given event
+   *
+   * This can be useful to interrupt listening servers
+   */
+  void send_fd_panic(int fd);
 
   /**
    * Executes the event loop

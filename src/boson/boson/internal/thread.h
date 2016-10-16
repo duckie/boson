@@ -170,9 +170,9 @@ class thread : public event_handler {
   inline engine const& get_engine() const;
 
   // Event handler interface
-  void event(int event_id, void* data) override;
-  void read(int fd, void* data) override;
-  void write(int fd, void* data) override;
+  void event(int event_id, void* data, event_status status) override;
+  void read(int fd, void* data, event_status status) override;
+  void write(int fd, void* data, event_status status) override;
 
   // called by engine
   void push_command(thread_id from, std::unique_ptr<thread_command> command);
