@@ -42,6 +42,7 @@ event_loop_impl::event_loop_impl(event_handler& handler)
       loop_fd_{epoll_create1(0)},
       nb_io_registered_(0),
       trigger_fd_events_{false} {
+
 }
 
 event_loop_impl::~event_loop_impl() {
@@ -154,20 +155,20 @@ void* event_loop_impl::unregister(int event_id) {
   return data;
 }
 
-void event_loop_impl::dispatch_event(int event_id) {
+void event_loop_impl::dispatch_event(int event_id, event_status status) {
   auto& data = events_data_[event_id];
   switch (data.type) {
     case event_type::event_fd: {
       size_t buffer{0};
       ssize_t nb_bytes = ::read(data.fd, &buffer, 8u);
       assert(nb_bytes == 8);
-      handler_.event(event_id, data.data, event_status::ok);
+      handler_.event(event_id, data.data, status);
     } break;
     case event_type::read: {
-      handler_.read(data.fd, data.data, event_status::ok);
+      handler_.read(data.fd, data.data, status);
     } break;
     case event_type::write: {
-      handler_.write(data.fd, data.data, event_status::ok);
+      handler_.write(data.fd, data.data, status);
     } break;
   }
 }
@@ -199,9 +200,9 @@ loop_end_reason event_loop_impl::loop(int max_iter, int timeout_ms) {
         auto& epoll_event = events_[index];
         auto& fddata = get_fd_data(epoll_event.data.fd);
         if (epoll_event.events & EPOLLIN)
-          dispatch_event(fddata.idx_read);
+          dispatch_event(fddata.idx_read, event_status::ok);
         if (epoll_event.events & EPOLLOUT)
-          dispatch_event(fddata.idx_write);
+          dispatch_event(fddata.idx_write, event_status::ok);
       }
     }
   }

@@ -78,14 +78,27 @@ class event_loop_impl {
    */
   std::atomic<bool> trigger_fd_events_;  // Only used for fd_event to bypass epoll
 
+  /**
+   * Retrieve the event_data for read and write matching this fd
+   */
   fd_data& get_fd_data(int fd);
 
+  /**
+   * Update the epoll table
+   */
   void epoll_update(int fd, fd_data& fddata, bool del_if_no_event);
+
+  /**
+   * Update the epoll table
+   */
   inline void epoll_update(int fd, bool del_if_no_event) {
     epoll_update(fd, get_fd_data(fd), del_if_no_event);
   }
 
-  void dispatch_event(int event_id);
+  /**
+   * Signal the event to be dispatched to the handler
+   */
+  void dispatch_event(int event_id, event_status status);
 
  public:
   event_loop_impl(event_handler& handler);
