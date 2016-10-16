@@ -191,8 +191,8 @@ bool thread::execute_scheduled_routines() {
       case routine_status::wait_sema_wait: {
         clear_previous_io_event(*routine, loop_);
         semaphore* missed_semaphore = static_cast<semaphore*>(routine->context_.data);
-        missed_semaphore->get_queue(this)->write(id(), routine.release());
-        int result = missed_semaphore->counter_.fetch_add(1);
+        missed_semaphore->waiters_.write(id(), routine.release());
+        int result = missed_semaphore->counter_.fetch_add(1,std::memory_order_release);
         if (0 <= result) {
           missed_semaphore->pop_a_waiter(this);
         }
