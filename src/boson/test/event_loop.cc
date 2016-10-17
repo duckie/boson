@@ -112,17 +112,12 @@ TEST_CASE("Event Loop - FD Panic Read/Write", "[eventloop][panic]") {
 
   boson::event_loop loop(handler_instance,1);
   loop.register_read(pipe_fds[0], nullptr);
-  loop.register_write(pipe_fds[1], nullptr);
 
-  loop.loop(1);
-  CHECK(handler_instance.last_write_fd == pipe_fds[1]);
-  CHECK(handler_instance.last_data == nullptr);
-  CHECK(handler_instance.last_status == event_status::ok);
+  loop.loop(1,0);
+  CHECK(handler_instance.last_read_fd == -1);
 
-  size_t data{1};
-  ::write(pipe_fds[1], &data, sizeof(size_t));
-
+  loop.send_fd_panic(0,pipe_fds[0]);
   loop.loop(1);
   CHECK(handler_instance.last_read_fd == pipe_fds[0]);
-  CHECK(handler_instance.last_data == nullptr);
+  CHECK(handler_instance.last_status == event_status::panic);
 }

@@ -22,11 +22,19 @@ void event_loop_impl::epoll_update(int fd, fd_data& fddata, bool del_if_no_event
   int return_code = -1;
   if (0 != new_event.events) {
     return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_MOD, fd, &new_event);
-    if (return_code < 0 && ENOENT == errno) {
-      return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, fd, &new_event);
-    }
     if (return_code < 0) {
-      throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
+      if (ENOENT == errno) {
+        return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, fd, &new_event);
+      } else if (EBADF == errno) {
+        // Dispatch panic
+        if (0 <= fddata.idx_read)
+          dispatch_event(fddata.idx_read, event_status::panic);
+        if (0 <= fddata.idx_write)
+          dispatch_event(fddata.idx_write, event_status::panic);
+      }
+      else {
+        throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
+      }
     }
   }
   else {
@@ -48,11 +56,14 @@ void event_loop_impl::dispatch_event(int event_id, event_status status) {
         // Empty the queue and send panics
         broken_loop_event_data* data = nullptr;
         while((data = static_cast<decltype(data)>(loop_breaker_queue_.read(0)))) {
-          auto& fddata = get_fd_data(data->fd);
-          if (0 <= fddata.idx_read)
-            dispatch_event(fddata.idx_read, event_status::panic);
-          if (0 <= fddata.idx_write)
-            dispatch_event(fddata.idx_write, event_status::panic);
+          // We just ignore fds we dont have
+          if (data->fd < fd_data_.size()) {
+            auto& fddata = get_fd_data(data->fd);
+            if (0 <= fddata.idx_read)
+              dispatch_event(fddata.idx_read, event_status::panic);
+            if (0 <= fddata.idx_write)
+              dispatch_event(fddata.idx_write, event_status::panic);
+          }
           delete data;
         }
       }

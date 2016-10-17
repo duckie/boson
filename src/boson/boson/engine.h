@@ -39,10 +39,10 @@ class engine {
     }
   };
 
-  enum class command_type { add_routine, notify_idle, notify_end_of_thread };
+  enum class command_type { add_routine, notify_idle, notify_end_of_thread, fd_panic };
 
   using command_new_routine_data = std::tuple<thread_id, std::unique_ptr<internal::routine>>;
-  using command_data = json_backbone::variant<std::nullptr_t, size_t, command_new_routine_data>;
+  using command_data = json_backbone::variant<std::nullptr_t, int, size_t, command_new_routine_data>;
 
   struct command {
     thread_id from;

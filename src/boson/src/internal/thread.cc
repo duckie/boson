@@ -18,6 +18,7 @@ namespace internal {
 engine_proxy::engine_proxy(engine& parent_engine) : engine_(&parent_engine) {
 }
 
+
 engine_proxy::~engine_proxy() {
 }
 
@@ -50,6 +51,12 @@ void engine_proxy::start_routine(thread_id target_thread, std::unique_ptr<routin
                                                     target_thread, std::move(new_routine)}));
 }
 
+void engine_proxy::fd_panic(int fd) {
+  engine_->push_command(
+      current_thread_id_,
+      std::make_unique<engine::command>(current_thread_id_, engine::command_type::fd_panic, fd));
+}
+
 void engine_proxy::set_id() {
   current_thread_id_ = engine_->register_thread_id();
 }
@@ -63,10 +70,10 @@ void thread::handle_engine_event() {
     switch (received_command->type) {
       case thread_command_type::add_routine:
         scheduled_routines_.emplace_back(
-            received_command->data.template get<routine_ptr_t>().release());
+            received_command->data.get<routine_ptr_t>().release());
         break;
       case thread_command_type::schedule_waiting_routine: {
-        auto& t = received_command->data.template get<std::tuple<int, int, routine_ptr_t>>();
+        auto& t = received_command->data.get<std::tuple<int, int, routine_ptr_t>>();
         int rid = std::get<0>(t);
         int status = std::get<1>(t);
         routine* current_routine = std::get<2>(t).release();
@@ -77,6 +84,10 @@ void thread::handle_engine_event() {
       } break;
       case thread_command_type::finish:
         status_ = thread_status::finishing;
+        break;
+      case thread_command_type::fd_panic:
+        auto& fd = received_command->data.get<int>();
+        loop_.send_fd_panic(id(),fd);
         break;
     }
     delete received_command;
@@ -108,6 +119,9 @@ void thread::event(int event_id, void* data, event_status status) {
 void thread::read(int fd, void* data, event_status status) {
   routine* target_routine = static_cast<routine*>(data);
   target_routine->expected_event_happened();
+  if (status == event_status::panic) {
+    target_routine->waiting_data().get<routine_io_event>().panic = true;
+  }
   --suspended_routines_;
   scheduled_routines_.emplace_back(target_routine);
 }
@@ -115,6 +129,9 @@ void thread::read(int fd, void* data, event_status status) {
 void thread::write(int fd, void* data, event_status status) {
   routine* target_routine = static_cast<routine*>(data);
   target_routine->expected_event_happened();
+  if (status == event_status::panic) {
+    target_routine->waiting_data().get<routine_io_event>().panic = true;
+  }
   --suspended_routines_;
   scheduled_routines_.emplace_back(target_routine);
 }
