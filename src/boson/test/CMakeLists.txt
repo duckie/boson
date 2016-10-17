@@ -20,7 +20,7 @@ add_project_test(test_wfqueue CATCH)
 add_project_test(event_loop CATCH)
 add_project_test(memory_sparse_vector CATCH)
 add_project_test(memory_flat_unordered_set CATCH)
-add_project_test(routine CATCH)
+#add_project_test(routine CATCH) # Missing file
 
 # Create main test executable
 add_executable(unit_tests ${catch_exe_source_list})

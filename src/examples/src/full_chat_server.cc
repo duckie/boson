@@ -8,6 +8,7 @@
 #include "boson/boson.h"
 #include "boson/channel.h"
 #include "boson/exception.h"
+#include "boson/net/socket.h"
 #include "boson/logger.h"
 
 using namespace std::literals;
@@ -20,53 +21,25 @@ struct command {
   json_backbone::variant<int, std::pair<int, std::string>> data;
 };
 
-int create_listening_socket() {
-  int sockfd, portno;
-  char buffer[256];
-  struct sockaddr_in serv_addr;
-  sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  fcntl(sockfd, F_SETFL, O_NONBLOCK);
-  if (sockfd < 0) throw boson::exception("ERROR opening socket");
-  bzero((char *)&serv_addr, sizeof(serv_addr));
-  portno = 8080;
-  serv_addr.sin_family = AF_INET;
-  serv_addr.sin_addr.s_addr = INADDR_ANY;
-  serv_addr.sin_port = htons(portno);
-
-  // re use socket
-  int yes = 1;
-  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1)
-    throw boson::exception("setsockopt");
-
-  if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-    throw boson::exception("ERROR on binding");
-  listen(sockfd, 5);
-  return sockfd;
-}
-
 void listen_client(int fd, channel<command, 5> main_loop) {
   std::array<char, 2048> buffer;
   ssize_t nread = 0;
-  while ((nread = boson::recv(fd, buffer.data(), buffer.size(), 0))) {
-    if (nread < 0)
-      break; // Panic, break the routine
+  while (0 < (nread = boson::recv(fd, buffer.data(), buffer.size(), 0))) {
     std::string data(buffer.data(), nread-1);
-    if (data.substr(0, 4) == "quit" || nread < 0) {
-      main_loop.write(command{command_type::remove, fd});
+    if (data.substr(0, 4) == "quit") {
       break;
     } else {
       main_loop.write(command{command_type::write, {fd, fmt::format("Client {} says: {}\n", fd, data)}});
     }
   }
+  main_loop.write(command{command_type::remove, fd});
 }
 
 void listen_server_command(int std_in, int std_out, channel<command, 5> main_loop) {
   std::array<char, 2048> buffer;
   ssize_t nread = 0;
   boson::write(std_out,"\n> ",3);
-  while ((nread = boson::read(std_in, buffer.data(), buffer.size()))) {
-    if (nread < 0)
-      break; // Panic, break the routine
+  while (0 < (nread = boson::read(std_in, buffer.data(), buffer.size()))) {
     std::string data(buffer.data(), nread-1);
     if (data.substr(0, 4) == "quit") {
       main_loop.write(command{command_type::quit, 0});
@@ -98,13 +71,13 @@ int main(int argc, char *argv[]) {
   boson::debug::logger_instance(&std::cout);
 
   // Execute a routine communication through channels
-  boson::run(1, []() {
+  boson::run(8, []() {
     // Create a channel
     channel<command, 5> loop_input;
 
     // Create socket and list to connections
     using namespace boson;
-    int sockfd = create_listening_socket();
+    int sockfd = boson::net::create_listening_socket(8080);
     start(listen_new_connections, sockfd, loop_input);
 
     // Listen stdout for commands
@@ -147,6 +120,7 @@ int main(int argc, char *argv[]) {
             boson::send(dest, message.c_str(), message.size(), 0);
             ::shutdown(dest, SHUT_WR);
             ::close(dest);
+            boson::fd_panic(dest);
           }
           boson::fd_panic(sockfd);
           exit = true;
