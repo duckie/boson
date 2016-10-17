@@ -17,7 +17,7 @@ struct command {
 void listen_client(int fd, channel<command, 5> chan) {
   std::array<char, 2048> buffer;
   ssize_t nread = 0;
-  while ((nread = boson::recv(fd, buffer.data(), buffer.size(), 0))) {
+  while (0 < (nread = boson::recv(fd, buffer.data(), buffer.size(), 0))) {
     std::string data(buffer.data(), nread-2);
     if (data.substr(0, 4) == "quit") {
       chan << command{command_type::remove, fd};

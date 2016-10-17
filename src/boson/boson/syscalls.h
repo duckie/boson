@@ -25,6 +25,25 @@ void yield();
 void sleep(std::chrono::milliseconds duration);
 
 /**
+ * Suspends the routine until the fd is read for a syscall
+ */
+int wait_readiness(fd_t fd, bool read);
+
+/**
+ * Suspends the routine until the fd is read for read/recv/accept
+ */
+inline int wait_read_readiness(fd_t fd) {
+  return wait_readiness(fd,true);
+}
+
+/**
+ * Suspends the routine until the fd is read for write/send
+ */
+inline int wait_write_readiness(fd_t fd) {
+  return wait_readiness(fd,false);
+}
+
+/**
  * Boson equivalent to POSIX read system call
  */
 ssize_t read(fd_t fd, void *buf, size_t count);

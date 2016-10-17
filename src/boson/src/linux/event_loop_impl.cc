@@ -231,10 +231,18 @@ loop_end_reason event_loop_impl::loop(int max_iter, int timeout_ms) {
       for (int index = 0; index < return_code; ++index) {
         auto& epoll_event = events_[index];
         auto& fddata = get_fd_data(epoll_event.data.fd);
-        if (epoll_event.events & EPOLLIN)
-          dispatch_event(fddata.idx_read, event_status::ok);
-        if (epoll_event.events & EPOLLOUT)
-          dispatch_event(fddata.idx_write, event_status::ok);
+        if (epoll_event.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
+          if (0 < fddata.idx_read)
+            dispatch_event(fddata.idx_write, event_status::panic);
+          if (0 < fddata.idx_write)
+            dispatch_event(fddata.idx_write, event_status::panic);
+        }
+        else {
+          if (epoll_event.events & EPOLLIN)
+            dispatch_event(fddata.idx_read, event_status::ok);
+          if (epoll_event.events & EPOLLOUT)
+            dispatch_event(fddata.idx_write, event_status::ok);
+        }
       }
     }
   }

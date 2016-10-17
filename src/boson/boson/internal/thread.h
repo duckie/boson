@@ -87,11 +87,7 @@ class thread : public event_handler {
   friend void detail::resume_routine(transfer_t);
   friend void boson::yield();
   friend void boson::sleep(std::chrono::milliseconds);
-  friend ssize_t boson::read(fd_t fd, void* buf, size_t count);
-  friend ssize_t boson::write(fd_t fd, const void* buf, size_t count);
-  friend socket_t boson::accept(socket_t socket, sockaddr* address, socklen_t* address_len);
-  friend size_t boson::send(socket_t socket, const void* buffer, size_t length, int flags);
-  friend ssize_t boson::recv(socket_t socket, void* buffer, size_t length, int flags);
+  friend int boson::wait_readiness(fd_t,bool);
   friend void boson::fd_panic(int fd);
   template <class ContentType>
   friend class channel;
