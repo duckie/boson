@@ -22,11 +22,19 @@ void event_loop_impl::epoll_update(int fd, fd_data& fddata, bool del_if_no_event
   int return_code = -1;
   if (0 != new_event.events) {
     return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_MOD, fd, &new_event);
-    if (return_code < 0 && ENOENT == errno) {
-      return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, fd, &new_event);
-    }
     if (return_code < 0) {
-      throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
+      if (ENOENT == errno) {
+        return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, fd, &new_event);
+      } else if (EBADF == errno) {
+        // Dispatch panic
+        if (0 <= fddata.idx_read)
+          dispatch_event(fddata.idx_read, event_status::panic);
+        if (0 <= fddata.idx_write)
+          dispatch_event(fddata.idx_write, event_status::panic);
+      }
+      else {
+        throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
+      }
     }
   }
   else {
@@ -37,11 +45,49 @@ void event_loop_impl::epoll_update(int fd, fd_data& fddata, bool del_if_no_event
   }
 }
 
-event_loop_impl::event_loop_impl(event_handler& handler)
+void event_loop_impl::dispatch_event(int event_id, event_status status) {
+  auto& data = events_data_[event_id];
+  switch (data.type) {
+    case event_type::event_fd: {
+      size_t buffer{0};
+      ssize_t nb_bytes = ::read(data.fd, &buffer, 8u);
+      assert(nb_bytes == 8);
+      if (loop_breaker_event_ == event_id) {
+        // Empty the queue and send panics
+        broken_loop_event_data* data = nullptr;
+        while((data = static_cast<decltype(data)>(loop_breaker_queue_.read(0)))) {
+          // We just ignore fds we dont have
+          if (data->fd < fd_data_.size()) {
+            auto& fddata = get_fd_data(data->fd);
+            if (0 <= fddata.idx_read)
+              dispatch_event(fddata.idx_read, event_status::panic);
+            if (0 <= fddata.idx_write)
+              dispatch_event(fddata.idx_write, event_status::panic);
+          }
+          delete data;
+        }
+      }
+      else {
+        handler_.event(event_id, data.data, status);
+      }
+    } break;
+    case event_type::read: {
+      handler_.read(data.fd, data.data, status);
+    } break;
+    case event_type::write: {
+      handler_.write(data.fd, data.data, status);
+    } break;
+  }
+}
+
+event_loop_impl::event_loop_impl(event_handler& handler, int nprocs)
     : handler_{handler},
       loop_fd_{epoll_create1(0)},
       nb_io_registered_(0),
-      trigger_fd_events_{false} {
+      trigger_fd_events_{false},
+      loop_breaker_event_{-1},
+      loop_breaker_queue_{nprocs+1} {
+  loop_breaker_event_ = register_event(nullptr);
 }
 
 event_loop_impl::~event_loop_impl() {
@@ -60,6 +106,7 @@ int event_loop_impl::register_event(void* data) {
   ev_data.data = data;
   auto& fddata = get_fd_data(event_fd);
   fddata.idx_read = event_id;
+  noio_events_.insert(event_id);
 
   // Register
   epoll_update(event_fd,fddata,false);
@@ -144,28 +191,18 @@ void* event_loop_impl::unregister(int event_id) {
     fddata.idx_write = -1;
 
   epoll_update(event_data.fd, fddata,true);
-  if (event_data.type != event_type::event_fd) --nb_io_registered_;
+  if (event_data.type == event_type::event_fd)
+    noio_events_.erase(event_id);
+  else
+    --nb_io_registered_;
   void* data = event_data.data;
   events_data_.free(event_id);
   return data;
 }
 
-void event_loop_impl::dispatch_event(int event_id) {
-  auto& data = events_data_[event_id];
-  switch (data.type) {
-    case event_type::event_fd: {
-      size_t buffer{0};
-      ssize_t nb_bytes = ::read(data.fd, &buffer, 8u);
-      assert(nb_bytes == 8);
-      handler_.event(event_id, data.data);
-    } break;
-    case event_type::read: {
-      handler_.read(data.fd, data.data);
-    } break;
-    case event_type::write: {
-      handler_.write(data.fd, data.data);
-    } break;
-  }
+void event_loop_impl::send_fd_panic(int proc_from,int fd) {
+  loop_breaker_queue_.write(proc_from+1, new broken_loop_event_data{fd});
+  send_event(loop_breaker_event_);
 }
 
 loop_end_reason event_loop_impl::loop(int max_iter, int timeout_ms) {
@@ -190,15 +227,15 @@ loop_end_reason event_loop_impl::loop(int max_iter, int timeout_ms) {
         default:
           break;
       }
-    }
-    // Success, get on on with dispatching events
-    for (int index = 0; index < return_code; ++index) {
-      auto& epoll_event = events_[index];
-      auto& fddata = get_fd_data(epoll_event.data.fd);
-      if (epoll_event.events & EPOLLIN)
-        dispatch_event(fddata.idx_read);
-      if (epoll_event.events & EPOLLOUT)
-        dispatch_event(fddata.idx_write);
+      // Success, get on on with dispatching events
+      for (int index = 0; index < return_code; ++index) {
+        auto& epoll_event = events_[index];
+        auto& fddata = get_fd_data(epoll_event.data.fd);
+        if (epoll_event.events & EPOLLIN)
+          dispatch_event(fddata.idx_read, event_status::ok);
+        if (epoll_event.events & EPOLLOUT)
+          dispatch_event(fddata.idx_write, event_status::ok);
+      }
     }
   }
   return loop_end_reason::max_iter_reached;

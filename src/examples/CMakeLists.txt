@@ -36,3 +36,6 @@ target_link_libraries(socket_server boson ${LIBRARIES})
 
 add_executable(chat_server src/chat_server.cc)
 target_link_libraries(chat_server boson ${LIBRARIES})
+
+add_executable(full_chat_server src/full_chat_server.cc)
+target_link_libraries(full_chat_server boson ${LIBRARIES})

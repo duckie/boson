@@ -7,10 +7,12 @@
 
 namespace boson {
 
+enum class event_status { ok, panic };
+
 struct event_handler {
-  virtual void event(int event_id, void* data) = 0;
-  virtual void read(int fd, void* data) = 0;
-  virtual void write(int fd, void* data) = 0;
+  virtual void event(int event_id, void* data, event_status status) = 0;
+  virtual void read(int fd, void* data, event_status status) = 0;
+  virtual void write(int fd, void* data, event_status status) = 0;
 };
 
 enum class loop_end_reason { max_iter_reached, timed_out, error_occured };
@@ -46,7 +48,7 @@ class event_loop {
    * lifespan
    *
    */
-  event_loop(event_handler& handler);
+  event_loop(event_handler& handler, int nprocs);
 
   /**
    * Registers for a long running event listening
@@ -66,21 +68,11 @@ class event_loop {
 
   /**
    * Listen a fd for read
-   *
-   * Those events are one time_events, they must be rearmed each time
-   * It comes from the fact that the routines decide if an FD must
-   * be listened to or not, and there is no way we ask the user to decide
-   * in advance. so every "blocking" sys call in a routine rearms the event.
    */
   int register_read(int fd, void* data);
 
   /**
    * Listen a fd for write
-   *
-   * Those events are one time_events, they must be rearmed each time
-   * It comes from the fact that the routines decide if an FD must
-   * be listened to or not, and there is no way we ask the user to decide
-   * in advance. so every "blocking" sys call in a routine rearms the event.
    */
   int register_write(int fd, void* data);
 
@@ -98,6 +90,13 @@ class event_loop {
    * Unregister the event and give back its data
    */
   void* unregister(int event_id);
+
+  /**
+   * Force loop unlock for a given fd and a given event
+   *
+   * This can be useful to interrupt listening servers
+   */
+  void send_fd_panic(int proc_from, int fd);
 
   /**
    * Executes the event loop

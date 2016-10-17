@@ -17,11 +17,8 @@ namespace boson {
 class semaphore {
   friend class internal::thread;
   using queue_t = queues::lcrq;
-  std::atomic<queue_t*> waiters_;
+  queue_t waiters_;
   std::atomic<int> counter_;
-  std::mutex mut_;  // Only used at initialization
-
-  queue_t* get_queue(internal::thread* current);
 
   /**
    * tries to unlock a waiter

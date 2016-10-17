@@ -48,6 +48,7 @@ struct routine_io_event {
   int fd;                          // The current FD used
   int event_id;                    // The id used for the event loop
   bool is_same_as_previous_event;  // Used to limit system calls in loops
+  bool panic;                      // True if event loop answered in panic to this event
 };
 }
 }

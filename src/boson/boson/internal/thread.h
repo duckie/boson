@@ -37,9 +37,9 @@ enum class thread_status {
   finished    // Thread no longer executes a routine and is not required to wait
 };
 
-enum class thread_command_type { add_routine, schedule_waiting_routine, finish };
+enum class thread_command_type { add_routine, schedule_waiting_routine, finish, fd_panic };
 
-using thread_command_data = json_backbone::variant<std::nullptr_t, std::unique_ptr<routine>,
+using thread_command_data = json_backbone::variant<std::nullptr_t, int, std::unique_ptr<routine>,
                                                    std::tuple<int, int, std::unique_ptr<routine>>>;
 
 struct thread_command {
@@ -70,6 +70,7 @@ class engine_proxy final {
   void notify_idle(size_t nb_suspended_routines);
   void start_routine(std::unique_ptr<routine> new_routine);
   void start_routine(thread_id target_thread, std::unique_ptr<routine> new_routine);
+  void fd_panic(int fd);
   inline thread_id get_id() const {
     return current_thread_id_;
   }
@@ -91,6 +92,7 @@ class thread : public event_handler {
   friend socket_t boson::accept(socket_t socket, sockaddr* address, socklen_t* address_len);
   friend size_t boson::send(socket_t socket, const void* buffer, size_t length, int flags);
   friend ssize_t boson::recv(socket_t socket, void* buffer, size_t length, int flags);
+  friend void boson::fd_panic(int fd);
   template <class ContentType>
   friend class channel;
   friend class routine;
@@ -104,7 +106,7 @@ class thread : public event_handler {
   thread_status status_{thread_status::idle};
 
   /**
-   * Execution context used to jump betweent thread and its routines
+   * Execution context used to jump between thread and its routines
    *
    * Useful to get it from the TLS
    */
@@ -170,9 +172,9 @@ class thread : public event_handler {
   inline engine const& get_engine() const;
 
   // Event handler interface
-  void event(int event_id, void* data) override;
-  void read(int fd, void* data) override;
-  void write(int fd, void* data) override;
+  void event(int event_id, void* data, event_status status) override;
+  void read(int fd, void* data, event_status status) override;
+  void write(int fd, void* data, event_status status) override;
 
   // called by engine
   void push_command(thread_id from, std::unique_ptr<thread_command> command);

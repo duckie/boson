@@ -8,6 +8,9 @@
 
 namespace boson {
 
+static constexpr int code_panic = -100;
+static constexpr int code_timeout = -101;
+
 /**
  * Gives back control to the scheduler
  *
@@ -34,6 +37,8 @@ ssize_t write(fd_t fd, const void *buf, size_t count);
 socket_t accept(socket_t socket, sockaddr *address, socklen_t *address_len);
 size_t send(socket_t socket, const void *buffer, size_t length, int flags);
 ssize_t recv(socket_t socket, void *buffer, size_t length, int flags);
+
+void fd_panic(int fd);
 
 }  // namespace boson
 
