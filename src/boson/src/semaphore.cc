@@ -20,14 +20,13 @@ bool semaphore::pop_a_waiter(internal::thread* current) {
   routine* current_routine = nullptr;
   int result = 1;
   if(0 < result) {
-    //std::pair<internal::thread*, routine_local_ptr_t>* waiter = static_cast<std::pair<internal::thread*,routine_local_ptr_t>*>(waiters_.read(current->id()));
-    std::pair<internal::thread*, routine*>* waiter = static_cast<std::pair<internal::thread*,routine*>*>(waiters_.read(current->id()));
+    auto waiter = static_cast<std::pair<internal::thread*,std::size_t>*>(waiters_.read(current->id()));
     if (waiter) {
       thread* managing_thread = waiter->first;
       managing_thread->push_command(
           current->id(), std::make_unique<thread_command>(
                              thread_command_type::schedule_waiting_routine,
-                             std::make_pair(this,std::unique_ptr<routine>(waiter->second))));
+                             std::make_pair(this,waiter->second)));
       delete waiter;
       return true;
     }

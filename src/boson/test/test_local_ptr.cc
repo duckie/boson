@@ -45,4 +45,12 @@ TEST_CASE("Local pointer","[local_ptr]") {
     CHECK(!a2);
     CHECK(A::instances() == 0);
   }
+  CHECK(A::instances() == 0);
+  {
+    local_ptr<A> a1;
+    local_ptr<A> a2;
+    local_ptr<A> a3;
+    a2 = a1;
+    a3 = a1;
+  }
 }

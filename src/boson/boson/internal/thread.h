@@ -13,6 +13,7 @@
 #include <vector>
 #include "boson/event_loop.h"
 #include "boson/memory/local_ptr.h"
+#include "boson/memory/sparse_vector.h"
 #include "boson/logger.h"
 #include "boson/queues/lcrq.h"
 #include "routine.h"
@@ -43,7 +44,8 @@ enum class thread_status {
 
 enum class thread_command_type { add_routine, schedule_waiting_routine, finish, fd_panic };
 
-using thread_command_data = json_backbone::variant<std::nullptr_t, int, routine_ptr_t, std::pair<semaphore*,routine_local_ptr_t>>;
+using thread_command_data = json_backbone::variant<std::nullptr_t, int, routine_ptr_t, std::pair<semaphore*, std::size_t>>;
+//using thread_command_data = json_backbone::variant<std::nullptr_t, int, routine_ptr_t, std::pair<semaphore*, routine*>>;
 
 struct thread_command {
   thread_command_type type;
@@ -133,7 +135,7 @@ class thread : public event_handler {
    * The idea here is to avoid additional fd creation just for timers, so we can create
    * a whole lot of them without consuming the fd limit per process
    */
-  std::map<routine_time_point, std::deque<routine_local_ptr_t>> timed_routines_;
+  std::map<routine_time_point, std::deque<std::size_t>> timed_routines_;
 
   /**
    * Stores the number of suspended routines
@@ -144,7 +146,9 @@ class thread : public event_handler {
    *
    * This also counts routines waiting in a semaphore waiters list.
    */
-  size_t suspended_routines_{0};
+  size_t nb_suspended_routines_{0};
+
+  memory::sparse_vector<routine_local_ptr_t> suspended_slots_;
 
   /**
    * React to a request from the main scheduler

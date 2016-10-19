@@ -58,11 +58,13 @@ class local_ptr final {
     ref_ = other.ref_;
     if (ref_)
       ++ref_->shared_refs;
+    return *this;
   }
 
   local_ptr& operator=(local_ptr && other)  {
     decrement();
-    std::swap(ref_, other.ref_);
+    ref_ = other.ref_;
+    other.ref_ = nullptr;
     return *this;
   }
 
