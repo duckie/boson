@@ -45,6 +45,10 @@ void routine::resume(thread* managing_thread) {
       context_ = jump_fcontext(context_.fctx, nullptr);
       break;
     }
+    case routine_status::timed_out: {
+      context_ = jump_fcontext(context_.fctx, nullptr);
+      break;
+    }
     case routine_status::finished: {
       // Not supposed to happen
       assert(false);

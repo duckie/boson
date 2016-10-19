@@ -281,6 +281,7 @@ bool thread::execute_scheduled_routines() {
       }
     } else {
       // If some routines already are scheduled, then throw an event to force a loop execution
+        //debug::log("Passe la");
       return true;
     }
   }
@@ -308,6 +309,7 @@ void thread::loop() {
           fire_timed_out_routines = true;
       }
     }
+    //debug::log("Timeout is {}", timeout_ms);
     auto return_code = loop_.loop(1, timeout_ms);
     switch (return_code) {
       case loop_end_reason::max_iter_reached:
