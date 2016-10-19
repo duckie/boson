@@ -34,6 +34,7 @@ enum class routine_status {
   is_new,          // Routine has been created but never started
   running,         // Routine is currently running
   yielding,        // Routine yielded and waits to be resumed
+  timed_out,       // Status when a routine waited for an event and timed out
   wait_timer,      // Routine waits for a timer to expire
   wait_sys_read,   // Routine waits for a FD to be ready for read
   wait_sys_write,  // Routine waits for a FD to be readu for write
@@ -187,10 +188,9 @@ class routine {
    */
   inline void expected_event_happened();
 
+  inline void timed_out();
   // void execute_in
 };
-
-static thread_local thread* this_routine = nullptr;
 
 // Inline implementations
 routine_id routine::id() const {
@@ -220,6 +220,13 @@ routine_waiting_data const& routine::waiting_data() const {
 
 void routine::expected_event_happened() {
   status_ = routine_status::yielding;
+}
+
+void routine::timed_out() {
+  if (status_ == routine_status::wait_timer)
+    status_ = routine_status::yielding;
+  else
+    status_ = routine_status::timed_out;
 }
 
 }  // namespace internal

@@ -6,7 +6,7 @@
 #include "catch.hpp"
 
 TEST_CASE("Queues - WeakRB - serial random integers", "[queues][weakrb]") {
-  constexpr size_t const sample_size = 1e5;
+  constexpr size_t const sample_size = 1e4;
 
   std::random_device seed;
   std::mt19937_64 generator{seed()};
@@ -30,6 +30,7 @@ TEST_CASE("Queues - WeakRB - serial random integers", "[queues][weakrb]") {
       // Ugly spin lock, osef
       while (!success) {
         success = queue.write(value);
+        std::this_thread::yield();
       }
     }
   });
@@ -41,6 +42,7 @@ TEST_CASE("Queues - WeakRB - serial random integers", "[queues][weakrb]") {
       // Ugly spin lock, osef
       while (!success) {
         success = queue.read(result);
+        std::this_thread::yield();
       }
       destination.emplace_back(result);
     }

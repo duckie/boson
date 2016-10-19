@@ -6,12 +6,13 @@
 #include <cassert>
 #include <chrono>
 #include <json_backbone.hpp>
-#include <list>
+#include <deque>
 #include <map>
 #include <memory>
 #include <thread>
 #include <vector>
 #include "boson/event_loop.h"
+#include "boson/memory/local_ptr.h"
 #include "boson/logger.h"
 #include "boson/queues/lcrq.h"
 #include "routine.h"
@@ -26,7 +27,10 @@ struct is_small_type<std::unique_ptr<boson::internal::routine>> {
 namespace boson {
 
 class engine;
+class semaphore;
 using thread_id = std::size_t;
+using routine_ptr_t = std::unique_ptr<internal::routine>;
+using routine_local_ptr_t = memory::local_ptr<std::unique_ptr<internal::routine>>;
 
 namespace internal {
 
@@ -39,8 +43,7 @@ enum class thread_status {
 
 enum class thread_command_type { add_routine, schedule_waiting_routine, finish, fd_panic };
 
-using thread_command_data = json_backbone::variant<std::nullptr_t, int, std::unique_ptr<routine>,
-                                                   std::tuple<int, int, std::unique_ptr<routine>>>;
+using thread_command_data = json_backbone::variant<std::nullptr_t, int, routine_ptr_t, std::pair<semaphore*,routine_local_ptr_t>>;
 
 struct thread_command {
   thread_command_type type;
@@ -94,11 +97,10 @@ class thread : public event_handler {
   friend class routine;
 
   friend class boson::semaphore;
-  using routine_ptr_t = std::unique_ptr<routine>;
   using engine_queue_t = queues::lcrq;
 
   engine_proxy engine_proxy_;
-  std::list<routine_ptr_t> scheduled_routines_;
+  std::deque<routine_ptr_t> scheduled_routines_;
   thread_status status_{thread_status::idle};
 
   /**
@@ -131,7 +133,7 @@ class thread : public event_handler {
    * The idea here is to avoid additional fd creation just for timers, so we can create
    * a whole lot of them without consuming the fd limit per process
    */
-  std::map<routine_time_point, std::list<routine_ptr_t>> timed_routines_;
+  std::map<routine_time_point, std::deque<routine_local_ptr_t>> timed_routines_;
 
   /**
    * Stores the number of suspended routines

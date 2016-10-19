@@ -2,7 +2,7 @@
 #define BOSON_SEMAPHORE_H_
 
 #include <memory>
-#include <mutex>
+#include <chrono>
 #include "internal/routine.h"
 #include "internal/thread.h"
 #include "queues/lcrq.h"
@@ -42,10 +42,10 @@ class semaphore {
   /**
    * takes a semaphore ticker if it could, otherwise suspend the routine until a ticker is available
    */
-  void wait();
+  bool wait(std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
 
   /**
-   * give back semaphore ticker
+   * give back semaphore ticket. Always non blocking
    */
   void post();
 };
@@ -64,7 +64,7 @@ class shared_semaphore {
   shared_semaphore& operator=(shared_semaphore&&) = default;
   virtual ~shared_semaphore() = default;
 
-  inline void wait();
+  inline bool wait(std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
   inline void post();
 };
 
@@ -73,8 +73,8 @@ class shared_semaphore {
 shared_semaphore::shared_semaphore(int capacity) : impl_{new semaphore(capacity)} {
 }
 
-void shared_semaphore::wait() {
-  impl_->wait();
+bool shared_semaphore::wait(std::chrono::milliseconds timeout) {
+  return impl_->wait(timeout);
 }
 
 void shared_semaphore::post() {

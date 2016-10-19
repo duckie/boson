@@ -73,14 +73,19 @@ void thread::handle_engine_event() {
             received_command->data.get<routine_ptr_t>().release());
         break;
       case thread_command_type::schedule_waiting_routine: {
-        auto& t = received_command->data.get<std::tuple<int, int, routine_ptr_t>>();
-        int rid = std::get<0>(t);
-        int status = std::get<1>(t);
-        routine* current_routine = std::get<2>(t).release();
-        assert(current_routine->status() == routine_status::wait_sema_wait);
-        current_routine->expected_event_happened();
-        --suspended_routines_;
-        scheduled_routines_.emplace_back(current_routine);
+        auto& data = received_command->data.get<std::pair<semaphore*, routine_local_ptr_t>>();
+        // If not previously invalidated by a timeout
+        if (data.second) {
+          routine* current_routine = data.second->release();
+          data.second.invalidate_all();
+          assert(current_routine->status() == routine_status::wait_sema_wait);
+          current_routine->expected_event_happened();
+          --suspended_routines_;
+          scheduled_routines_.emplace_back(current_routine);
+        }
+        else {
+          data.first->pop_a_waiter(this);
+        }
       } break;
       case thread_command_type::finish:
         status_ = thread_status::finishing;
@@ -160,7 +165,7 @@ inline void clear_previous_io_event(routine& routine, event_loop& loop) {
 
 bool thread::execute_scheduled_routines() {
   decltype(scheduled_routines_) next_scheduled_routines;
-  std::list<std::tuple<size_t, routine_ptr_t>> new_timed_routines_;
+  std::deque<std::tuple<size_t, routine_ptr_t>> new_timed_routines_;
   while (!scheduled_routines_.empty()) {
     // For now; we schedule them in order
     auto& routine = scheduled_routines_.front();
@@ -180,10 +185,15 @@ bool thread::execute_scheduled_routines() {
         clear_previous_io_event(*routine, loop_);
         next_scheduled_routines.emplace_back(routine.release());
       } break;
+      //case routine_status::timed_out: {
+        //// If not finished, then we reschedule it
+        //clear_previous_io_event(*routine, loop_);
+        //next_scheduled_routines.emplace_back(routine.release());
+      //} break;
       case routine_status::wait_timer: {
         clear_previous_io_event(*routine, loop_);
         auto target_data = routine->waiting_data().raw<routine_time_point>();
-        timed_routines_[target_data].emplace_back(routine.release());
+        timed_routines_[target_data].emplace_back(std::move(routine));
       } break;
       case routine_status::wait_sys_read: {
         routine_io_event& target_event = routine->waiting_data().get<routine_io_event>();
@@ -208,6 +218,7 @@ bool thread::execute_scheduled_routines() {
       case routine_status::wait_sema_wait: {
         clear_previous_io_event(*routine, loop_);
         semaphore* missed_semaphore = static_cast<semaphore*>(routine->context_.data);
+        //missed_semaphore->waiters_.write(id(), new std::pair<thread*, routine_local_ptr_t>(this, std::move(routine)));
         missed_semaphore->waiters_.write(id(), routine.release());
         int result = missed_semaphore->counter_.fetch_add(1,std::memory_order_release);
         if (0 <= result) {
@@ -230,9 +241,6 @@ bool thread::execute_scheduled_routines() {
 
   // Yielded routines are immediately scheduled
   scheduled_routines_ = std::move(next_scheduled_routines);
-
-  // Timed routines are added in the timer list
-  // This is made in two step to limit the syscall to get the current date
 
   // If finished and no more routines, exit
   size_t nb_pending_commands = nb_pending_commands_;
@@ -302,8 +310,14 @@ void thread::loop() {
     if (fire_timed_out_routines) {
       // Schedule routines that timed out
       for (auto& timed_routine : first_timed_routines->second) {
-        timed_routine->expected_event_happened();
-        scheduled_routines_.emplace_back(timed_routine.release());
+        if (timed_routine) {
+          // Schedule the routine to be executed
+          // Routine ownership transfers to scheduled_routines_
+          timed_routine->get()->timed_out();
+          scheduled_routines_.emplace_back(timed_routine->release());
+          // Invalidate potentially other waiting events
+          timed_routine.invalidate_all();
+        }
       }
       timed_routines_.erase(first_timed_routines);
     }

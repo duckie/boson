@@ -11,7 +11,7 @@ namespace memory {
  *
  * The idea of sparse vector is to keep allocated a given
  * number of elements and to keep indexes always valid even
- * if there is a deletion in the midelle of it.
+ * if there is a deletion in the midle of it.
  *
  * The "free" cells will be stored in a chained way and can be claimed
  * back when a new element needs to be stored.
