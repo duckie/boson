@@ -20,17 +20,14 @@ bool semaphore::pop_a_waiter(internal::thread* current) {
   routine* current_routine = nullptr;
   int result = 1;
   if(0 < result) {
-    //std::pair<internal::thread*, routine_local_ptr_t>* waiter = static_cast<std::pair<internal::thread*,routine_local_ptr_t>*>(waiters_.read(current->id()));
-    routine* waiter = static_cast<routine*>(waiters_.read(current->id()));
+    std::pair<internal::thread*, routine_local_ptr_t>* waiter = static_cast<std::pair<internal::thread*,routine_local_ptr_t>*>(waiters_.read(current->id()));
     if (waiter) {
-      //thread* managing_thread = waiter->first;
-      thread* managing_thread = waiter->thread_;
+      thread* managing_thread = waiter->first;
       managing_thread->push_command(
           current->id(), std::make_unique<thread_command>(
                              thread_command_type::schedule_waiting_routine,
-                             std::make_pair(this,routine_local_ptr_t(std::unique_ptr<internal::routine>(waiter)))));
-                             //std::make_pair(this,routine_local_ptr_t(std::move(waiter->second))));
-      //delete waiter;
+                             std::make_pair(this,waiter->second)));
+      delete waiter;
       return true;
     }
   }
@@ -57,11 +54,11 @@ bool semaphore::wait(milliseconds timeout) {
     // the thread may need to create a special wrapper around it to manage
     // timeouts
     this_thread->context() = jump_fcontext(this_thread->context().fctx, this);
-    //if (current_routine->status_ == routine_status::timed_out) {
-      //current_routine->previous_status_ = routine_status::timed_out;
-      //current_routine->status_ = routine_status::running;
-      //return false;
-    //}
+    if (current_routine->status_ == routine_status::timed_out) {
+      current_routine->previous_status_ = routine_status::timed_out;
+      current_routine->status_ = routine_status::running;
+      return false;
+    }
     result = counter_.fetch_sub(1,std::memory_order_acquire);
     current_routine->previous_status_ = routine_status::wait_sema_wait;
     current_routine->status_ = routine_status::running;

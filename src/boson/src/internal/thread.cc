@@ -185,11 +185,11 @@ bool thread::execute_scheduled_routines() {
         clear_previous_io_event(*routine, loop_);
         next_scheduled_routines.emplace_back(routine.release());
       } break;
-      //case routine_status::timed_out: {
-        //// If not finished, then we reschedule it
-        //clear_previous_io_event(*routine, loop_);
-        //next_scheduled_routines.emplace_back(routine.release());
-      //} break;
+      case routine_status::timed_out: {
+        // If not finished, then we reschedule it
+        clear_previous_io_event(*routine, loop_);
+        next_scheduled_routines.emplace_back(routine.release());
+      } break;
       case routine_status::wait_timer: {
         clear_previous_io_event(*routine, loop_);
         auto target_data = routine->waiting_data().raw<routine_time_point>();
@@ -218,8 +218,7 @@ bool thread::execute_scheduled_routines() {
       case routine_status::wait_sema_wait: {
         clear_previous_io_event(*routine, loop_);
         semaphore* missed_semaphore = static_cast<semaphore*>(routine->context_.data);
-        //missed_semaphore->waiters_.write(id(), new std::pair<thread*, routine_local_ptr_t>(this, std::move(routine)));
-        missed_semaphore->waiters_.write(id(), routine.release());
+        missed_semaphore->waiters_.write(id(), new std::pair<thread*, routine_local_ptr_t>(this, std::move(routine)));
         int result = missed_semaphore->counter_.fetch_add(1,std::memory_order_release);
         if (0 <= result) {
           missed_semaphore->pop_a_waiter(this);
