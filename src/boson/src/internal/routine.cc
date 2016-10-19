@@ -20,7 +20,7 @@ void resume_routine(transfer_t transfered_context) {
   (*current_routine->func_)();
   current_routine->status_ = routine_status::finished;
   // It is paramount to use reference to the thread local variable here
-  // since it can be updated during ping/ping context jumps during the routine
+  // since it can be updated during ping/pong context jumps during the routine
   // execution
   // jump_fcontext(this_thread->context().fctx, this_thread->context().data);
   jump_fcontext(this_thread->context().fctx, nullptr);
@@ -31,6 +31,37 @@ void resume_routine(transfer_t transfered_context) {
 
 routine::~routine() {
   deallocate(stack_);
+}
+
+void routine::start_event_round() {
+  // Clean previous events
+  previous_events_.clear();
+  std::swap(previous_events_, events_);
+}
+
+void routine::add_timer(routine_time_point date) {
+  events_.emplace_back(waited_event{event_type::timer, routine_timer_event_data{std::move(date),nullptr}});
+}
+
+void routine::commit_event_round() {
+  routine_local_ptr_t routine_slot(std::unique_ptr<routine>(this));
+  for (auto& event : events_) {
+    switch (event.type) {
+      case event_type::none:
+        break;
+      case event_type::timer:
+        event.data.get<routine_timer_event_data>().neighbor_timers =
+            &thread_->register_timer(event.data.get<routine_timer_event_data>().date, routine_slot);
+        //debug::log("Registered a timer");
+        break;
+      case event_type::io_read:
+        break;
+      case event_type::io_write:
+        break;
+      case event_type::sema_wait:
+        break;
+    }
+  }
 }
 
 void routine::resume(thread* managing_thread) {

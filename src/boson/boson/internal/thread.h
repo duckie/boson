@@ -84,6 +84,12 @@ class engine_proxy final {
   }
 };
 
+// Holds pointers to routines waiting for a time out
+struct timed_routines_set {
+  std::size_t nb_active = 0;
+  std::deque<std::size_t> slots;
+};
+
 /**
  * Thread encapsulates an instance of an real thread
  *
@@ -129,13 +135,14 @@ class thread : public event_handler {
   int engine_event_id_;
   int self_event_id_;
 
+
   /**
    * This map stores the timers
    *
    * The idea here is to avoid additional fd creation just for timers, so we can create
    * a whole lot of them without consuming the fd limit per process
    */
-  std::map<routine_time_point, std::deque<std::size_t>> timed_routines_;
+  std::map<routine_time_point, timed_routines_set> timed_routines_;
 
   /**
    * Stores the number of suspended routines
@@ -161,6 +168,13 @@ class thread : public event_handler {
   void unregister_all_events();
 
   inline transfer_t& context();
+
+  timed_routines_set& register_timer(routine_time_point const& date, routine_local_ptr_t slot);
+
+  /**
+   * Sets a routine for execution at the next round
+   */
+  void schedule(routine* routine);
 
  public:
   thread(engine& parent_engine);

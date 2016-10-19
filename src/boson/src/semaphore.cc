@@ -44,10 +44,10 @@ bool semaphore::wait(milliseconds timeout) {
     assert(this_thread);
     routine* current_routine = this_thread->running_routine();
     current_routine->waiting_data_ = nullptr;
-    if (0 < timeout.count()) {
-      current_routine->waiting_data_ =
-          time_point_cast<milliseconds>(high_resolution_clock::now() + timeout);
-    }
+    //if (0 < timeout.count()) {
+      //current_routine->waiting_data_ =
+          //time_point_cast<milliseconds>(high_resolution_clock::now() + timeout);
+    //}
 
     current_routine->status_ = routine_status::wait_sema_wait;
     // It is important the semaphore does not push the routine itself since

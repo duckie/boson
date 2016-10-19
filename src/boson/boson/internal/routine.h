@@ -9,6 +9,8 @@
 #include "boson/syscalls.h"
 #include "fcontext.h"
 #include "stack.h"
+#include <vector>
+#include "../event_loop.h"
 
 namespace boson {
 
@@ -20,6 +22,7 @@ using routine_id = std::size_t;
 namespace internal {
 
 class thread;
+class timed_routines_set;
 
 /**
  * Store the local thread context
@@ -45,18 +48,40 @@ enum class routine_status {
 using routine_time_point =
     std::chrono::time_point<std::chrono::high_resolution_clock, std::chrono::milliseconds>;
 
+enum class event_type {
+  none,
+  timer,
+  io_read,
+  io_write,
+  sema_wait
+};
+
+struct routine_timer_event_data {
+  routine_time_point date;
+  timed_routines_set* neighbor_timers;
+};
+
+
 struct routine_io_event {
   int fd;                          // The current FD used
   int event_id;                    // The id used for the event loop
   bool is_same_as_previous_event;  // Used to limit system calls in loops
   bool panic;                      // True if event loop answered in panic to this event
 };
+
+
+
+
 }
 }
 
 namespace json_backbone {
 template <>
 struct is_small_type<boson::internal::routine_time_point> {
+  constexpr static bool const value = true;
+};
+template <>
+struct is_small_type<boson::internal::routine_timer_event_data> {
   constexpr static bool const value = true;
 };
 template <>
@@ -70,6 +95,9 @@ namespace boson {
 class semaphore;
 
 namespace internal {
+
+
+
 /**
  * Data published to parent threads about waiting reasons
  *
@@ -77,7 +105,7 @@ namespace internal {
  * tell its running thread what it is about.
  */
 using routine_waiting_data =
-    json_backbone::variant<std::nullptr_t, int, size_t, routine_io_event, routine_time_point>;
+    json_backbone::variant<std::nullptr_t, int, size_t, routine_io_event, routine_timer_event_data>;
 
 class routine;
 
@@ -134,6 +162,17 @@ class routine {
   friend class thread;
   friend class boson::semaphore;
 
+  struct waited_event {
+    event_type type;
+    routine_waiting_data data;
+    //waited_event() = default;
+    //waited_event(waited_event const&) = default;
+    //waited_event(waited_event&&) = default;
+    //waited_event& operator=(waited_event const&) = default;
+    //waited_event& operator=(waited_event&&) = default;
+  };
+
+
   std::unique_ptr<detail::function_holder> func_;
   stack_context stack_ = allocate<default_stack_traits>();
   routine_status previous_status_ = routine_status::is_new;
@@ -142,6 +181,8 @@ class routine {
   transfer_t context_;
   thread* thread_;
   routine_id id_;
+  std::vector<waited_event> previous_events_;
+  std::vector<waited_event> events_;
 
  public:
   template <class Function, class... Args>
@@ -167,6 +208,12 @@ class routine {
   inline routine_status status() const;
   inline routine_waiting_data& waiting_data();
   inline routine_waiting_data const& waiting_data() const;
+
+
+  void start_event_round();
+  void add_timer(routine_time_point date);
+  void commit_event_round();
+
 
   /**
    * Starts or resume the routine
