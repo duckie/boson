@@ -44,15 +44,15 @@ void routine::add_timer(routine_time_point date) {
 }
 
 void routine::commit_event_round() {
-  routine_local_ptr_t routine_slot(std::unique_ptr<routine>(this));
+  current_ptr_ = routine_local_ptr_t(std::unique_ptr<routine>(this));
+  std::size_t index = 0;
   for (auto& event : events_) {
     switch (event.type) {
       case event_type::none:
         break;
       case event_type::timer:
         event.data.get<routine_timer_event_data>().neighbor_timers =
-            &thread_->register_timer(event.data.get<routine_timer_event_data>().date, routine_slot);
-        //debug::log("Registered a timer");
+            &thread_->register_timer(event.data.get<routine_timer_event_data>().date, routine_slot{current_ptr_,index});
         break;
       case event_type::io_read:
         break;
@@ -61,7 +61,28 @@ void routine::commit_event_round() {
       case event_type::sema_wait:
         break;
     }
+    ++index;
   }
+}
+
+bool routine::event_happened(std::size_t index) {
+  auto& event =  events_[index];
+  switch (event.type) {
+    case event_type::none:
+      break;
+    case event_type::timer:
+      status_ = routine_status::timed_out;
+      thread_->scheduled_routines_.emplace_back(current_ptr_->release());
+      current_ptr_.invalidate_all();
+      return true;   
+    case event_type::io_read:
+      break;
+    case event_type::io_write:
+      break;
+    case event_type::sema_wait:
+      break;
+  }
+  return false;
 }
 
 void routine::resume(thread* managing_thread) {

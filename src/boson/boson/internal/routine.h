@@ -7,6 +7,7 @@
 #include <memory>
 #include "boson/std/experimental/apply.h"
 #include "boson/syscalls.h"
+#include "boson/memory/local_ptr.h"
 #include "fcontext.h"
 #include "stack.h"
 #include <vector>
@@ -21,9 +22,15 @@ class base_wfqueue;
 using routine_id = std::size_t;
 namespace internal {
 
+class routine;
 class thread;
 class timed_routines_set;
+}
 
+using routine_ptr_t = std::unique_ptr<internal::routine>;
+using routine_local_ptr_t = memory::local_ptr<std::unique_ptr<internal::routine>>;
+
+namespace internal {
 /**
  * Store the local thread context
  *
@@ -38,7 +45,7 @@ enum class routine_status {
   running,         // Routine is currently running
   yielding,        // Routine yielded and waits to be resumed
   timed_out,       // Status when a routine waited for an event and timed out
-  wait_timer,      // Routine waits for a timer to expire
+  wait_events,     // Routine awaits some events
   wait_sys_read,   // Routine waits for a FD to be ready for read
   wait_sys_write,  // Routine waits for a FD to be readu for write
   wait_sema_wait,  // Routine waits to get a boson::semaphore
@@ -183,6 +190,7 @@ class routine {
   routine_id id_;
   std::vector<waited_event> previous_events_;
   std::vector<waited_event> events_;
+  routine_local_ptr_t current_ptr_;
 
  public:
   template <class Function, class... Args>
@@ -214,6 +222,10 @@ class routine {
   void add_timer(routine_time_point date);
   void commit_event_round();
 
+  /**
+   * Returns true if event is enough to trigger routine for scheduling
+   */
+  bool event_happened(std::size_t index);
 
   /**
    * Starts or resume the routine
@@ -270,7 +282,7 @@ void routine::expected_event_happened() {
 }
 
 void routine::timed_out() {
-  if (status_ == routine_status::wait_timer)
+  if (status_ == routine_status::wait_events)
     status_ = routine_status::yielding;
   else
     status_ = routine_status::timed_out;

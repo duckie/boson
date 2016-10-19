@@ -76,9 +76,9 @@ void thread::handle_engine_event() {
         auto& data = received_command->data.get<std::pair<semaphore*, std::size_t>>();
         auto& shared_routine = suspended_slots_[data.second];
         // If not previously invalidated by a timeouo
-        if (shared_routine) {
-          routine* current_routine = shared_routine->release();
-          shared_routine.invalidate_all();
+        if (shared_routine.ptr) {
+          routine* current_routine = shared_routine.ptr->release();
+          shared_routine.ptr.invalidate_all();
           assert(current_routine->status() == routine_status::wait_sema_wait);
           current_routine->expected_event_happened();
           --nb_suspended_routines_;
@@ -106,7 +106,7 @@ void thread::unregister_all_events() {
   //loop_.unregister(self_event_id_);
 }
 
-timed_routines_set& thread::register_timer(routine_time_point const& date, routine_local_ptr_t slot) {
+timed_routines_set& thread::register_timer(routine_time_point const& date, routine_slot slot) {
     auto index = suspended_slots_.allocate();
     suspended_slots_[index] = slot;
     auto& current_set = timed_routines_[date];
@@ -201,7 +201,7 @@ bool thread::execute_scheduled_routines() {
         clear_previous_io_event(*routine, loop_);
         next_scheduled_routines.emplace_back(routine.release());
       } break;
-      case routine_status::wait_timer: {
+      case routine_status::wait_events: {
         clear_previous_io_event(*routine, loop_);
         auto raw_routine = routine.release();
         raw_routine->commit_event_round();
@@ -239,7 +239,7 @@ bool thread::execute_scheduled_routines() {
           //++timed_routines_[target_data].nb_active;
         //}
         auto index = suspended_slots_.allocate();
-        suspended_slots_[index] = shared_routine;
+        suspended_slots_[index] = routine_slot{shared_routine,0};
         missed_semaphore->waiters_.write(id(), new std::pair<thread*, std::size_t>{this, index});
         int result = missed_semaphore->counter_.fetch_add(1,std::memory_order_release);
         if (0 <= result) {
@@ -307,6 +307,10 @@ void thread::loop() {
     // Find the first set of active timed routines
     auto first_timed_routines = begin(timed_routines_);
     while (first_timed_routines != end(timed_routines_) && first_timed_routines->second.nb_active == 0) {
+      // Clean up suspended vector
+      for (auto index : first_timed_routines->second.slots)
+        suspended_slots_.free(index);
+      // Delete full record
       first_timed_routines = timed_routines_.erase(first_timed_routines);
     }
 
@@ -341,15 +345,9 @@ void thread::loop() {
     if (fire_timed_out_routines) {
       // Schedule routines that timed out
       for (auto& timed_routine : first_timed_routines->second.slots) {
-        auto& routine_local_ptr =  suspended_slots_[timed_routine];
-        if (routine_local_ptr) {
-          // Schedule the routine to be executed
-          // Routine ownership transfers to scheduled_routines_
-          routine_local_ptr->get()->timed_out();
-          scheduled_routines_.emplace_back(routine_local_ptr->release());
-          // Invalidate potentially other waiting events
-          routine_local_ptr.invalidate_all();
-        }
+        auto& slot =  suspended_slots_[timed_routine];
+        if (slot.ptr)
+          slot.ptr->get()->event_happened(slot.event_index);
         suspended_slots_.free(timed_routine);
       }
       timed_routines_.erase(first_timed_routines);

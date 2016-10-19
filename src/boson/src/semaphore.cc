@@ -49,7 +49,7 @@ bool semaphore::wait(milliseconds timeout) {
           //time_point_cast<milliseconds>(high_resolution_clock::now() + timeout);
     //}
 
-    current_routine->status_ = routine_status::wait_sema_wait;
+    current_routine->status_ = routine_status::wait_events;
     // It is important the semaphore does not push the routine itself since
     // the thread may need to create a special wrapper around it to manage
     // timeouts

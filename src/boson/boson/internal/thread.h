@@ -30,8 +30,6 @@ namespace boson {
 class engine;
 class semaphore;
 using thread_id = std::size_t;
-using routine_ptr_t = std::unique_ptr<internal::routine>;
-using routine_local_ptr_t = memory::local_ptr<std::unique_ptr<internal::routine>>;
 
 namespace internal {
 
@@ -85,9 +83,14 @@ class engine_proxy final {
 };
 
 // Holds pointers to routines waiting for a time out
-struct timed_routines_set {
+struct timed_routines_set final {
   std::size_t nb_active = 0;
   std::deque<std::size_t> slots;
+};
+
+struct routine_slot {
+  routine_local_ptr_t ptr;
+  std::size_t event_index;
 };
 
 /**
@@ -155,7 +158,7 @@ class thread : public event_handler {
    */
   size_t nb_suspended_routines_{0};
 
-  memory::sparse_vector<routine_local_ptr_t> suspended_slots_;
+  memory::sparse_vector<routine_slot> suspended_slots_;
 
   /**
    * React to a request from the main scheduler
@@ -169,7 +172,7 @@ class thread : public event_handler {
 
   inline transfer_t& context();
 
-  timed_routines_set& register_timer(routine_time_point const& date, routine_local_ptr_t slot);
+  timed_routines_set& register_timer(routine_time_point const& date, routine_slot slot);
 
   /**
    * Sets a routine for execution at the next round
