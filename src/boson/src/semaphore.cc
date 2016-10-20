@@ -8,11 +8,15 @@ using namespace std::chrono;
 namespace boson {
 
 semaphore::semaphore(int capacity)
-    : waiters_{static_cast<int>(internal::current_thread()->get_engine().max_nb_cores())},
+    : waiters_{static_cast<int>(internal::current_thread()->get_engine().max_nb_cores()+1)},
       counter_{capacity} {
 }
 
 semaphore::~semaphore() {
+  // Clean up stale events
+  std::pair<internal::thread*,std::size_t>* waiter = nullptr;
+  while((waiter = static_cast<decltype(waiter)>(waiters_.read(internal::current_thread()->id()))))
+    delete waiter;
 }
 
 bool semaphore::pop_a_waiter(internal::thread* current) {
@@ -46,6 +50,10 @@ bool semaphore::wait(milliseconds timeout) {
     current_routine->status_ = routine_status::wait_events;
     current_routine->start_event_round();
     current_routine->add_semaphore_wait(this);
+    if (0 < timeout.count()) {
+      current_routine->add_timer(
+          time_point_cast<milliseconds>(high_resolution_clock::now() + timeout));
+    }
     this_thread->context() = jump_fcontext(this_thread->context().fctx, this);
     if (current_routine->status_ == routine_status::timed_out) {
       current_routine->previous_status_ = routine_status::timed_out;

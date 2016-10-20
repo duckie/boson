@@ -277,7 +277,6 @@ bool thread::execute_scheduled_routines() {
       }
     } else {
       // If some routines already are scheduled, then throw an event to force a loop execution
-        //debug::log("Passe la");
       return true;
     }
   }

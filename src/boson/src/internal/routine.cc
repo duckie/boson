@@ -72,7 +72,7 @@ bool routine::event_happened(std::size_t index) {
       status_ = routine_status::timed_out;
       thread_->scheduled_routines_.emplace_back(current_ptr_->release());
       current_ptr_.invalidate_all();
-      return true;   
+      break;
     case event_type::io_read:
       break;
     case event_type::io_write:
@@ -84,6 +84,29 @@ bool routine::event_happened(std::size_t index) {
       current_ptr_.invalidate_all();
       break;
   }
+
+  // Invalidate ohter events
+  for (auto& other : events_) {
+    if (&other != &event) {
+      switch (other.type) {
+        case event_type::none:
+          break;
+        case event_type::timer: {
+            auto& data = other.data.get<routine_timer_event_data>();
+            --data.neighbor_timers->nb_active;
+          }
+          break;
+        case event_type::io_read:
+          break;
+        case event_type::io_write:
+          break;
+        case event_type::sema_wait:
+          --thread_->nb_suspended_routines_;
+          break;
+      }
+    }
+  }
+
   return false;
 }
 
