@@ -44,38 +44,23 @@ void routine::start_event_round() {
 
 void routine::add_semaphore_wait(semaphore* sema) {
   events_.emplace_back(waited_event{event_type::sema_wait, routine_sema_event_data{sema}});
+  auto& event = events_.back();
+  sema->waiters_.write(thread_->id(), new std::pair<thread*, std::size_t>{thread_, events_.size()-1});
+  int result = sema->counter_.fetch_add(1,std::memory_order_release);
+  if (0 <= result) {
+    sema->pop_a_waiter(thread_);
+  }
+  thread_->register_semaphore_wait(routine_slot{current_ptr_,events_.size()-1});
 }
 
 void routine::add_timer(routine_time_point date) {
   events_.emplace_back(waited_event{event_type::timer, routine_timer_event_data{std::move(date),nullptr}});
+  auto& event = events_.back();
+  event.data.get<routine_timer_event_data>().neighbor_timers =
+      &thread_->register_timer(event.data.get<routine_timer_event_data>().date, routine_slot{current_ptr_,events_.size()-1});
 }
 
 void routine::commit_event_round() {
-  std::size_t index = 0;
-  for (auto& event : events_) {
-    switch (event.type) {
-      case event_type::none:
-        break;
-      case event_type::timer:
-        event.data.get<routine_timer_event_data>().neighbor_timers =
-            &thread_->register_timer(event.data.get<routine_timer_event_data>().date, routine_slot{current_ptr_,index});
-        break;
-      case event_type::io_read:
-        break;
-      case event_type::io_write:
-        break;
-      case event_type::sema_wait:
-        semaphore* missed_semaphore = event.data.get<routine_sema_event_data>().sema;
-        missed_semaphore->waiters_.write(thread_->id(), new std::pair<thread*, std::size_t>{thread_, index});
-        int result = missed_semaphore->counter_.fetch_add(1,std::memory_order_release);
-        if (0 <= result) {
-          missed_semaphore->pop_a_waiter(thread_);
-        }
-        thread_->register_semaphore_wait(routine_slot{current_ptr_,index});
-        break;
-    }
-    ++index;
-  }
 }
 
 bool routine::event_happened(std::size_t index) {
@@ -93,6 +78,10 @@ bool routine::event_happened(std::size_t index) {
     case event_type::io_write:
       break;
     case event_type::sema_wait:
+      status_ = routine_status::yielding;
+      thread_->scheduled_routines_.emplace_back(current_ptr_->release());
+      --thread_->nb_suspended_routines_;
+      current_ptr_.invalidate_all();
       break;
   }
   return false;

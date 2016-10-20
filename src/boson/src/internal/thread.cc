@@ -78,14 +78,9 @@ void thread::handle_engine_event() {
       case thread_command_type::schedule_waiting_routine: {
         auto& data = received_command->data.get<std::pair<semaphore*, std::size_t>>();
         auto& shared_routine = suspended_slots_[data.second];
-        // If not previously invalidated by a timeouo
+        // If not previously invalidated by a timeout
         if (shared_routine.ptr) {
-          routine* current_routine = shared_routine.ptr->release();
-          shared_routine.ptr.invalidate_all();
-          assert(current_routine->status() == routine_status::wait_events);
-          current_routine->expected_event_happened();
-          --nb_suspended_routines_;
-          scheduled_routines_.emplace_back(current_routine);
+          shared_routine.ptr->get()->event_happened(shared_routine.event_index);
         }
         else {
           data.first->pop_a_waiter(this);
