@@ -48,10 +48,13 @@ TEST_CASE("Routines - Semaphores", "[routines][semaphore]") {
     start([](auto sema) {
       bool result = sema.wait(5ms);
       CHECK(result == false);
-      result = sema.wait();
-      CHECK(result == true);
+      if (!result) {  // To avoid an infinite block if failure (ex valgrind)
+        result = sema.wait();
+        CHECK(result == true);
+      }
       sema.post();
     },dup(sema));
+
   });
 
 }

@@ -105,19 +105,19 @@ void thread::unregister_all_events() {
 }
 
 timed_routines_set& thread::register_timer(routine_time_point const& date, routine_slot slot) {
-    auto index = suspended_slots_.allocate();
-    suspended_slots_[index] = slot;
-    auto& current_set = timed_routines_[date];
-    current_set.slots.emplace_back(index);
-    ++current_set.nb_active;
-    return current_set;
+  auto index = suspended_slots_.allocate();
+  suspended_slots_[index] = slot;
+  auto& current_set = timed_routines_[date];
+  current_set.slots.emplace_back(index);
+  ++current_set.nb_active;
+  return current_set;
 }
 
-void thread::register_semaphore_wait(routine_slot slot) {
-    auto index = suspended_slots_.allocate();
-    suspended_slots_[index] = slot;
-    ++nb_suspended_routines_;
-
+std::size_t thread::register_semaphore_wait(routine_slot slot) {
+  auto index = suspended_slots_.allocate();
+  suspended_slots_[index] = slot;
+  ++nb_suspended_routines_;
+  return index;
 }
 
 thread::thread(engine& parent_engine)

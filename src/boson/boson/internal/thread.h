@@ -174,7 +174,7 @@ class thread : public event_handler {
 
   timed_routines_set& register_timer(routine_time_point const& date, routine_slot slot);
 
-  void register_semaphore_wait(routine_slot slot);
+  std::size_t register_semaphore_wait(routine_slot slot);
 
   /**
    * Sets a routine for execution at the next round

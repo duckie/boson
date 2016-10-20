@@ -45,12 +45,12 @@ void routine::start_event_round() {
 void routine::add_semaphore_wait(semaphore* sema) {
   events_.emplace_back(waited_event{event_type::sema_wait, routine_sema_event_data{sema}});
   auto& event = events_.back();
-  sema->waiters_.write(thread_->id(), new std::pair<thread*, std::size_t>{thread_, events_.size()-1});
+  auto slot_index = thread_->register_semaphore_wait(routine_slot{current_ptr_,events_.size()-1});
+  sema->waiters_.write(thread_->id(), new std::pair<thread*, std::size_t>{thread_, slot_index});
   int result = sema->counter_.fetch_add(1,std::memory_order_release);
   if (0 <= result) {
     sema->pop_a_waiter(thread_);
   }
-  thread_->register_semaphore_wait(routine_slot{current_ptr_,events_.size()-1});
 }
 
 void routine::add_timer(routine_time_point date) {
