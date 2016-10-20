@@ -43,16 +43,9 @@ bool semaphore::wait(milliseconds timeout) {
     thread* this_thread = internal::current_thread();
     assert(this_thread);
     routine* current_routine = this_thread->running_routine();
-    current_routine->waiting_data_ = nullptr;
-    //if (0 < timeout.count()) {
-      //current_routine->waiting_data_ =
-          //time_point_cast<milliseconds>(high_resolution_clock::now() + timeout);
-    //}
-
     current_routine->status_ = routine_status::wait_events;
-    // It is important the semaphore does not push the routine itself since
-    // the thread may need to create a special wrapper around it to manage
-    // timeouts
+    current_routine->start_event_round();
+    current_routine->add_semaphore_wait(this);
     this_thread->context() = jump_fcontext(this_thread->context().fctx, this);
     if (current_routine->status_ == routine_status::timed_out) {
       current_routine->previous_status_ = routine_status::timed_out;
@@ -60,7 +53,7 @@ bool semaphore::wait(milliseconds timeout) {
       return false;
     }
     result = counter_.fetch_sub(1,std::memory_order_acquire);
-    current_routine->previous_status_ = routine_status::wait_sema_wait;
+    current_routine->previous_status_ = routine_status::wait_events;
     current_routine->status_ = routine_status::running;
   }
   return true;

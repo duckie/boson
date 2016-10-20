@@ -3,6 +3,7 @@
 #include "exception.h"
 #include "internal/thread.h"
 #include "syscalls.h"
+#include "semaphore.h"
 
 namespace boson {
 namespace internal {
@@ -37,6 +38,12 @@ void routine::start_event_round() {
   // Clean previous events
   previous_events_.clear();
   std::swap(previous_events_, events_);
+  // Create new event pointer
+  current_ptr_ = routine_local_ptr_t(std::unique_ptr<routine>(this));
+}
+
+void routine::add_semaphore_wait(semaphore* sema) {
+  events_.emplace_back(waited_event{event_type::sema_wait, routine_sema_event_data{sema}});
 }
 
 void routine::add_timer(routine_time_point date) {
@@ -44,7 +51,6 @@ void routine::add_timer(routine_time_point date) {
 }
 
 void routine::commit_event_round() {
-  current_ptr_ = routine_local_ptr_t(std::unique_ptr<routine>(this));
   std::size_t index = 0;
   for (auto& event : events_) {
     switch (event.type) {
@@ -59,6 +65,13 @@ void routine::commit_event_round() {
       case event_type::io_write:
         break;
       case event_type::sema_wait:
+        semaphore* missed_semaphore = event.data.get<routine_sema_event_data>().sema;
+        missed_semaphore->waiters_.write(thread_->id(), new std::pair<thread*, std::size_t>{thread_, index});
+        int result = missed_semaphore->counter_.fetch_add(1,std::memory_order_release);
+        if (0 <= result) {
+          missed_semaphore->pop_a_waiter(thread_);
+        }
+        thread_->register_semaphore_wait(routine_slot{current_ptr_,index});
         break;
     }
     ++index;

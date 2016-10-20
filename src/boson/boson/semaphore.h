@@ -16,6 +16,7 @@ namespace boson {
  */
 class semaphore {
   friend class internal::thread;
+  friend class internal::routine;
   using queue_t = queues::lcrq;
   queue_t waiters_;
   std::atomic<int> counter_;

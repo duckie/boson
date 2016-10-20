@@ -82,7 +82,7 @@ void thread::handle_engine_event() {
         if (shared_routine.ptr) {
           routine* current_routine = shared_routine.ptr->release();
           shared_routine.ptr.invalidate_all();
-          assert(current_routine->status() == routine_status::wait_sema_wait);
+          assert(current_routine->status() == routine_status::wait_events);
           current_routine->expected_event_happened();
           --nb_suspended_routines_;
           scheduled_routines_.emplace_back(current_routine);
@@ -116,6 +116,13 @@ timed_routines_set& thread::register_timer(routine_time_point const& date, routi
     current_set.slots.emplace_back(index);
     ++current_set.nb_active;
     return current_set;
+}
+
+void thread::register_semaphore_wait(routine_slot slot) {
+    auto index = suspended_slots_.allocate();
+    suspended_slots_[index] = slot;
+    ++nb_suspended_routines_;
+
 }
 
 thread::thread(engine& parent_engine)
@@ -230,25 +237,8 @@ bool thread::execute_scheduled_routines() {
         }
       } break;
       case routine_status::wait_sema_wait: {
-        clear_previous_io_event(*routine, loop_);
-        semaphore* missed_semaphore = static_cast<semaphore*>(routine->context_.data);
-        routine_local_ptr_t shared_routine(std::move(routine));
-         //If has a timeout, reference it
-        //if (shared_routine->get()->waiting_data().is<routine_time_point>()) {
-          //auto target_data = shared_routine->get()->waiting_data().raw<routine_time_point>();
-          //auto index = suspended_slots_.allocate();
-          //suspended_slots_[index] = shared_routine;
-          //timed_routines_[target_data].slots.emplace_back(index);
-          //++timed_routines_[target_data].nb_active;
-        //}
-        auto index = suspended_slots_.allocate();
-        suspended_slots_[index] = routine_slot{shared_routine,0};
-        missed_semaphore->waiters_.write(id(), new std::pair<thread*, std::size_t>{this, index});
-        int result = missed_semaphore->counter_.fetch_add(1,std::memory_order_release);
-        if (0 <= result) {
-          missed_semaphore->pop_a_waiter(this);
-        }
-        ++nb_suspended_routines_;
+        //clear_previous_io_event(*routine, loop_);
+        assert(false);
       } break;
       case routine_status::finished: {
         clear_previous_io_event(*routine, loop_);

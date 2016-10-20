@@ -20,8 +20,9 @@ class base_wfqueue;
 }
 
 using routine_id = std::size_t;
-namespace internal {
+class semaphore;
 
+namespace internal {
 class routine;
 class thread;
 class timed_routines_set;
@@ -68,6 +69,9 @@ struct routine_timer_event_data {
   timed_routines_set* neighbor_timers;
 };
 
+struct routine_sema_event_data {
+  semaphore* sema;
+};
 
 struct routine_io_event {
   int fd;                          // The current FD used
@@ -112,7 +116,7 @@ namespace internal {
  * tell its running thread what it is about.
  */
 using routine_waiting_data =
-    json_backbone::variant<std::nullptr_t, int, size_t, routine_io_event, routine_timer_event_data>;
+    json_backbone::variant<std::nullptr_t, int, size_t, routine_io_event, routine_timer_event_data, routine_sema_event_data>;
 
 class routine;
 
@@ -143,7 +147,7 @@ decltype(auto) make_unique_function_holder(Function&& func, Args&&... args) {
   return std::unique_ptr<function_holder>(new function_holder_impl<Function, Args...>(
       std::forward<Function>(func), std::forward<Args>(args)...));
 }
-}  // nemespace detail
+}  // namespace detail
 
 struct in_context_function {
   virtual ~in_context_function() = default;
@@ -219,6 +223,7 @@ class routine {
 
 
   void start_event_round();
+  void add_semaphore_wait(semaphore* sema);
   void add_timer(routine_time_point date);
   void commit_event_round();
 
