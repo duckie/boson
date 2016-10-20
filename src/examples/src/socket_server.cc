@@ -1,7 +1,10 @@
 #include <iostream>
 #include "boson/boson.h"
 #include "boson/net/socket.h"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wundefined-var-template"
 #include "fmt/format.h"
+#pragma GCC diagnostic pop
 
 using namespace std::literals;
 
