@@ -38,7 +38,7 @@ TEST_CASE("Routines - Semaphores", "[routines][semaphore]") {
   boson::run(1, [&]() {
     shared_semaphore sema(1);
 
-    start([](auto sema) {
+    start([](auto sema) -> void {
       bool result = sema.wait();
       CHECK(result == true);
       boson::sleep(10ms);
@@ -46,9 +46,9 @@ TEST_CASE("Routines - Semaphores", "[routines][semaphore]") {
       boson::sleep(10ms);
       result = sema.wait();
       CHECK(result == true);
-    },dup(sema));
+    },sema);
 
-    start([](auto sema) {
+    start([](auto sema) -> void {
       bool result = sema.wait(5ms);
       CHECK(result == false);
       if (!result) {  // To avoid an infinite block if failure (ex valgrind)
@@ -57,7 +57,7 @@ TEST_CASE("Routines - Semaphores", "[routines][semaphore]") {
         boson::sleep(5ms);
       }
       sema.post();
-    },dup(sema));
+    },sema);
 
   });
 

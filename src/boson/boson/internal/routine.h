@@ -81,9 +81,6 @@ struct routine_io_event {
   bool panic;                      // True if event loop answered in panic to this event
 };
 
-
-
-
 }
 }
 
@@ -131,8 +128,10 @@ struct function_holder {
 
 template <class Function, class... Args>
 class function_holder_impl : public function_holder {
+  using ArgsTuple = typename extract_tuple_arguments<Function, Args...>::type;
   Function func_;
-  std::tuple<Args...> args_;
+  //std::tuple<Args...> args_;
+  ArgsTuple args_;
 
  public:
   function_holder_impl(Function func, Args... args)
