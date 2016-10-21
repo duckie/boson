@@ -34,17 +34,20 @@ class channel_impl {
    *
    * Returns false only if the channel is closed.
    */
-  template <class... Args>
-  bool write(thread_id tid, Args&&... args) {
-    writer_slots_.wait();
+  bool write(thread_id tid, ContentType value, std::chrono::milliseconds timeout) {
+    bool ticket = writer_slots_.wait(timeout);
+    if (!ticket)
+      return false;
     size_t head = head_.fetch_add(1, std::memory_order_acq_rel);
-    buffer_[head % Size] = ContentType(std::forward<Args>(args)...);
+    buffer_[head % Size] = std::move(value);
     readers_slots_.post();
     return true;
   }
 
-  bool read(thread_id tid, ContentType& value) {
-    readers_slots_.wait();
+  bool read(thread_id tid, ContentType& value, std::chrono::milliseconds timeout) {
+    bool ticket = readers_slots_.wait(timeout);
+    if (!ticket)
+      return false;
     size_t tail = tail_.fetch_add(1, std::memory_order_acq_rel);
     value = std::move(buffer_[tail % Size]);
     writer_slots_.post();
@@ -75,16 +78,19 @@ class channel_impl<ContentType, 0> {
    *
    * Returns false only if the channel is closed.
    */
-  template <class... Args>
-  bool write(thread_id tid, Args&&... args) {
-    writer_slots_.wait();
-    buffer_ = ContentType(std::forward<Args>(args)...);
+  bool write(thread_id tid, ContentType value, std::chrono::milliseconds timeout) {
+    bool ticket = writer_slots_.wait(timeout);
+    if (!ticket)
+      return false;
+    buffer_ = std::move(value);
     readers_slots_.post();
     return true;
   }
 
-  bool read(thread_id tid, ContentType& value) {
-    readers_slots_.wait();
+  bool read(thread_id tid, ContentType& value, std::chrono::milliseconds timeout) {
+    bool ticket = readers_slots_.wait(timeout);
+    if (!ticket)
+      return false;
     value = std::move(buffer_);
     writer_slots_.post();
     return true;
@@ -110,14 +116,15 @@ class channel_impl<std::nullptr_t, Size> {
    *
    * Returns false only if the channel is closed.
    */
-  template <class... Args>
-  bool write(thread_id tid, Args&&... args) {
+  bool write(thread_id tid, std::nullptr_t, std::chrono::milliseconds timeout) {
     semaphore_.post();
     return true;
   }
 
-  bool read(thread_id tid, std::nullptr_t& value) {
-    semaphore_.wait();
+  bool read(thread_id tid, std::nullptr_t& value, std::chrono::milliseconds timeout) {
+    bool ticket = semaphore_.wait(timeout);
+    if (!ticket)
+      return false;
     value = nullptr;
     return true;
   }
@@ -165,13 +172,17 @@ class channel {
   channel& operator=(channel const&) = default;
   channel& operator=(channel&&) = default;
 
-  template <class... Args>
-  inline bool write(Args&&... args) {
-    return channel_->write(get_id(), std::forward<Args>(args)...);
+  //template <class... Args>
+  //inline bool write(Args&&... args) {
+    //return channel_->write(get_id(), std::forward<Args>(args)...);
+  //}
+
+  inline bool write(ContentType value, std::chrono::milliseconds timeout = std::chrono::milliseconds(0)) {
+    return channel_->write(get_id(), std::move(value), timeout);
   }
 
-  inline bool read(ContentType& value) {
-    return channel_->read(get_id(), value);
+  inline bool read(ContentType& value, std::chrono::milliseconds timeout = std::chrono::milliseconds(0)) {
+    return channel_->read(get_id(), value, timeout);
   }
 };
 

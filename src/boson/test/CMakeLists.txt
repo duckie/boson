@@ -22,6 +22,7 @@ add_project_test(memory_sparse_vector CATCH)
 add_project_test(memory_flat_unordered_set CATCH)
 add_project_test(routine CATCH)
 add_project_test(test_local_ptr CATCH)
+add_project_test(static CATCH)
 
 # Create main test executable
 add_executable(unit_tests ${catch_exe_source_list})

@@ -251,6 +251,16 @@ bool thread::execute_scheduled_routines() {
   // Yielded routines are immediately scheduled
   scheduled_routines_ = std::move(next_scheduled_routines);
 
+  // Cleanup canceled timers
+  auto first_timed_routines = begin(timed_routines_);
+  while (first_timed_routines != end(timed_routines_) && first_timed_routines->second.nb_active == 0) {
+    // Clean up suspended vector
+    for (auto index : first_timed_routines->second.slots)
+      suspended_slots_.free(index);
+    // Delete full record
+    first_timed_routines = timed_routines_.erase(first_timed_routines);
+  }
+
   // If finished and no more routines, exit
   size_t nb_pending_commands = nb_pending_commands_;
   bool no_more_routines =
@@ -291,18 +301,10 @@ void thread::loop() {
   int timeout_ms = -1;
   while (status_ != thread_status::finished) {
 
-    // Find the first set of active timed routines
-    auto first_timed_routines = begin(timed_routines_);
-    while (first_timed_routines != end(timed_routines_) && first_timed_routines->second.nb_active == 0) {
-      // Clean up suspended vector
-      for (auto index : first_timed_routines->second.slots)
-        suspended_slots_.free(index);
-      // Delete full record
-      first_timed_routines = timed_routines_.erase(first_timed_routines);
-    }
 
     // Compute next timeout
     bool fire_timed_out_routines = false;
+    auto first_timed_routines = begin(timed_routines_);
     if (0 != timeout_ms) {
       if (first_timed_routines != end(timed_routines_)) {
         // Compute next timeout
@@ -316,7 +318,6 @@ void thread::loop() {
       }
     }
 
-    //debug::log("Timeout is {}", timeout_ms);
     auto return_code = loop_.loop(1, timeout_ms);
     switch (return_code) {
       case loop_end_reason::max_iter_reached:

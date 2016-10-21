@@ -43,6 +43,9 @@ TEST_CASE("Routines - Semaphores", "[routines][semaphore]") {
       CHECK(result == true);
       boson::sleep(10ms);
       sema.post();
+      boson::sleep(10ms);
+      result = sema.wait();
+      CHECK(result == true);
     },dup(sema));
 
     start([](auto sema) {
@@ -51,6 +54,7 @@ TEST_CASE("Routines - Semaphores", "[routines][semaphore]") {
       if (!result) {  // To avoid an infinite block if failure (ex valgrind)
         result = sema.wait();
         CHECK(result == true);
+        boson::sleep(5ms);
       }
       sema.post();
     },dup(sema));

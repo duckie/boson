@@ -7,6 +7,7 @@
 #include <memory>
 #include "boson/std/experimental/apply.h"
 #include "boson/syscalls.h"
+#include "boson/utility.h"
 #include "boson/memory/local_ptr.h"
 #include "fcontext.h"
 #include "stack.h"
