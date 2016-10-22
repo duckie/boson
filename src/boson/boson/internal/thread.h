@@ -172,9 +172,15 @@ class thread : public event_handler {
 
   inline transfer_t& context();
 
+  // Returns the set in which the routine has ben referenced
+  // used to decrement the set nb_active member when disabling the timer
   timed_routines_set& register_timer(routine_time_point const& date, routine_slot slot);
 
+  // Returns the slot index used to push in the semaphore waiters queue
   std::size_t register_semaphore_wait(routine_slot slot);
+
+  // Registers a fd for reading. Returns the event_index of the event_loop
+  
 
   /**
    * Sets a routine for execution at the next round

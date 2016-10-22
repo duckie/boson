@@ -54,6 +54,8 @@ void routine::add_timer(routine_time_point date) {
 }
 
 void routine::add_read(int fd) {
+  events_.emplace_back(waited_event{event_type::timer, fd});
+  auto& event = events_.back();
 }
 
 void routine::add_write(int fd) {

@@ -190,7 +190,8 @@ void* event_loop_impl::unregister(int event_id) {
   else if (event_data.type == event_type::write)
     fddata.idx_write = -1;
 
-  epoll_update(event_data.fd, fddata,true);
+  //epoll_update(event_data.fd, fddata,true);
+  epoll_update(event_data.fd, fddata, false);
   if (event_data.type == event_type::event_fd)
     noio_events_.erase(event_id);
   else
