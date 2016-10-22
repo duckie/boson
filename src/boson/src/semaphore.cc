@@ -47,16 +47,15 @@ bool semaphore::wait(milliseconds timeout) {
     thread* this_thread = internal::current_thread();
     assert(this_thread);
     routine* current_routine = this_thread->running_routine();
-    current_routine->status_ = routine_status::wait_events;
     current_routine->start_event_round();
     current_routine->add_semaphore_wait(this);
     if (0 < timeout.count()) {
       current_routine->add_timer(
           time_point_cast<milliseconds>(high_resolution_clock::now() + timeout));
     }
-    this_thread->context() = jump_fcontext(this_thread->context().fctx, this);
-    if (current_routine->status_ == routine_status::timed_out) {
-      current_routine->previous_status_ = routine_status::timed_out;
+    current_routine->commit_event_round();
+    if (current_routine->happened_type_ == event_type::timer) {
+      current_routine->previous_status_ = routine_status::wait_events;
       current_routine->status_ = routine_status::running;
       return false;
     }

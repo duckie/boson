@@ -46,11 +46,9 @@ enum class routine_status {
   is_new,          // Routine has been created but never started
   running,         // Routine is currently running
   yielding,        // Routine yielded and waits to be resumed
-  timed_out,       // Status when a routine waited for an event and timed out
   wait_events,     // Routine awaits some events
   wait_sys_read,   // Routine waits for a FD to be ready for read
   wait_sys_write,  // Routine waits for a FD to be readu for write
-  wait_sema_wait,  // Routine waits to get a boson::semaphore
   finished         // Routine finished execution
 };
 
@@ -86,9 +84,6 @@ struct routine_io_event {
 
 namespace json_backbone {
 template <>
-struct is_small_type<boson::internal::routine_time_point> {
-  constexpr static bool const value = true;
-};
 template <>
 struct is_small_type<boson::internal::routine_timer_event_data> {
   constexpr static bool const value = true;
@@ -176,13 +171,7 @@ class routine {
   struct waited_event {
     event_type type;
     routine_waiting_data data;
-    //waited_event() = default;
-    //waited_event(waited_event const&) = default;
-    //waited_event(waited_event&&) = default;
-    //waited_event& operator=(waited_event const&) = default;
-    //waited_event& operator=(waited_event&&) = default;
   };
-
 
   std::unique_ptr<detail::function_holder> func_;
   stack_context stack_ = allocate<default_stack_traits>();
@@ -195,6 +184,7 @@ class routine {
   std::vector<waited_event> previous_events_;
   std::vector<waited_event> events_;
   routine_local_ptr_t current_ptr_;
+  event_type happened_type_;
 
  public:
   template <class Function, class... Args>
@@ -222,15 +212,24 @@ class routine {
   inline routine_waiting_data const& waiting_data() const;
 
 
+  // Clean up previous events and prepare routine to new set
   void start_event_round();
+
+  // Add a semaphore wait in the current set
   void add_semaphore_wait(semaphore* sema);
+
+  // Add a timeout event to the set
   void add_timer(routine_time_point date);
+
+  void add_read(int fd);
+
+  void add_write(int fd);
+
+  // Effectively commits the event set and suspends the routine
   void commit_event_round();
 
-  /**
-   * Returns true if event is enough to trigger routine for scheduling
-   */
-  bool event_happened(std::size_t index);
+  // Called by the thread to tell an event happened
+  void event_happened(std::size_t index);
 
   /**
    * Starts or resume the routine
@@ -251,9 +250,6 @@ class routine {
    * execute by putting its status to "yielding"
    */
   inline void expected_event_happened();
-
-  inline void timed_out();
-  // void execute_in
 };
 
 // Inline implementations
@@ -284,13 +280,6 @@ routine_waiting_data const& routine::waiting_data() const {
 
 void routine::expected_event_happened() {
   status_ = routine_status::yielding;
-}
-
-void routine::timed_out() {
-  if (status_ == routine_status::wait_events)
-    status_ = routine_status::yielding;
-  else
-    status_ = routine_status::timed_out;
 }
 
 }  // namespace internal

@@ -201,15 +201,9 @@ bool thread::execute_scheduled_routines() {
         clear_previous_io_event(*routine, loop_);
         next_scheduled_routines.emplace_back(routine.release());
       } break;
-      case routine_status::timed_out: {
-        // If not finished, then we reschedule it
-        clear_previous_io_event(*routine, loop_);
-        next_scheduled_routines.emplace_back(routine.release());
-      } break;
       case routine_status::wait_events: {
         clear_previous_io_event(*routine, loop_);
-        auto raw_routine = routine.release();
-        raw_routine->commit_event_round();
+        routine.release();
       } break;
       case routine_status::wait_sys_read: {
         routine_io_event& target_event = routine->waiting_data().get<routine_io_event>();
@@ -230,10 +224,6 @@ bool thread::execute_scheduled_routines() {
         } else {
           routine.release();
         }
-      } break;
-      case routine_status::wait_sema_wait: {
-        //clear_previous_io_event(*routine, loop_);
-        assert(false);
       } break;
       case routine_status::finished: {
         clear_previous_io_event(*routine, loop_);

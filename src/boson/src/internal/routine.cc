@@ -10,9 +10,6 @@ namespace internal {
 
 namespace detail {
 
-// struct stack_header {
-//};
-//
 void resume_routine(transfer_t transfered_context) {
   thread* this_thread = current_thread();
   this_thread->context() = transfered_context;
@@ -20,10 +17,6 @@ void resume_routine(transfer_t transfered_context) {
   current_routine->status_ = routine_status::running;
   (*current_routine->func_)();
   current_routine->status_ = routine_status::finished;
-  // It is paramount to use reference to the thread local variable here
-  // since it can be updated during ping/pong context jumps during the routine
-  // execution
-  // jump_fcontext(this_thread->context().fctx, this_thread->context().data);
   jump_fcontext(this_thread->context().fctx, nullptr);
 }
 }
@@ -60,32 +53,40 @@ void routine::add_timer(routine_time_point date) {
       &thread_->register_timer(event.data.get<routine_timer_event_data>().date, routine_slot{current_ptr_,events_.size()-1});
 }
 
-void routine::commit_event_round() {
+void routine::add_read(int fd) {
 }
 
-bool routine::event_happened(std::size_t index) {
+void routine::add_write(int fd) {
+}
+
+void routine::commit_event_round() {
+  status_ = routine_status::wait_events;
+  thread_->context() = jump_fcontext(thread_->context().fctx, nullptr);
+}
+
+void routine::event_happened(std::size_t index) {
   auto& event =  events_[index];
   switch (event.type) {
     case event_type::none:
       break;
     case event_type::timer:
-      status_ = routine_status::timed_out;
       thread_->scheduled_routines_.emplace_back(current_ptr_->release());
       current_ptr_.invalidate_all();
+      happened_type_ = event_type::timer;
       break;
     case event_type::io_read:
       break;
     case event_type::io_write:
       break;
     case event_type::sema_wait:
-      status_ = routine_status::yielding;
       thread_->scheduled_routines_.emplace_back(current_ptr_->release());
       --thread_->nb_suspended_routines_;
       current_ptr_.invalidate_all();
+      happened_type_ = event_type::sema_wait;
       break;
   }
 
-  // Invalidate ohter events
+  // Invalidate other events
   for (auto& other : events_) {
     if (&other != &event) {
       switch (other.type) {
@@ -107,7 +108,9 @@ bool routine::event_happened(std::size_t index) {
     }
   }
 
-  return false;
+  if (happened_type_ != event_type::none) {
+    status_ = routine_status::yielding;
+  }
 }
 
 void routine::resume(thread* managing_thread) {
@@ -119,10 +122,6 @@ void routine::resume(thread* managing_thread) {
       break;
     }
     case routine_status::yielding: {
-      context_ = jump_fcontext(context_.fctx, nullptr);
-      break;
-    }
-    case routine_status::timed_out: {
       context_ = jump_fcontext(context_.fctx, nullptr);
       break;
     }

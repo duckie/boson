@@ -20,13 +20,10 @@ void sleep(std::chrono::milliseconds duration) {
   using namespace std::chrono;
   thread* this_thread = current_thread();
   routine* current_routine = this_thread->running_routine();
-  //current_routine->waiting_data_ =
-      //time_point_cast<milliseconds>(high_resolution_clock::now() + duration);
   current_routine->start_event_round();
   current_routine->add_timer(
       time_point_cast<milliseconds>(high_resolution_clock::now() + duration));
-  current_routine->status_ = routine_status::wait_events;
-  this_thread->context() = jump_fcontext(this_thread->context().fctx, nullptr);
+  current_routine->commit_event_round();
   current_routine->previous_status_ = routine_status::wait_events;
   current_routine->status_ = routine_status::running;
 }
