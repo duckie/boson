@@ -32,20 +32,20 @@ int wait_readiness(fd_t fd, bool read) {
   thread* this_thread = current_thread();
   routine* current_routine = this_thread->running_routine();
   routine_io_event new_event{fd, -1, false, false};
-  if (current_routine->previous_status_is_io_block()) {
-    auto previous_event = current_routine->waiting_data_.raw<routine_io_event>();
-    new_event.event_id = previous_event.event_id;
-    if (previous_event.fd == fd) {
-      new_event.is_same_as_previous_event = true;
-    }
+  current_routine->start_event_round();
+  if (read) {
+    current_routine->add_read(fd);
   }
-  current_routine->waiting_data_ = new_event;
-  current_routine->status_ = read ? routine_status::wait_sys_read : routine_status::wait_sys_write;
-  this_thread->context() = jump_fcontext(this_thread->context().fctx, nullptr);
-  current_routine->previous_status_ = read ? routine_status::wait_sys_read : routine_status::wait_sys_write;
+  else {
+    current_routine->add_write(fd);
+  }
+  current_routine->commit_event_round();
+  current_routine->previous_status_ = routine_status::wait_events;
   current_routine->status_ = routine_status::running;
-  routine_io_event& event_data = current_routine->waiting_data_.get<routine_io_event>();
-  return event_data.panic ? code_panic : 0;
+  return current_routine->happened_type_ == event_type::io_write_panic ||
+                 current_routine->happened_type_ == event_type::io_read_panic
+             ? code_panic
+             : 0;
 }
 
 ssize_t read(fd_t fd, void* buf, size_t count) {

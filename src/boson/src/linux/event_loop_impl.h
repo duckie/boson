@@ -81,7 +81,6 @@ class event_loop_impl {
   // Data used when loop is broken
   queues::lcrq loop_breaker_queue_;
   
-
   /**
    * Retrieve the event_data for read and write matching this fd
    */
@@ -108,6 +107,8 @@ class event_loop_impl {
   event_loop_impl(event_handler& handler, int nb_procs);
   ~event_loop_impl();
   int register_event(void* data);
+  void* get_data(int event_id);
+  std::tuple<int,int> get_events(int fd);
   void send_event(int event);
   int register_read(int fd, void* data);
   int register_write(int fd, void* data);

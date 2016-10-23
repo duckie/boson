@@ -120,6 +120,36 @@ std::size_t thread::register_semaphore_wait(routine_slot slot) {
   return index;
 }
 
+void thread::register_read(int fd, routine_slot slot) {
+  int existing_read = -1;
+  tie(existing_read, std::ignore) = loop_.get_events(fd);
+  if (0 <= existing_read) {
+    std::size_t slot_index = reinterpret_cast<std::size_t>(loop_.get_data(existing_read));
+    suspended_slots_[slot_index] = slot;
+  }
+  else {
+    auto index = suspended_slots_.allocate();
+    suspended_slots_[index] = slot;
+    loop_.register_read(fd, reinterpret_cast<void*>(index));
+  }
+  ++nb_suspended_routines_;
+}
+
+void thread::register_write(int fd, routine_slot slot) {
+  int existing_write = -1;
+  tie(std::ignore, existing_write) = loop_.get_events(fd);
+  if (0 <= existing_write) {
+    std::size_t slot_index = reinterpret_cast<std::size_t>(loop_.get_data(existing_write));
+    suspended_slots_[slot_index] = slot;
+  }
+  else {
+    auto index = suspended_slots_.allocate();
+    suspended_slots_[index] = slot;
+    loop_.register_write(fd, reinterpret_cast<void*>(index));
+  }
+  ++nb_suspended_routines_;
+}
+
 thread::thread(engine& parent_engine)
     : engine_proxy_(parent_engine),
       loop_(*this,static_cast<int>(parent_engine.max_nb_cores() + 1)),
@@ -131,29 +161,37 @@ thread::thread(engine& parent_engine)
 void thread::event(int event_id, void* data, event_status status) {
   if (event_id == engine_event_id_) {
     handle_engine_event();
-  } else if (event_id == self_event_id_) {
-    // execute_scheduled_routines();
-  }
+  } 
 }
 
 void thread::read(int fd, void* data, event_status status) {
-  routine* target_routine = static_cast<routine*>(data);
-  target_routine->expected_event_happened();
-  if (status == event_status::panic) {
-    target_routine->waiting_data().get<routine_io_event>().panic = true;
+  auto& slot = suspended_slots_[reinterpret_cast<std::size_t>(data)];
+  if (slot.ptr) {
+    slot.ptr->get()->event_happened(slot.event_index, status);
   }
-  --nb_suspended_routines_;
-  scheduled_routines_.emplace_back(target_routine);
+  else {
+    // Dry run, just disable the event
+    suspended_slots_.free(reinterpret_cast<std::size_t>(data));
+    int existing_read = -1;
+    tie(existing_read, std::ignore) = loop_.get_events(fd);
+    if (0 <= existing_read)
+      loop_.unregister(existing_read);
+  }
 }
 
 void thread::write(int fd, void* data, event_status status) {
-  routine* target_routine = static_cast<routine*>(data);
-  target_routine->expected_event_happened();
-  if (status == event_status::panic) {
-    target_routine->waiting_data().get<routine_io_event>().panic = true;
+  auto& slot = suspended_slots_[reinterpret_cast<std::size_t>(data)];
+  if (slot.ptr) {
+    slot.ptr->get()->event_happened(slot.event_index, status);
   }
-  --nb_suspended_routines_;
-  scheduled_routines_.emplace_back(target_routine);
+  else {
+    // Dry run, just disable the event
+    suspended_slots_.free(reinterpret_cast<std::size_t>(data));
+    int existing_write= -1;
+    tie(std::ignore, existing_write) = loop_.get_events(fd);
+    if (0 <= existing_write)
+      loop_.unregister(existing_write);
+  }
 }
 
 // called by engine
@@ -162,21 +200,6 @@ void thread::push_command(thread_id from, std::unique_ptr<thread_command> comman
   engine_queue_.write(from, command.release());
   loop_.send_event(engine_event_id_);
 };
-
-// called by engine
-// void thread::execute_commands() {
-//}
-
-namespace {
-inline void clear_previous_io_event(routine& routine, event_loop& loop) {
-  if (routine.previous_status_is_io_block()) {
-    routine_io_event& target_event = routine.waiting_data().get<routine_io_event>();
-    if (0 <= target_event.event_id) {
-      loop.unregister(target_event.event_id);
-    }
-  }
-}
-}
 
 bool thread::execute_scheduled_routines() {
   decltype(scheduled_routines_) next_scheduled_routines;
@@ -187,45 +210,19 @@ bool thread::execute_scheduled_routines() {
     running_routine_ = routine.get();
     routine->resume(this);
     switch (routine->status()) {
-      case routine_status::is_new: {
-        // Not supposed to happen
-        assert(false);
-      } break;
+      case routine_status::is_new:
       case routine_status::running: {
         // Not supposed to happen
         assert(false);
       } break;
       case routine_status::yielding: {
         // If not finished, then we reschedule it
-        clear_previous_io_event(*routine, loop_);
         next_scheduled_routines.emplace_back(routine.release());
       } break;
       case routine_status::wait_events: {
-        clear_previous_io_event(*routine, loop_);
         routine.release();
       } break;
-      case routine_status::wait_sys_read: {
-        routine_io_event& target_event = routine->waiting_data().get<routine_io_event>();
-        ++nb_suspended_routines_;
-        if (!target_event.is_same_as_previous_event) {
-          clear_previous_io_event(*routine, loop_);
-          target_event.event_id = loop_.register_read(target_event.fd, routine.release());
-        } else {
-          routine.release();
-        }
-      } break;
-      case routine_status::wait_sys_write: {
-        routine_io_event& target_event = routine->waiting_data().get<routine_io_event>();
-        ++nb_suspended_routines_;
-        if (!target_event.is_same_as_previous_event) {
-          clear_previous_io_event(*routine, loop_);
-          target_event.event_id = loop_.register_write(target_event.fd, routine.release());
-        } else {
-          routine.release();
-        }
-      } break;
       case routine_status::finished: {
-        clear_previous_io_event(*routine, loop_);
         // Should have been made by the routine by closing the FD
       } break;
     };

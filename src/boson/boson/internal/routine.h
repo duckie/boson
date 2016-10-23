@@ -47,8 +47,6 @@ enum class routine_status {
   running,         // Routine is currently running
   yielding,        // Routine yielded and waits to be resumed
   wait_events,     // Routine awaits some events
-  wait_sys_read,   // Routine waits for a FD to be ready for read
-  wait_sys_write,  // Routine waits for a FD to be readu for write
   finished         // Routine finished execution
 };
 
@@ -60,7 +58,9 @@ enum class event_type {
   timer,
   io_read,
   io_write,
-  sema_wait
+  sema_wait,
+  io_read_panic,
+  io_write_panic
 };
 
 struct routine_timer_event_data {
@@ -177,7 +177,6 @@ class routine {
   stack_context stack_ = allocate<default_stack_traits>();
   routine_status previous_status_ = routine_status::is_new;
   routine_status status_ = routine_status::is_new;
-  routine_waiting_data waiting_data_;
   transfer_t context_;
   thread* thread_;
   routine_id id_;
@@ -206,7 +205,6 @@ class routine {
    */
   inline routine_id id() const;
   inline routine_status previous_status() const;
-  inline bool previous_status_is_io_block() const;
   inline routine_status status() const;
   inline routine_waiting_data& waiting_data();
   inline routine_waiting_data const& waiting_data() const;
@@ -229,7 +227,7 @@ class routine {
   void commit_event_round();
 
   // Called by the thread to tell an event happened
-  void event_happened(std::size_t index);
+  void event_happened(std::size_t index, event_status status = event_status::ok);
 
   /**
    * Starts or resume the routine
@@ -261,21 +259,8 @@ routine_status routine::previous_status() const {
   return previous_status_;
 }
 
-bool routine::previous_status_is_io_block() const {
-  return previous_status_ == routine_status::wait_sys_read ||
-         previous_status_ == routine_status::wait_sys_write;
-}
-
 routine_status routine::status() const {
   return status_;
-}
-
-routine_waiting_data& routine::waiting_data() {
-  return waiting_data_;
-}
-
-routine_waiting_data const& routine::waiting_data() const {
-  return waiting_data_;
 }
 
 void routine::expected_event_happened() {

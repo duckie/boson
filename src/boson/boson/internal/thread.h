@@ -180,6 +180,9 @@ class thread : public event_handler {
   std::size_t register_semaphore_wait(routine_slot slot);
 
   // Registers a fd for reading. Returns the event_index of the event_loop
+  void register_read(int fd, routine_slot slot);
+
+  void register_write(int fd, routine_slot slot);
   
 
   /**

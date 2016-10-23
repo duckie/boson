@@ -54,11 +54,15 @@ void routine::add_timer(routine_time_point date) {
 }
 
 void routine::add_read(int fd) {
-  events_.emplace_back(waited_event{event_type::timer, fd});
+  events_.emplace_back(waited_event{event_type::io_read, fd});
   auto& event = events_.back();
+  thread_->register_read(fd, routine_slot{current_ptr_, events_.size() -1});
 }
 
 void routine::add_write(int fd) {
+  events_.emplace_back(waited_event{event_type::io_write, fd});
+  auto& event = events_.back();
+  thread_->register_write(fd, routine_slot{current_ptr_, events_.size() -1});
 }
 
 void routine::commit_event_round() {
@@ -66,7 +70,7 @@ void routine::commit_event_round() {
   thread_->context() = jump_fcontext(thread_->context().fctx, nullptr);
 }
 
-void routine::event_happened(std::size_t index) {
+void routine::event_happened(std::size_t index, event_status status) {
   auto& event =  events_[index];
   switch (event.type) {
     case event_type::none:
@@ -77,14 +81,26 @@ void routine::event_happened(std::size_t index) {
       happened_type_ = event_type::timer;
       break;
     case event_type::io_read:
+      thread_->scheduled_routines_.emplace_back(current_ptr_->release());
+      current_ptr_.invalidate_all();
+      happened_type_ = event_status::ok == status ? event_type::io_read : event_type::io_read_panic;
+      --thread_->nb_suspended_routines_;
       break;
     case event_type::io_write:
+      thread_->scheduled_routines_.emplace_back(current_ptr_->release());
+      current_ptr_.invalidate_all();
+      happened_type_ = event_status::ok == status ? event_type::io_write : event_type::io_write_panic;
+      --thread_->nb_suspended_routines_;
       break;
     case event_type::sema_wait:
       thread_->scheduled_routines_.emplace_back(current_ptr_->release());
       --thread_->nb_suspended_routines_;
       current_ptr_.invalidate_all();
       happened_type_ = event_type::sema_wait;
+      break;
+    case event_type::io_read_panic:
+    case event_type::io_write_panic:
+      assert(false);
       break;
   }
 
@@ -100,11 +116,17 @@ void routine::event_happened(std::size_t index) {
           }
           break;
         case event_type::io_read:
+          --thread_->nb_suspended_routines_;
           break;
         case event_type::io_write:
+          --thread_->nb_suspended_routines_;
           break;
         case event_type::sema_wait:
           --thread_->nb_suspended_routines_;
+          break;
+        case event_type::io_read_panic:
+        case event_type::io_write_panic:
+          assert(false);
           break;
       }
     }

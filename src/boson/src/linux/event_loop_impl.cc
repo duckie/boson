@@ -115,6 +115,18 @@ int event_loop_impl::register_event(void* data) {
   return event_id;
 }
 
+void* event_loop_impl::get_data(int event_id) {
+  return  (0 <= event_id) ?  events_data_[event_id].data : nullptr;
+}
+
+std::tuple<int,int> event_loop_impl::get_events(int fd) {
+  if (fd < fd_data_.size()) {
+    auto& data = get_fd_data(fd);
+    return {data.idx_read, data.idx_write};
+  }
+  return {-1,-1};
+}
+
 void event_loop_impl::send_event(int event) {
   auto& data = events_data_[static_cast<size_t>(event)];
   size_t buffer{1};
@@ -234,7 +246,7 @@ loop_end_reason event_loop_impl::loop(int max_iter, int timeout_ms) {
         auto& fddata = get_fd_data(epoll_event.data.fd);
         if (epoll_event.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
           if (0 < fddata.idx_read)
-            dispatch_event(fddata.idx_write, event_status::panic);
+            dispatch_event(fddata.idx_read, event_status::panic);
           if (0 < fddata.idx_write)
             dispatch_event(fddata.idx_write, event_status::panic);
         }
