@@ -38,20 +38,22 @@ bool semaphore::pop_a_waiter(internal::thread* current) {
   return true;
 }
 
-bool semaphore::wait(milliseconds timeout) {
+bool semaphore::wait(int timeout) {
   using namespace internal;
   int result = counter_.fetch_sub(1,std::memory_order_acquire);
   routine* current_routine = nullptr;
   while (result <= 0) {
+    if (timeout == 0)
+      return false;
     // We failed to get the semaphore, we have to suspend the routine
     thread* this_thread = internal::current_thread();
     assert(this_thread);
     routine* current_routine = this_thread->running_routine();
     current_routine->start_event_round();
     current_routine->add_semaphore_wait(this);
-    if (0 < timeout.count()) {
+    if (0 <= timeout) {
       current_routine->add_timer(
-          time_point_cast<milliseconds>(high_resolution_clock::now() + timeout));
+          time_point_cast<milliseconds>(high_resolution_clock::now() + milliseconds(timeout)));
     }
     current_routine->commit_event_round();
     if (current_routine->happened_type_ == event_type::timer) {

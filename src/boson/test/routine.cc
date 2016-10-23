@@ -41,7 +41,7 @@ TEST_CASE("Routines - Semaphores", "[routines][semaphore]") {
     start([](auto sema) -> void {
       bool result = sema.wait();
       CHECK(result == true);
-      boson::sleep(10ms);
+      boson::sleep(5ms);
       sema.post();
       boson::sleep(10ms);
       result = sema.wait();
