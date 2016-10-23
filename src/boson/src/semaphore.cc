@@ -3,14 +3,20 @@
 #include "boson/engine.h"
 #include "boson/logger.h"
 
+using namespace std::chrono;
+
 namespace boson {
 
 semaphore::semaphore(int capacity)
-    : waiters_{static_cast<int>(internal::current_thread()->get_engine().max_nb_cores())},
+    : waiters_{static_cast<int>(internal::current_thread()->get_engine().max_nb_cores()+1)},
       counter_{capacity} {
 }
 
 semaphore::~semaphore() {
+  // Clean up stale events
+  std::pair<internal::thread*,std::size_t>* waiter = nullptr;
+  while((waiter = static_cast<decltype(waiter)>(waiters_.read(internal::current_thread()->id()))))
+    delete waiter;
 }
 
 bool semaphore::pop_a_waiter(internal::thread* current) {
@@ -18,22 +24,21 @@ bool semaphore::pop_a_waiter(internal::thread* current) {
   routine* current_routine = nullptr;
   int result = 1;
   if(0 < result) {
-    routine* waiter = static_cast<routine*>(waiters_.read(current->id()));
+    auto waiter = static_cast<std::pair<internal::thread*,std::size_t>*>(waiters_.read(current->id()));
     if (waiter) {
-      assert(waiter->thread_);
-      thread* managing_thread = waiter->thread_;
+      thread* managing_thread = waiter->first;
       managing_thread->push_command(
           current->id(), std::make_unique<thread_command>(
                              thread_command_type::schedule_waiting_routine,
-                             std::make_tuple(waiter->id(), static_cast<int>(waiter->status()),
-                                             std::unique_ptr<routine>(waiter))));
+                             std::make_pair(this,waiter->second)));
+      delete waiter;
       return true;
     }
   }
   return true;
 }
 
-void semaphore::wait() {
+bool semaphore::wait(milliseconds timeout) {
   using namespace internal;
   int result = counter_.fetch_sub(1,std::memory_order_acquire);
   routine* current_routine = nullptr;
@@ -42,12 +47,23 @@ void semaphore::wait() {
     thread* this_thread = internal::current_thread();
     assert(this_thread);
     routine* current_routine = this_thread->running_routine();
-    current_routine->status_ = routine_status::wait_sema_wait;
-    this_thread->context() = jump_fcontext(this_thread->context().fctx, this);
+    current_routine->start_event_round();
+    current_routine->add_semaphore_wait(this);
+    if (0 < timeout.count()) {
+      current_routine->add_timer(
+          time_point_cast<milliseconds>(high_resolution_clock::now() + timeout));
+    }
+    current_routine->commit_event_round();
+    if (current_routine->happened_type_ == event_type::timer) {
+      current_routine->previous_status_ = routine_status::wait_events;
+      current_routine->status_ = routine_status::running;
+      return false;
+    }
     result = counter_.fetch_sub(1,std::memory_order_acquire);
-    current_routine->previous_status_ = routine_status::wait_sema_wait;
+    current_routine->previous_status_ = routine_status::wait_events;
     current_routine->status_ = routine_status::running;
   }
+  return true;
 }
 
 void semaphore::post() {

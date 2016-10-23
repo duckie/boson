@@ -7,8 +7,12 @@
 #include <memory>
 #include "boson/std/experimental/apply.h"
 #include "boson/syscalls.h"
+#include "boson/utility.h"
+#include "boson/memory/local_ptr.h"
 #include "fcontext.h"
 #include "stack.h"
+#include <vector>
+#include "../event_loop.h"
 
 namespace boson {
 
@@ -17,10 +21,18 @@ class base_wfqueue;
 }
 
 using routine_id = std::size_t;
+class semaphore;
+
 namespace internal {
-
+class routine;
 class thread;
+class timed_routines_set;
+}
 
+using routine_ptr_t = std::unique_ptr<internal::routine>;
+using routine_local_ptr_t = memory::local_ptr<std::unique_ptr<internal::routine>>;
+
+namespace internal {
 /**
  * Store the local thread context
  *
@@ -34,15 +46,31 @@ enum class routine_status {
   is_new,          // Routine has been created but never started
   running,         // Routine is currently running
   yielding,        // Routine yielded and waits to be resumed
-  wait_timer,      // Routine waits for a timer to expire
-  wait_sys_read,   // Routine waits for a FD to be ready for read
-  wait_sys_write,  // Routine waits for a FD to be readu for write
-  wait_sema_wait,  // Routine waits to get a boson::semaphore
+  wait_events,     // Routine awaits some events
   finished         // Routine finished execution
 };
 
 using routine_time_point =
     std::chrono::time_point<std::chrono::high_resolution_clock, std::chrono::milliseconds>;
+
+enum class event_type {
+  none,
+  timer,
+  io_read,
+  io_write,
+  sema_wait,
+  io_read_panic,
+  io_write_panic
+};
+
+struct routine_timer_event_data {
+  routine_time_point date;
+  timed_routines_set* neighbor_timers;
+};
+
+struct routine_sema_event_data {
+  semaphore* sema;
+};
 
 struct routine_io_event {
   int fd;                          // The current FD used
@@ -50,12 +78,14 @@ struct routine_io_event {
   bool is_same_as_previous_event;  // Used to limit system calls in loops
   bool panic;                      // True if event loop answered in panic to this event
 };
+
 }
 }
 
 namespace json_backbone {
 template <>
-struct is_small_type<boson::internal::routine_time_point> {
+template <>
+struct is_small_type<boson::internal::routine_timer_event_data> {
   constexpr static bool const value = true;
 };
 template <>
@@ -69,6 +99,9 @@ namespace boson {
 class semaphore;
 
 namespace internal {
+
+
+
 /**
  * Data published to parent threads about waiting reasons
  *
@@ -76,7 +109,7 @@ namespace internal {
  * tell its running thread what it is about.
  */
 using routine_waiting_data =
-    json_backbone::variant<std::nullptr_t, int, size_t, routine_io_event, routine_time_point>;
+    json_backbone::variant<std::nullptr_t, int, size_t, routine_io_event, routine_timer_event_data, routine_sema_event_data>;
 
 class routine;
 
@@ -90,8 +123,10 @@ struct function_holder {
 
 template <class Function, class... Args>
 class function_holder_impl : public function_holder {
+  using ArgsTuple = typename extract_tuple_arguments<Function, Args...>::type;
   Function func_;
-  std::tuple<Args...> args_;
+  //std::tuple<Args...> args_;
+  ArgsTuple args_;
 
  public:
   function_holder_impl(Function func, Args... args)
@@ -107,7 +142,7 @@ decltype(auto) make_unique_function_holder(Function&& func, Args&&... args) {
   return std::unique_ptr<function_holder>(new function_holder_impl<Function, Args...>(
       std::forward<Function>(func), std::forward<Args>(args)...));
 }
-}  // nemespace detail
+}  // namespace detail
 
 struct in_context_function {
   virtual ~in_context_function() = default;
@@ -133,14 +168,22 @@ class routine {
   friend class thread;
   friend class boson::semaphore;
 
+  struct waited_event {
+    event_type type;
+    routine_waiting_data data;
+  };
+
   std::unique_ptr<detail::function_holder> func_;
   stack_context stack_ = allocate<default_stack_traits>();
   routine_status previous_status_ = routine_status::is_new;
   routine_status status_ = routine_status::is_new;
-  routine_waiting_data waiting_data_;
   transfer_t context_;
   thread* thread_;
   routine_id id_;
+  std::vector<waited_event> previous_events_;
+  std::vector<waited_event> events_;
+  routine_local_ptr_t current_ptr_;
+  event_type happened_type_;
 
  public:
   template <class Function, class... Args>
@@ -162,10 +205,29 @@ class routine {
    */
   inline routine_id id() const;
   inline routine_status previous_status() const;
-  inline bool previous_status_is_io_block() const;
   inline routine_status status() const;
   inline routine_waiting_data& waiting_data();
   inline routine_waiting_data const& waiting_data() const;
+
+
+  // Clean up previous events and prepare routine to new set
+  void start_event_round();
+
+  // Add a semaphore wait in the current set
+  void add_semaphore_wait(semaphore* sema);
+
+  // Add a timeout event to the set
+  void add_timer(routine_time_point date);
+
+  void add_read(int fd);
+
+  void add_write(int fd);
+
+  // Effectively commits the event set and suspends the routine
+  void commit_event_round();
+
+  // Called by the thread to tell an event happened
+  void event_happened(std::size_t index, event_status status = event_status::ok);
 
   /**
    * Starts or resume the routine
@@ -186,11 +248,7 @@ class routine {
    * execute by putting its status to "yielding"
    */
   inline void expected_event_happened();
-
-  // void execute_in
 };
-
-static thread_local thread* this_routine = nullptr;
 
 // Inline implementations
 routine_id routine::id() const {
@@ -201,21 +259,8 @@ routine_status routine::previous_status() const {
   return previous_status_;
 }
 
-bool routine::previous_status_is_io_block() const {
-  return previous_status_ == routine_status::wait_sys_read ||
-         previous_status_ == routine_status::wait_sys_write;
-}
-
 routine_status routine::status() const {
   return status_;
-}
-
-routine_waiting_data& routine::waiting_data() {
-  return waiting_data_;
-}
-
-routine_waiting_data const& routine::waiting_data() const {
-  return waiting_data_;
 }
 
 void routine::expected_event_happened() {

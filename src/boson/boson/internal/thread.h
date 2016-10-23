@@ -6,12 +6,14 @@
 #include <cassert>
 #include <chrono>
 #include <json_backbone.hpp>
-#include <list>
+#include <deque>
 #include <map>
 #include <memory>
 #include <thread>
 #include <vector>
 #include "boson/event_loop.h"
+#include "boson/memory/local_ptr.h"
+#include "boson/memory/sparse_vector.h"
 #include "boson/logger.h"
 #include "boson/queues/lcrq.h"
 #include "routine.h"
@@ -26,6 +28,7 @@ struct is_small_type<std::unique_ptr<boson::internal::routine>> {
 namespace boson {
 
 class engine;
+class semaphore;
 using thread_id = std::size_t;
 
 namespace internal {
@@ -39,8 +42,8 @@ enum class thread_status {
 
 enum class thread_command_type { add_routine, schedule_waiting_routine, finish, fd_panic };
 
-using thread_command_data = json_backbone::variant<std::nullptr_t, int, std::unique_ptr<routine>,
-                                                   std::tuple<int, int, std::unique_ptr<routine>>>;
+using thread_command_data = json_backbone::variant<std::nullptr_t, int, routine_ptr_t, std::pair<semaphore*, std::size_t>>;
+//using thread_command_data = json_backbone::variant<std::nullptr_t, int, routine_ptr_t, std::pair<semaphore*, routine*>>;
 
 struct thread_command {
   thread_command_type type;
@@ -79,6 +82,17 @@ class engine_proxy final {
   }
 };
 
+// Holds pointers to routines waiting for a time out
+struct timed_routines_set final {
+  std::size_t nb_active = 0;
+  std::deque<std::size_t> slots;
+};
+
+struct routine_slot {
+  routine_local_ptr_t ptr;
+  std::size_t event_index;
+};
+
 /**
  * Thread encapsulates an instance of an real thread
  *
@@ -94,11 +108,10 @@ class thread : public event_handler {
   friend class routine;
 
   friend class boson::semaphore;
-  using routine_ptr_t = std::unique_ptr<routine>;
   using engine_queue_t = queues::lcrq;
 
   engine_proxy engine_proxy_;
-  std::list<routine_ptr_t> scheduled_routines_;
+  std::deque<routine_ptr_t> scheduled_routines_;
   thread_status status_{thread_status::idle};
 
   /**
@@ -125,13 +138,14 @@ class thread : public event_handler {
   int engine_event_id_;
   int self_event_id_;
 
+
   /**
    * This map stores the timers
    *
    * The idea here is to avoid additional fd creation just for timers, so we can create
    * a whole lot of them without consuming the fd limit per process
    */
-  std::map<routine_time_point, std::list<routine_ptr_t>> timed_routines_;
+  std::map<routine_time_point, timed_routines_set> timed_routines_;
 
   /**
    * Stores the number of suspended routines
@@ -142,7 +156,9 @@ class thread : public event_handler {
    *
    * This also counts routines waiting in a semaphore waiters list.
    */
-  size_t suspended_routines_{0};
+  size_t nb_suspended_routines_{0};
+
+  memory::sparse_vector<routine_slot> suspended_slots_;
 
   /**
    * React to a request from the main scheduler
@@ -155,6 +171,24 @@ class thread : public event_handler {
   void unregister_all_events();
 
   inline transfer_t& context();
+
+  // Returns the set in which the routine has ben referenced
+  // used to decrement the set nb_active member when disabling the timer
+  timed_routines_set& register_timer(routine_time_point const& date, routine_slot slot);
+
+  // Returns the slot index used to push in the semaphore waiters queue
+  std::size_t register_semaphore_wait(routine_slot slot);
+
+  // Registers a fd for reading. Returns the event_index of the event_loop
+  void register_read(int fd, routine_slot slot);
+
+  void register_write(int fd, routine_slot slot);
+  
+
+  /**
+   * Sets a routine for execution at the next round
+   */
+  void schedule(routine* routine);
 
  public:
   thread(engine& parent_engine);

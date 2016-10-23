@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <tuple>
 
 namespace boson {
 
@@ -57,6 +58,18 @@ class event_loop {
    * a one shot request but will live until unregistered
    */
   int register_event(void* data);
+
+  /**
+   * Read data currectly registered for this event
+   *
+   * Event must exist or be the null event (-1), otherwise behavior is undefined
+   */
+  void* get_data(int event_id);
+
+  /**
+   * Returns events attached to a given fd
+   */
+  std::tuple<int,int> get_events(int fd);
 
   /**
    * Triggers a registered event

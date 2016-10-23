@@ -12,15 +12,15 @@ class mutex_impl : private semaphore {
   mutex_impl& operator=(mutex_impl const&) = delete;
   mutex_impl& operator=(mutex_impl&&) = default;
   virtual ~mutex_impl() = default;
-  inline void lock();
+  inline void lock(std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
   inline void unlock();
 };
 
 mutex_impl::mutex_impl() : semaphore(1) {
 }
 
-void mutex_impl::lock() {
-  wait();
+void mutex_impl::lock(std::chrono::milliseconds timeout) {
+  wait(timeout);
 }
 void mutex_impl::unlock() {
   post();
@@ -40,7 +40,7 @@ class mutex {
   mutex& operator=(mutex&&) = default;
   virtual ~mutex() = default;
 
-  inline void lock();
+  inline void lock(std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
   inline void unlock();
 };
 
@@ -49,8 +49,8 @@ class mutex {
 mutex::mutex() : impl_{new mutex_impl} {
 }
 
-void mutex::lock() {
-  impl_->lock();
+void mutex::lock(std::chrono::milliseconds timeout) {
+  impl_->lock(timeout);
 }
 
 void mutex::unlock() {

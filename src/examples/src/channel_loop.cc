@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
     channel<int, 0> c2b;
 
     // Start a producer
-    start([](auto in, auto out) {
+    start([](auto in, auto out) -> void {
       int ack_result = 0;
       for (int i = 0; i < nb_iter; ++i) {
         // Send async
@@ -39,10 +39,10 @@ int main(int argc, char* argv[]) {
           if (ack_result == i * channel_size + j) boson::debug::log("A: ack succeeded.");
         }
       }
-    }, dup(b2a), dup(a2b));
+    }, b2a, a2b);
 
     // Start a router
-    start([](auto source_in, auto source_out, auto dest_in, auto dest_out){
+    start([](auto source_in, auto source_out, auto dest_in, auto dest_out) -> void{
       int result = 0;
       while (result < nb_iter * channel_size - 1) {
         source_in >> result;
@@ -50,16 +50,16 @@ int main(int argc, char* argv[]) {
         dest_in >> result;
         source_out << result;
       }
-    },dup(a2b), dup(b2a), dup(c2b), dup(b2c));
+    },a2b, b2a, c2b, b2c);
 
     // Start a consumer
-    start([](auto in, auto out) {
+    start([](auto in, auto out) -> void {
       int result = 0;
       while (result < nb_iter * channel_size - 1) {
         in >> result;
         boson::debug::log("C received: {}", result);
         out << result;
       }
-    }, dup(b2c), dup(c2b));
+    }, b2c, c2b);
   });
 }

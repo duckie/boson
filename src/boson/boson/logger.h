@@ -5,7 +5,10 @@
 #include <ostream>
 #include <string>
 #include <thread>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wundefined-var-template"
 #include "fmt/format.h"
+#pragma GCC diagnostic pop
 #include "json_backbone.hpp"
 
 namespace boson {

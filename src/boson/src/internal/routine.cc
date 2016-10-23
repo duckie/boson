@@ -3,15 +3,13 @@
 #include "exception.h"
 #include "internal/thread.h"
 #include "syscalls.h"
+#include "semaphore.h"
 
 namespace boson {
 namespace internal {
 
 namespace detail {
 
-// struct stack_header {
-//};
-//
 void resume_routine(transfer_t transfered_context) {
   thread* this_thread = current_thread();
   this_thread->context() = transfered_context;
@@ -19,10 +17,6 @@ void resume_routine(transfer_t transfered_context) {
   current_routine->status_ = routine_status::running;
   (*current_routine->func_)();
   current_routine->status_ = routine_status::finished;
-  // It is paramount to use reference to the thread local variable here
-  // since it can be updated during ping/ping context jumps during the routine
-  // execution
-  // jump_fcontext(this_thread->context().fctx, this_thread->context().data);
   jump_fcontext(this_thread->context().fctx, nullptr);
 }
 }
@@ -31,6 +25,116 @@ void resume_routine(transfer_t transfered_context) {
 
 routine::~routine() {
   deallocate(stack_);
+}
+
+void routine::start_event_round() {
+  // Clean previous events
+  previous_events_.clear();
+  std::swap(previous_events_, events_);
+  // Create new event pointer
+  current_ptr_ = routine_local_ptr_t(std::unique_ptr<routine>(this));
+}
+
+void routine::add_semaphore_wait(semaphore* sema) {
+  events_.emplace_back(waited_event{event_type::sema_wait, routine_sema_event_data{sema}});
+  auto& event = events_.back();
+  auto slot_index = thread_->register_semaphore_wait(routine_slot{current_ptr_,events_.size()-1});
+  sema->waiters_.write(thread_->id(), new std::pair<thread*, std::size_t>{thread_, slot_index});
+  int result = sema->counter_.fetch_add(1,std::memory_order_release);
+  if (0 <= result) {
+    sema->pop_a_waiter(thread_);
+  }
+}
+
+void routine::add_timer(routine_time_point date) {
+  events_.emplace_back(waited_event{event_type::timer, routine_timer_event_data{std::move(date),nullptr}});
+  auto& event = events_.back();
+  event.data.get<routine_timer_event_data>().neighbor_timers =
+      &thread_->register_timer(event.data.get<routine_timer_event_data>().date, routine_slot{current_ptr_,events_.size()-1});
+}
+
+void routine::add_read(int fd) {
+  events_.emplace_back(waited_event{event_type::io_read, fd});
+  auto& event = events_.back();
+  thread_->register_read(fd, routine_slot{current_ptr_, events_.size() -1});
+}
+
+void routine::add_write(int fd) {
+  events_.emplace_back(waited_event{event_type::io_write, fd});
+  auto& event = events_.back();
+  thread_->register_write(fd, routine_slot{current_ptr_, events_.size() -1});
+}
+
+void routine::commit_event_round() {
+  status_ = routine_status::wait_events;
+  thread_->context() = jump_fcontext(thread_->context().fctx, nullptr);
+}
+
+void routine::event_happened(std::size_t index, event_status status) {
+  auto& event =  events_[index];
+  switch (event.type) {
+    case event_type::none:
+      break;
+    case event_type::timer:
+      thread_->scheduled_routines_.emplace_back(current_ptr_->release());
+      current_ptr_.invalidate_all();
+      happened_type_ = event_type::timer;
+      break;
+    case event_type::io_read:
+      thread_->scheduled_routines_.emplace_back(current_ptr_->release());
+      current_ptr_.invalidate_all();
+      happened_type_ = event_status::ok == status ? event_type::io_read : event_type::io_read_panic;
+      --thread_->nb_suspended_routines_;
+      break;
+    case event_type::io_write:
+      thread_->scheduled_routines_.emplace_back(current_ptr_->release());
+      current_ptr_.invalidate_all();
+      happened_type_ = event_status::ok == status ? event_type::io_write : event_type::io_write_panic;
+      --thread_->nb_suspended_routines_;
+      break;
+    case event_type::sema_wait:
+      thread_->scheduled_routines_.emplace_back(current_ptr_->release());
+      --thread_->nb_suspended_routines_;
+      current_ptr_.invalidate_all();
+      happened_type_ = event_type::sema_wait;
+      break;
+    case event_type::io_read_panic:
+    case event_type::io_write_panic:
+      assert(false);
+      break;
+  }
+
+  // Invalidate other events
+  for (auto& other : events_) {
+    if (&other != &event) {
+      switch (other.type) {
+        case event_type::none:
+          break;
+        case event_type::timer: {
+            auto& data = other.data.get<routine_timer_event_data>();
+            --data.neighbor_timers->nb_active;
+          }
+          break;
+        case event_type::io_read:
+          --thread_->nb_suspended_routines_;
+          break;
+        case event_type::io_write:
+          --thread_->nb_suspended_routines_;
+          break;
+        case event_type::sema_wait:
+          --thread_->nb_suspended_routines_;
+          break;
+        case event_type::io_read_panic:
+        case event_type::io_write_panic:
+          assert(false);
+          break;
+      }
+    }
+  }
+
+  if (happened_type_ != event_type::none) {
+    status_ = routine_status::yielding;
+  }
 }
 
 void routine::resume(thread* managing_thread) {

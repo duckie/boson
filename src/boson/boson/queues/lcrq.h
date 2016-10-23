@@ -9,15 +9,15 @@
 #include <list>
 #include <type_traits>
 #include <utility>
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-security"
-#pragma GCC diagnostic pop
-
 extern "C" {
 #include "wfqueue/align.h"
 #include "wfqueue/primitives.h"
 #include "wfqueue/xxhash.h"
 }
+#pragma GCC diagnostic pop
 
 namespace boson {
 namespace queues {

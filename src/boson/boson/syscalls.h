@@ -8,8 +8,9 @@
 
 namespace boson {
 
-static constexpr int code_panic = -100;
-static constexpr int code_timeout = -101;
+static constexpr int code_ok = -100;
+static constexpr int code_timeout = -102;
+static constexpr int code_panic = -101;
 
 /**
  * Gives back control to the scheduler
