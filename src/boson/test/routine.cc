@@ -62,3 +62,30 @@ TEST_CASE("Routines - Semaphores", "[routines][semaphore]") {
   });
 
 }
+
+TEST_CASE("Routines - I/O", "[routines][i/o]") {
+  boson::debug::logger_instance(&std::cout);
+
+  int pipe_fds[2];
+  ::pipe(pipe_fds);
+
+  boson::run(1, [&]() {
+    start([](int in) -> void {
+      size_t data;
+      int result = boson::read(in, &data, sizeof(size_t), 5ms);
+      CHECK(result == boson::code_timeout);
+      result = boson::read(in, &data, sizeof(size_t));
+      CHECK(0 < result);
+    },pipe_fds[0]);
+
+    start([](int out) -> void {
+      size_t data {0};
+      boson::sleep(10ms);
+      int result = boson::write(out, &data, sizeof(data));
+      CHECK(0 < result);
+    },pipe_fds[1]);
+  });
+
+  ::close(pipe_fds[0]);
+  ::close(pipe_fds[1]);
+}

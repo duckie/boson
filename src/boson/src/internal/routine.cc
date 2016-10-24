@@ -93,20 +93,20 @@ void routine::event_happened(std::size_t index, event_status status) {
       --thread_->nb_suspended_routines_;
       break;
     case event_type::sema_wait: {
-      auto sema = event.data.get<routine_sema_event_data>().sema;
       --thread_->nb_suspended_routines_;
-      int result = sema->counter_.fetch_sub(1,std::memory_order_acquire);
-      if (result <= 0) {
-        auto slot_index =
-            thread_->register_semaphore_wait(routine_slot{current_ptr_, index});
-        sema->waiters_.write(thread_->id(),
-                             new std::pair<thread*, std::size_t>{thread_, slot_index});
-        result = sema->counter_.fetch_add(1, std::memory_order_release);
-        if (0 <= result) {
-          sema->pop_a_waiter(thread_);
-        }
-        return;
-      }
+      //auto sema = event.data.get<routine_sema_event_data>().sema;
+      //int result = sema->counter_.fetch_sub(1,std::memory_order_acquire);
+      //if (result <= 0) {
+        //auto slot_index =
+            //thread_->register_semaphore_wait(routine_slot{current_ptr_, index});
+        //sema->waiters_.write(thread_->id(),
+                             //new std::pair<thread*, std::size_t>{thread_, slot_index});
+        //result = sema->counter_.fetch_add(1, std::memory_order_release);
+        //if (0 <= result) {
+          //sema->pop_a_waiter(thread_);
+        //}
+        //return;
+      //}
       thread_->scheduled_routines_.emplace_back(current_ptr_->release());
       current_ptr_.invalidate_all();
       happened_type_ = event_type::sema_wait;
@@ -162,11 +162,10 @@ void routine::resume(thread* managing_thread) {
       context_ = jump_fcontext(context_.fctx, nullptr);
       break;
     }
-    case routine_status::finished: {
+    default:
       // Not supposed to happen
       assert(false);
       break;
-    }
   }
 
   // Manage the queue requests

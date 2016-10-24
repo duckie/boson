@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
           for (int j = 0; j < nb_iter; ++j) {
             mut.lock();
             data.push_back(1);
-            // boson::sleep(2ms);
+            //boson::sleep(2ms);
             mut.unlock();
           }
         });
@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
           for (int j = 0; j < nb_iter; ++j) {
             mut2.lock();
             data2.push_back(1);
-            // boson::sleep(2ms);
+            //boson::sleep(2ms);
             mut2.unlock();
           }
         });
@@ -88,16 +88,18 @@ int main(int argc, char* argv[]) {
           for (int j = 0; j < nb_iter; ++j) {
             std_mut.lock();
             data.push_back(1);
-            // std::this_thread::sleep_for(2ms);
+            //std::this_thread::sleep_for(2ms);
             std_mut.unlock();
+            //std::this_thread::yield();
           }
         });
         start([&data2, &std_mut2]() mutable {
           for (int j = 0; j < nb_iter; ++j) {
             std_mut2.lock();
             data2.push_back(1);
-            // std::this_thread::sleep_for(2ms);
+            //std::this_thread::sleep_for(2ms);
             std_mut2.unlock();
+            //std::this_thread::yield();
           }
         });
       }

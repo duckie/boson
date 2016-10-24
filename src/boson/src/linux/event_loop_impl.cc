@@ -122,9 +122,9 @@ void* event_loop_impl::get_data(int event_id) {
 std::tuple<int,int> event_loop_impl::get_events(int fd) {
   if (fd < fd_data_.size()) {
     auto& data = get_fd_data(fd);
-    return {data.idx_read, data.idx_write};
+    return std::make_tuple(data.idx_read, data.idx_write);
   }
-  return {-1,-1};
+  return std::make_tuple(-1,-1);
 }
 
 void event_loop_impl::send_event(int event) {

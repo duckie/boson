@@ -84,7 +84,6 @@ struct routine_io_event {
 
 namespace json_backbone {
 template <>
-template <>
 struct is_small_type<boson::internal::routine_timer_event_data> {
   constexpr static bool const value = true;
 };
@@ -162,7 +161,7 @@ class routine {
   friend void detail::resume_routine(transfer_t);
   friend void boson::yield();
   friend void boson::sleep(std::chrono::milliseconds);
-  friend int boson::wait_readiness(fd_t,bool);
+  friend int boson::wait_readiness(fd_t,bool,int);
   template <class ContentType>
   friend class channel;
   friend class thread;

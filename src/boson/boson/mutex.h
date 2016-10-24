@@ -46,13 +46,18 @@ class mutex {
   mutex& operator=(mutex&&) = default;
   virtual ~mutex() = default;
 
-  inline void lock(std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
+  inline void lock(int timeout = -1);
+  inline void lock(std::chrono::milliseconds timeout);
   inline void unlock();
 };
 
 // inline implementations
 
 mutex::mutex() : impl_{new mutex_impl} {
+}
+
+void mutex::lock(int timeout) {
+  impl_->lock(timeout);
 }
 
 void mutex::lock(std::chrono::milliseconds timeout) {
