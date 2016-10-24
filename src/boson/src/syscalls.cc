@@ -28,7 +28,8 @@ void sleep(std::chrono::milliseconds duration) {
   current_routine->status_ = routine_status::running;
 }
 
-int wait_readiness(fd_t fd, bool read) {
+int wait_readiness(fd_t fd, bool read, int timeout_ms) {
+  using namespace std::chrono;
   thread* this_thread = current_thread();
   routine* current_routine = this_thread->running_routine();
   routine_io_event new_event{fd, -1, false, false};
@@ -39,37 +40,40 @@ int wait_readiness(fd_t fd, bool read) {
   else {
     current_routine->add_write(fd);
   }
+  if (0 <= timeout_ms) {
+    current_routine->add_timer(time_point_cast<milliseconds>(high_resolution_clock::now() + milliseconds(timeout_ms)));
+  }
   current_routine->commit_event_round();
   current_routine->previous_status_ = routine_status::wait_events;
   current_routine->status_ = routine_status::running;
   return current_routine->happened_type_ == event_type::io_write_panic ||
                  current_routine->happened_type_ == event_type::io_read_panic
              ? code_panic
-             : 0;
+             : (current_routine->happened_type_ == event_type::timer ? code_timeout : 0);
 }
 
-ssize_t read(fd_t fd, void* buf, size_t count) {
-  int return_code = wait_read_readiness(fd);
+ssize_t read(fd_t fd, void* buf, size_t count, int timeout_ms) {
+  int return_code = wait_read_readiness(fd, timeout_ms);
   return return_code ? return_code : ::read(fd, buf, count);
 }
 
-ssize_t write(fd_t fd, const void* buf, size_t count) {
-  int return_code = wait_write_readiness(fd);
+ssize_t write(fd_t fd, const void* buf, size_t count, int timeout_ms) {
+  int return_code = wait_write_readiness(fd, timeout_ms);
   return return_code ? return_code : ::write(fd, buf, count);
 }
 
-socket_t accept(socket_t socket, sockaddr* address, socklen_t* address_len) {
-  int return_code = wait_read_readiness(socket);
+socket_t accept(socket_t socket, sockaddr* address, socklen_t* address_len, int timeout_ms) {
+  int return_code = wait_read_readiness(socket, timeout_ms);
   return return_code ? return_code : ::accept(socket, address, address_len);
 }
 
-size_t send(socket_t socket, const void* buffer, size_t length, int flags) {
-  int return_code = wait_write_readiness(socket);
+ssize_t send(socket_t socket, const void* buffer, size_t length, int flags, int timeout_ms) {
+  int return_code = wait_write_readiness(socket, timeout_ms);
   return return_code ? return_code : ::send(socket, buffer, length, flags);
 }
 
-ssize_t recv(socket_t socket, void* buffer, size_t length, int flags) {
-  int return_code = wait_read_readiness(socket);
+ssize_t recv(socket_t socket, void* buffer, size_t length, int flags, int timeout_ms) {
+  int return_code = wait_read_readiness(socket, timeout_ms);
   return return_code ? return_code : ::recv(socket, buffer, length, flags);
 }
 

@@ -43,13 +43,19 @@ class semaphore {
   /**
    * takes a semaphore ticker if it could, otherwise suspend the routine until a ticker is available
    */
-  bool wait(std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
+  bool wait(int timeout_ms = -1);
 
+  inline bool wait(std::chrono::milliseconds);
   /**
    * give back semaphore ticket. Always non blocking
    */
   void post();
 };
+
+
+bool semaphore::wait(std::chrono::milliseconds timeout) {
+  return wait(timeout.count());
+}
 
 /**
  * shared_semaphore is a wrapper for shared_ptr of a semaphore
@@ -65,7 +71,8 @@ class shared_semaphore {
   shared_semaphore& operator=(shared_semaphore&&) = default;
   virtual ~shared_semaphore() = default;
 
-  inline bool wait(std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
+  inline bool wait(int timeout_ms = -1);
+  inline bool wait(std::chrono::milliseconds timeout);
   inline void post();
 };
 
@@ -74,9 +81,14 @@ class shared_semaphore {
 shared_semaphore::shared_semaphore(int capacity) : impl_{new semaphore(capacity)} {
 }
 
+bool shared_semaphore::wait(int timeout) {
+  return impl_->wait(timeout);
+}
+
 bool shared_semaphore::wait(std::chrono::milliseconds timeout) {
   return impl_->wait(timeout);
 }
+
 
 void shared_semaphore::post() {
   impl_->post();
