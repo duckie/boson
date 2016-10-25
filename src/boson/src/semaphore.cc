@@ -70,7 +70,7 @@ bool semaphore::wait(int timeout) {
 void semaphore::post() {
   using namespace internal;
   int result = counter_.fetch_add(1,std::memory_order_release);
-  if (0 <= result) {
+  if (0 == result) {
     // We may not gotten in the middle of a wait, so we cant avoid to try a pop
     pop_a_waiter(internal::current_thread());
   }
