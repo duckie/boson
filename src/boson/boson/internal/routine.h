@@ -184,6 +184,7 @@ class routine {
   std::vector<waited_event> events_;
   routine_local_ptr_t current_ptr_;
   event_type happened_type_ = event_type::none;
+  size_t happened_index_ = 0;
 
  public:
   template <class Function, class... Args>
@@ -224,7 +225,7 @@ class routine {
   void add_write(int fd);
 
   // Effectively commits the event set and suspends the routine
-  void commit_event_round();
+  size_t commit_event_round();
 
   void set_as_semaphore_event_candidate(std::size_t index);
 
@@ -240,16 +241,8 @@ class routine {
    *
    */
   void resume(thread* managing_thread);
-  // void queue_write(queues::base_wfqueue& queue, void* data);
-  // void* queue_read(queues::base_wfqueue& queue);
 
-  /**
-   * Tells the routine it can be executed
-   *
-   * When the wait is over, the routine must be informed it can
-   * execute by putting its status to "yielding"
-   */
-  inline void expected_event_happened();
+  inline size_t happened_index() const;
 };
 
 // Inline implementations
@@ -265,8 +258,8 @@ routine_status routine::status() const {
   return status_;
 }
 
-void routine::expected_event_happened() {
-  status_ = routine_status::yielding;
+size_t routine::happened_index() const {
+    return happened_index_;
 }
 
 }  // namespace internal

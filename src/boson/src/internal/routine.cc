@@ -65,9 +65,10 @@ void routine::add_write(int fd) {
   thread_->register_write(fd, routine_slot{current_ptr_, events_.size() -1});
 }
 
-void routine::commit_event_round() {
+size_t routine::commit_event_round() {
   status_ = routine_status::wait_events;
   thread_->context() = jump_fcontext(thread_->context().fctx, nullptr);
+  return happened_index_;
 }
 
 void routine::set_as_semaphore_event_candidate(std::size_t index) {
@@ -149,12 +150,14 @@ bool routine::event_happened(std::size_t index, event_status status) {
     status_ = routine_status::yielding;
     current_ptr_->release();  // In this particular case, the scheduler gets back routine ownership
     current_ptr_.invalidate_all();
+    happened_index_ = index;
     return true;
   }
   else if (happened_type_ != event_type::none) {
     thread_->scheduled_routines_.emplace_back(routine_slot{routine_local_ptr_t(std::unique_ptr<routine>(current_ptr_->release())),0});
     current_ptr_.invalidate_all();
     status_ = routine_status::yielding;
+    happened_index_ = index;
     return true;
   }
 
