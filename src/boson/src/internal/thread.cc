@@ -212,7 +212,7 @@ bool thread::execute_scheduled_routines() {
     bool run_routine = true;
     // Try to get a semaphore ticket, if relevant
     if (routine->status() == routine_status::sema_event_candidate) {
-      run_routine = routine->event_happened(routine->event_candidate_index_);
+      run_routine = routine->event_happened(slot.event_index);
       // If success, get back the unique ownserhip of the routine
       if (run_routine) {
         slot.ptr = routine_local_ptr_t(routine_ptr_t(routine));

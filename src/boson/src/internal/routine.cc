@@ -72,7 +72,6 @@ void routine::commit_event_round() {
 
 void routine::set_as_semaphore_event_candidate(std::size_t index) {
   status_ = routine_status::sema_event_candidate;
-  event_candidate_index_ = index;
   thread_->scheduled_routines_.emplace_back(routine_slot{current_ptr_,index});
 }
 
@@ -98,9 +97,8 @@ bool routine::event_happened(std::size_t index, event_status status) {
       int result = sema->counter_.fetch_sub(1,std::memory_order_acquire);
       if (result <= 0) {
         // Failed candidacy
-        //status_ = routine_status::wait_events;
-        //current_ptr_->reset(this);
-        //current_ptr_->reset(this);
+        // Do not invalidate pointers of other events
+        // Do not change the routine status
         auto slot_index =
             thread_->register_semaphore_wait(routine_slot{current_ptr_, index});
         sema->waiters_.write(thread_->id(),

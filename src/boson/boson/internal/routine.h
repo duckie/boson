@@ -184,7 +184,6 @@ class routine {
   std::vector<waited_event> events_;
   routine_local_ptr_t current_ptr_;
   event_type happened_type_ = event_type::none;
-  std::size_t event_candidate_index_ = 0;
 
  public:
   template <class Function, class... Args>
