@@ -70,45 +70,46 @@ void routine::commit_event_round() {
   thread_->context() = jump_fcontext(thread_->context().fctx, nullptr);
 }
 
-void routine::event_happened(std::size_t index, event_status status) {
+void routine::set_as_semaphore_event_candidate(std::size_t index) {
+  status_ = routine_status::sema_event_candidate;
+  event_candidate_index_ = index;
+  thread_->scheduled_routines_.emplace_back(current_ptr_->release());
+}
+
+bool routine::event_happened(std::size_t index, event_status status) {
   auto& event =  events_[index];
   switch (event.type) {
     case event_type::none:
       break;
     case event_type::timer:
-      thread_->scheduled_routines_.emplace_back(current_ptr_->release());
-      current_ptr_.invalidate_all();
       happened_type_ = event_type::timer;
       break;
     case event_type::io_read:
-      thread_->scheduled_routines_.emplace_back(current_ptr_->release());
-      current_ptr_.invalidate_all();
       happened_type_ = event_status::ok == status ? event_type::io_read : event_type::io_read_panic;
       --thread_->nb_suspended_routines_;
       break;
     case event_type::io_write:
-      thread_->scheduled_routines_.emplace_back(current_ptr_->release());
-      current_ptr_.invalidate_all();
       happened_type_ = event_status::ok == status ? event_type::io_write : event_type::io_write_panic;
       --thread_->nb_suspended_routines_;
       break;
     case event_type::sema_wait: {
       --thread_->nb_suspended_routines_;
-      //auto sema = event.data.get<routine_sema_event_data>().sema;
-      //int result = sema->counter_.fetch_sub(1,std::memory_order_acquire);
-      //if (result <= 0) {
-        //auto slot_index =
-            //thread_->register_semaphore_wait(routine_slot{current_ptr_, index});
-        //sema->waiters_.write(thread_->id(),
-                             //new std::pair<thread*, std::size_t>{thread_, slot_index});
-        //result = sema->counter_.fetch_add(1, std::memory_order_release);
-        //if (0 <= result) {
-          //sema->pop_a_waiter(thread_);
-        //}
-        //return;
-      //}
-      thread_->scheduled_routines_.emplace_back(current_ptr_->release());
-      current_ptr_.invalidate_all();
+      auto sema = event.data.get<routine_sema_event_data>().sema;
+      int result = sema->counter_.fetch_sub(1,std::memory_order_acquire);
+      if (result <= 0) {
+        // Failed candidacy
+        status_ = routine_status::wait_events;
+        current_ptr_->reset(this);
+        auto slot_index =
+            thread_->register_semaphore_wait(routine_slot{current_ptr_, index});
+        sema->waiters_.write(thread_->id(),
+                             new std::pair<thread*, std::size_t>{thread_, slot_index});
+        result = sema->counter_.fetch_add(1, std::memory_order_release);
+        if (0 == result) {
+          sema->pop_a_waiter(thread_);
+        }
+        return false;
+      }
       happened_type_ = event_type::sema_wait;
     } break;
     case event_type::io_read_panic:
@@ -145,9 +146,19 @@ void routine::event_happened(std::size_t index, event_status status) {
     }
   }
 
-  if (happened_type_ != event_type::none) {
+  if (happened_type_ == event_type::sema_wait) {
     status_ = routine_status::yielding;
+    current_ptr_.invalidate_all();
+    return true;
   }
+  else if (happened_type_ != event_type::none) {
+    thread_->scheduled_routines_.emplace_back(current_ptr_->release());
+    current_ptr_.invalidate_all();
+    status_ = routine_status::yielding;
+    return true;
+  }
+
+  return false;
 }
 
 void routine::resume(thread* managing_thread) {

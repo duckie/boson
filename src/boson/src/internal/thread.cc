@@ -80,7 +80,7 @@ void thread::handle_engine_event() {
         auto& shared_routine = suspended_slots_[data.second];
         // If not previously invalidated by a timeout
         if (shared_routine.ptr) {
-          shared_routine.ptr->get()->event_happened(shared_routine.event_index);
+          shared_routine.ptr->get()->set_as_semaphore_event_candidate(shared_routine.event_index);
         }
         else {
           data.first->pop_a_waiter(this);
@@ -208,7 +208,14 @@ bool thread::execute_scheduled_routines() {
     // For now; we schedule them in order
     auto& routine = scheduled_routines_.front();
     running_routine_ = routine.get();
-    routine->resume(this);
+
+    bool run_routine = true;
+    // Try to get a semaphore ticket, if relevant
+    if (routine->status() == routine_status::sema_event_candidate)
+      run_routine = routine->event_happened(routine->event_candidate_index_);
+
+    if (run_routine) 
+        routine->resume(this);
     switch (routine->status()) {
       case routine_status::is_new:
       case routine_status::running: {
@@ -220,6 +227,9 @@ bool thread::execute_scheduled_routines() {
         next_scheduled_routines.emplace_back(routine.release());
       } break;
       case routine_status::wait_events: {
+        routine.release();
+      } break;
+      case routine_status::sema_event_candidate: {
         routine.release();
       } break;
       case routine_status::finished: {
