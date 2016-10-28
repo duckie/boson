@@ -107,7 +107,7 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
     ::pipe(pipe_fds2);
 
     boson::run(1, [&]() {
-      boson::channel<std::nullptr_t,1> tickets;
+      boson::channel<std::nullptr_t,0> tickets;
       start(
           [](int in1, int in2, auto tickets) -> void {
             int result = 0;
@@ -148,8 +148,59 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
     });
 
     ::close(pipe_fds1[0]);
+    ::close(pipe_fds1[1]);
+    ::close(pipe_fds2[0]);
     ::close(pipe_fds2[1]);
+  }
+
+  SECTION("Pipe and channels") {
+    int pipe_fds1[2];
+    ::pipe(pipe_fds1);
+
+    boson::run(1, [&]() {
+      boson::channel<std::nullptr_t,0> tickets;
+      boson::channel<int,1> pipe2;
+      start(
+          [](int in1, auto in2, auto tickets) -> void {
+            int result = 0;
+            size_t data;
+            int chandata;
+            result = boson::select_any(                 //
+                event_read(in1, &data, sizeof(size_t),  //
+                           [](ssize_t) {
+                             return 1;  //
+                           }),
+                event_read(in2, chandata,  //
+                           []() {
+                             return 2;  //
+                           }));
+            CHECK(result == 2);
+            tickets << nullptr;
+            result = boson::select_any(                 //
+                event_read(in1, &data, sizeof(size_t),  //
+                           [](ssize_t) {
+                             return 1;  //
+                           }),
+                event_read(in2, chandata,  //
+                           []() {
+                             return 2;  //
+                           }));
+            CHECK(result == 1);
+          },
+          pipe_fds1[0], pipe2, tickets);
+
+      start(
+          [](int out1, auto out2, auto tickets) -> void {
+            std::nullptr_t sink;
+            size_t data{0};
+            out2 << 1;
+            tickets >> sink; // Wait for other routin to finish first test
+            boson::write(out1, &data, sizeof(data));
+          },
+          pipe_fds1[1], pipe2, tickets);
+    });
+
     ::close(pipe_fds1[0]);
-    ::close(pipe_fds2[1]);
+    ::close(pipe_fds1[1]);
   }
 }

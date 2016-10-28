@@ -227,6 +227,8 @@ class routine {
   // Effectively commits the event set and suspends the routine
   size_t commit_event_round();
 
+  void cancel_event_round();
+
   void set_as_semaphore_event_candidate(std::size_t index);
 
   // Called by the thread to tell an event happened

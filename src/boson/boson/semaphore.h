@@ -9,6 +9,9 @@
 
 namespace boson {
 
+template <class ContentType, std::size_t Size, class Func>
+class event_channel_read_storage;
+
 /**
  * Semaphore for routines only
  *
@@ -17,6 +20,8 @@ namespace boson {
 class semaphore {
   friend class internal::thread;
   friend class internal::routine;
+  template <class Content, std::size_t Size, class Func>
+  friend class event_channel_read_storage;
   using queue_t = queues::lcrq;
   queue_t waiters_;
   std::atomic<int> counter_;

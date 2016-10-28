@@ -71,6 +71,13 @@ size_t routine::commit_event_round() {
   return happened_index_;
 }
 
+void routine::cancel_event_round() {
+  current_ptr_->release();
+  current_ptr_.invalidate_all();
+  events_.clear();
+  std::swap(previous_events_, events_);
+}
+
 void routine::set_as_semaphore_event_candidate(std::size_t index) {
   status_ = routine_status::sema_event_candidate;
   thread_->scheduled_routines_.emplace_back(routine_slot{current_ptr_,index});
