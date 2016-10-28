@@ -158,13 +158,24 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
     ::pipe(pipe_fds1);
 
     boson::run(1, [&]() {
-      boson::channel<std::nullptr_t,0> tickets;
-      boson::channel<int,1> pipe2;
+      boson::channel<std::nullptr_t,5> tickets;
+      boson::channel<int,5> pipe2;
+      pipe2 << 1;
       start(
           [](int in1, auto in2, auto tickets) -> void {
             int result = 0;
             size_t data;
             int chandata;
+            result = boson::select_any(                 //
+                event_read(in1, &data, sizeof(size_t),  //
+                           [](ssize_t) {
+                             return 1;  //
+                           }),
+                event_read(in2, chandata,  //
+                           []() {
+                             return 2;  //
+                           }));
+            CHECK(result == 2);
             result = boson::select_any(                 //
                 event_read(in1, &data, sizeof(size_t),  //
                            [](ssize_t) {

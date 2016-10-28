@@ -72,6 +72,30 @@ size_t routine::commit_event_round() {
 }
 
 void routine::cancel_event_round() {
+  // Invalidate other events
+  for (auto& other : events_) {
+    switch (other.type) {
+      case event_type::none:
+        break;
+      case event_type::timer: {
+        auto& data = other.data.get<routine_timer_event_data>();
+        --data.neighbor_timers->nb_active;
+      } break;
+      case event_type::io_read:
+        --thread_->nb_suspended_routines_;
+        break;
+      case event_type::io_write:
+        --thread_->nb_suspended_routines_;
+        break;
+      case event_type::sema_wait:
+        --thread_->nb_suspended_routines_;
+        break;
+      case event_type::io_read_panic:
+      case event_type::io_write_panic:
+        assert(false);
+        break;
+    }
+  }
   current_ptr_->release();
   current_ptr_.invalidate_all();
   events_.clear();
