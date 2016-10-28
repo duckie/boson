@@ -111,7 +111,7 @@ class thread : public event_handler {
   using engine_queue_t = queues::lcrq;
 
   engine_proxy engine_proxy_;
-  std::deque<routine_ptr_t> scheduled_routines_;
+  std::deque<routine_slot> scheduled_routines_;
   thread_status status_{thread_status::idle};
 
   /**

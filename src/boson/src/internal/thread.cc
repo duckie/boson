@@ -73,7 +73,7 @@ void thread::handle_engine_event() {
     switch (received_command->type) {
       case thread_command_type::add_routine:
         scheduled_routines_.emplace_back(
-            received_command->data.get<routine_ptr_t>().release());
+                routine_slot{std::move(received_command->data.get<routine_ptr_t>()), 0});
         break;
       case thread_command_type::schedule_waiting_routine: {
         auto& data = received_command->data.get<std::pair<semaphore*, std::size_t>>();
@@ -206,13 +206,18 @@ bool thread::execute_scheduled_routines() {
   std::deque<std::tuple<size_t, routine_ptr_t>> new_timed_routines_;
   while (!scheduled_routines_.empty()) {
     // For now; we schedule them in order
-    auto& routine = scheduled_routines_.front();
-    running_routine_ = routine.get();
+    auto& slot = scheduled_routines_.front();
+    auto routine = running_routine_ = slot.ptr->get();
 
     bool run_routine = true;
     // Try to get a semaphore ticket, if relevant
-    if (routine->status() == routine_status::sema_event_candidate)
+    if (routine->status() == routine_status::sema_event_candidate) {
       run_routine = routine->event_happened(routine->event_candidate_index_);
+      // If success, get back the unique ownserhip of the routine
+      if (run_routine) {
+        slot.ptr = routine_local_ptr_t(routine_ptr_t(routine));
+      }
+    }
 
     if (run_routine) 
         routine->resume(this);
@@ -224,13 +229,15 @@ bool thread::execute_scheduled_routines() {
       } break;
       case routine_status::yielding: {
         // If not finished, then we reschedule it
-        next_scheduled_routines.emplace_back(routine.release());
+        next_scheduled_routines.emplace_back(routine_slot{routine_local_ptr_t(routine_ptr_t(slot.ptr->release())),0});
       } break;
       case routine_status::wait_events: {
-        routine.release();
+        slot.ptr->release();
       } break;
       case routine_status::sema_event_candidate: {
-        routine.release();
+        // Thats means no event happened for the routine, so we must let the slot pointer
+        // untouched for other events to stay valid
+        routine->status_ = routine_status::wait_events;
       } break;
       case routine_status::finished: {
         // Should have been made by the routine by closing the FD

@@ -73,7 +73,7 @@ void routine::commit_event_round() {
 void routine::set_as_semaphore_event_candidate(std::size_t index) {
   status_ = routine_status::sema_event_candidate;
   event_candidate_index_ = index;
-  thread_->scheduled_routines_.emplace_back(current_ptr_->release());
+  thread_->scheduled_routines_.emplace_back(routine_slot{current_ptr_,index});
 }
 
 bool routine::event_happened(std::size_t index, event_status status) {
@@ -98,8 +98,9 @@ bool routine::event_happened(std::size_t index, event_status status) {
       int result = sema->counter_.fetch_sub(1,std::memory_order_acquire);
       if (result <= 0) {
         // Failed candidacy
-        status_ = routine_status::wait_events;
-        current_ptr_->reset(this);
+        //status_ = routine_status::wait_events;
+        //current_ptr_->reset(this);
+        //current_ptr_->reset(this);
         auto slot_index =
             thread_->register_semaphore_wait(routine_slot{current_ptr_, index});
         sema->waiters_.write(thread_->id(),
@@ -148,11 +149,12 @@ bool routine::event_happened(std::size_t index, event_status status) {
 
   if (happened_type_ == event_type::sema_wait) {
     status_ = routine_status::yielding;
+    current_ptr_->release();  // In this particular case, the scheduler gets back routine ownership
     current_ptr_.invalidate_all();
     return true;
   }
   else if (happened_type_ != event_type::none) {
-    thread_->scheduled_routines_.emplace_back(current_ptr_->release());
+    thread_->scheduled_routines_.emplace_back(routine_slot{routine_local_ptr_t(std::unique_ptr<routine>(current_ptr_->release())),0});
     current_ptr_.invalidate_all();
     status_ = routine_status::yielding;
     return true;
