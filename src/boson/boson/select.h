@@ -7,7 +7,8 @@
 namespace boson {
 
 template <class Func>
-class event_read_storage {
+class event_io_base_storage {
+  protected:
     fd_t fd_;
     void* buf_;
     size_t count_;
@@ -17,27 +18,55 @@ class event_read_storage {
     using func_type = Func;
     using return_type = decltype(std::declval<Func>()(std::declval<ssize_t>()));
 
-    static return_type execute(event_read_storage* self) {
-        return self->func_(::read(self->fd_, self->buf_, self->count_));
-    }
-
-    event_read_storage(fd_t fd, void* buf, size_t count, Func&& cb)
+    event_io_base_storage(fd_t fd, void* buf, size_t count, Func&& cb)
         : fd_{fd}, buf_{buf}, count_{count}, func_{std::move(cb)} {
     }
 
-    event_read_storage(fd_t fd, void* buf, size_t count, Func const& cb)
+    event_io_base_storage(fd_t fd, void* buf, size_t count, Func const& cb)
         : fd_{fd}, buf_{buf}, count_{count}, func_{cb} {
     }
 
-    bool subscribe(internal::routine* current) {
-        current->add_read(fd_);
-        return false;
-    }
+};
+
+template <class Func>
+class event_io_read_storage : public event_io_base_storage<Func> {
+ public:
+  using event_io_base_storage<Func>::event_io_base_storage;
+
+  static typename event_io_base_storage<Func>::return_type execute(event_io_read_storage* self) {
+    return self->func_(::read(self->fd_, self->buf_, self->count_));
+  }
+
+  bool subscribe(internal::routine* current) {
+    current->add_read(this->fd_);
+    return false;
+  }
 };
 
 template <class Func> 
-event_read_storage<Func>
+event_io_read_storage<Func>
 event_read(fd_t fd, void* buf, size_t count, Func&& cb) {
+    return {fd,buf,count,std::forward<Func>(cb)};
+}
+
+template <class Func>
+class event_io_write_storage : public event_io_base_storage<Func> {
+ public:
+  using event_io_base_storage<Func>::event_io_base_storage;
+
+  static typename event_io_base_storage<Func>::return_type execute(event_io_write_storage* self) {
+    return self->func_(::write(self->fd_, self->buf_, self->count_));
+  }
+
+  bool subscribe(internal::routine* current) {
+    current->add_write(this->fd_);
+    return false;
+  }
+};
+
+template <class Func> 
+event_io_write_storage<Func>
+event_write(fd_t fd, void* buf, size_t count, Func&& cb) {
     return {fd,buf,count,std::forward<Func>(cb)};
 }
 
@@ -110,8 +139,6 @@ auto select_any(Selectors&& ... selectors)
   static std::array<return_type (*)(void*), sizeof...(Selectors)> callers{
       make_selector_execute<Selectors, return_type>()...};
   std::array<void*, sizeof...(Selectors)> selector_ptrs{&selectors...};
-  //std::array<void*, sizeof ... (Selectors)> selector_ptrs {&selectors...};
-    
 
   internal::thread* this_thread = internal::current_thread();
   internal::routine* current_routine = this_thread->running_routine();
