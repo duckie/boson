@@ -21,8 +21,8 @@ int main(int argc, char* argv[]) {
     using namespace boson;
     channel<int, channel_size> a2b;
     channel<int, channel_size> b2a;
-    channel<int, 0> b2c;
-    channel<int, 0> c2b;
+    channel<int, 1> b2c;
+    channel<int, 1> c2b;
 
     // Start a producer
     start([](auto in, auto out) -> void {
