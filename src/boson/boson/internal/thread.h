@@ -228,6 +228,13 @@ class thread : public event_handler {
                                                           std::forward<Args>(args)...));
   }
 
+  template <class Function, class... Args>
+  void start_routine_explicit(thread_id id, Function&& func, Args&&... args) {
+    engine_proxy_.start_routine(
+        id, std::make_unique<routine>(engine_proxy_.get_new_routine_id(),
+                                      std::forward<Function>(func), std::forward<Args>(args)...));
+  }
+
   inline routine* running_routine();
 };
 
@@ -258,6 +265,12 @@ engine const& thread::get_engine() const {
 }
 
 }  // namespace internal
+
+template <class Function, class... Args>
+void start_explicit(thread_id id, Function&& func, Args&&... args) {
+  internal::current_thread()->start_routine_explicit(id, std::forward<Function>(func),
+                                            std::forward<Args>(args)...);
+}
 
 template <class Function, class... Args>
 void start(Function&& func, Args&&... args) {

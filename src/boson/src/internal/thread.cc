@@ -206,47 +206,49 @@ bool thread::execute_scheduled_routines() {
   while (!scheduled_routines_.empty()) {
     // For now; we schedule them in order
     auto& slot = scheduled_routines_.front();
-    auto routine = running_routine_ = slot.ptr->get();
+    if (slot.ptr) {
+      auto routine = running_routine_ = slot.ptr->get();
 
-    bool run_routine = true;
-    // Try to get a semaphore ticket, if relevant
-    if (routine->status() == routine_status::sema_event_candidate) {
-      run_routine = routine->event_happened(slot.event_index);
-      // If success, get back the unique ownserhip of the routine
-      if (run_routine) {
-        slot.ptr = routine_local_ptr_t(routine_ptr_t(routine));
+      bool run_routine = true;
+      // Try to get a semaphore ticket, if relevant
+      if (routine->status() == routine_status::sema_event_candidate) {
+        run_routine = routine->event_happened(slot.event_index);
+        // If success, get back the unique ownserhip of the routine
+        if (run_routine) {
+          slot.ptr = routine_local_ptr_t(routine_ptr_t(routine));
+        }
       }
+
+      if (run_routine) routine->resume(this);
+      switch (routine->status()) {
+        case routine_status::is_new:
+        case routine_status::running: {
+          // Not supposed to happen
+          assert(false);
+        } break;
+        case routine_status::yielding: {
+          // If not finished, then we reschedule it
+          next_scheduled_routines.emplace_back(
+              routine_slot{routine_local_ptr_t(routine_ptr_t(slot.ptr->release())), 0});
+        } break;
+        case routine_status::wait_events: {
+          slot.ptr->release();
+        } break;
+        case routine_status::sema_event_candidate: {
+          // Thats means no event happened for the routine, so we must let the slot pointer
+          // untouched for other events to stay valid
+          routine->status_ = routine_status::wait_events;
+        } break;
+        case routine_status::finished: {
+          // Should have been made by the routine by closing the FD
+        } break;
+      };
+
+      // if (routine.get()) {
+      // debug::log("Routine {}:{}:{} will be deleted.", id(), routine->id(),
+      // static_cast<int>(routine->status()));
+      //}
     }
-
-    if (run_routine) 
-        routine->resume(this);
-    switch (routine->status()) {
-      case routine_status::is_new:
-      case routine_status::running: {
-        // Not supposed to happen
-        assert(false);
-      } break;
-      case routine_status::yielding: {
-        // If not finished, then we reschedule it
-        next_scheduled_routines.emplace_back(routine_slot{routine_local_ptr_t(routine_ptr_t(slot.ptr->release())),0});
-      } break;
-      case routine_status::wait_events: {
-        slot.ptr->release();
-      } break;
-      case routine_status::sema_event_candidate: {
-        // Thats means no event happened for the routine, so we must let the slot pointer
-        // untouched for other events to stay valid
-        routine->status_ = routine_status::wait_events;
-      } break;
-      case routine_status::finished: {
-        // Should have been made by the routine by closing the FD
-      } break;
-    };
-
-    // if (routine.get()) {
-    // debug::log("Routine {}:{}:{} will be deleted.", id(), routine->id(),
-    // static_cast<int>(routine->status()));
-    //}
     scheduled_routines_.pop_front();
   }
 
