@@ -149,8 +149,8 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
   }
 
   std::this_thread::sleep_for(10ms);
+  //SECTION("Channels") {
   SECTION("Channels") {
-    debug::log("Test");
     boson::run(1, [&]() {
       boson::channel<int,1> tickets_a2b;
       boson::channel<int,1> tickets_b2a;
@@ -194,7 +194,9 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
             b2a >> sink;
 
             t1 >> chandata;
+            CHECK(chandata == 2);
             t2 >> chandata;
+            CHECK(chandata == 3);
           },
           tickets1, tickets2, tickets_a2b, tickets_b2a);
 
@@ -203,11 +205,12 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
             //std::nullptr_t sink;
             int sink;
             a2b >> sink;
+            int result = -1;
 
             t2 << 1;
             a2b >> sink; // Wait for other routine to consume
 
-            int result = boson::select_any(                //
+            result = boson::select_any(                //
                 event_write(t1, 2, //
                            []() {
                              return 1;  //

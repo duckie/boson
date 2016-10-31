@@ -42,7 +42,7 @@ enum class thread_status {
 
 enum class thread_command_type { add_routine, schedule_waiting_routine, finish, fd_panic };
 
-using thread_command_data = json_backbone::variant<std::nullptr_t, int, routine_ptr_t, std::pair<semaphore*, std::size_t>>;
+using thread_command_data = json_backbone::variant<std::nullptr_t, int, routine_ptr_t, std::pair<std::weak_ptr<semaphore>, std::size_t>>;
 //using thread_command_data = json_backbone::variant<std::nullptr_t, int, routine_ptr_t, std::pair<semaphore*, routine*>>;
 
 struct thread_command {

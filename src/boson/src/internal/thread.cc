@@ -6,7 +6,6 @@
 #include "exception.h"
 #include "internal/routine.h"
 #include "logger.h"
-#include "logger.h"
 #include "semaphore.h"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wundefined-var-template"
@@ -67,8 +66,6 @@ void engine_proxy::set_id() {
 void thread::handle_engine_event() {
   thread_command* received_command = nullptr;
   while ((received_command = static_cast<thread_command*>(engine_queue_.read(id())))) {
-    static int sub = 0;
-    // nb_pending_commands_.fetch_sub(1,std::memory_order_release);
     nb_pending_commands_.fetch_sub(1);
     switch (received_command->type) {
       case thread_command_type::add_routine:
@@ -76,14 +73,16 @@ void thread::handle_engine_event() {
                 routine_slot{std::move(received_command->data.get<routine_ptr_t>()), 0});
         break;
       case thread_command_type::schedule_waiting_routine: {
-        auto& data = received_command->data.get<std::pair<semaphore*, std::size_t>>();
+        auto& data = received_command->data.get<std::pair<std::weak_ptr<semaphore>, std::size_t>>();
         auto& shared_routine = suspended_slots_[data.second];
         // If not previously invalidated by a timeout
         if (shared_routine.ptr) {
           shared_routine.ptr->get()->set_as_semaphore_event_candidate(shared_routine.event_index);
         }
         else {
-          data.first->pop_a_waiter(this);
+          auto sema_pointer = data.first.lock();
+          if (sema_pointer)
+            sema_pointer->pop_a_waiter(this);
         }
         suspended_slots_.free(data.second);
       } break;
@@ -269,19 +268,24 @@ bool thread::execute_scheduled_routines() {
   bool no_more_routines =
       scheduled_routines_.empty() && timed_routines_.empty() && 0 == nb_suspended_routines_;
   if (no_more_routines) {
-    if (thread_status::finishing == status_) {
-      unregister_all_events();
-      status_ = thread_status::finished;
-      return false;
-    } else if (0 == nb_pending_commands) {
-      engine_proxy_.notify_idle(0);
-      return false;
+    if (0 == nb_pending_commands) {
+        if (thread_status::finishing == status_) {
+          unregister_all_events();
+          status_ = thread_status::finished;
+          return false;
+        }
+        else {
+          engine_proxy_.notify_idle(0);
+          return false;
+        }
     }
   } else {
     if (scheduled_routines_.empty()) {
       size_t nb_routines = timed_routines_.size() + nb_suspended_routines_;
       if (0 == nb_pending_commands) {
-        if (0 == nb_routines) engine_proxy_.notify_idle(0);
+        if (0 == nb_routines) {
+            engine_proxy_.notify_idle(0);
+        }
         return false;
       } else {
         // Schedule pending commands immediately

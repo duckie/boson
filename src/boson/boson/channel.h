@@ -83,8 +83,8 @@ class channel_impl<std::nullptr_t,Size> {
   using ContentType = std::nullptr_t;
 
   // Waiting lists
-  boson::semaphore readers_slots_;
-  boson::semaphore writer_slots_;
+  boson::shared_semaphore readers_slots_;
+  boson::shared_semaphore writer_slots_;
 
  public:
   channel_impl() : readers_slots_(0), writer_slots_(Size) {
