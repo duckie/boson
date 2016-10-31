@@ -24,8 +24,8 @@ class channel_impl {
   std::atomic<size_t> tail_;
 
   // Waiting lists
-  boson::semaphore readers_slots_;
-  boson::semaphore writer_slots_;
+  boson::shared_semaphore readers_slots_;
+  boson::shared_semaphore writer_slots_;
 
  public:
   channel_impl() : buffer_{}, head_{0}, tail_{0}, readers_slots_(0), writer_slots_(Size) {
@@ -136,6 +136,8 @@ template <class ContentType, std::size_t Size>
 class channel {
   template <class Content, std::size_t InSize, class Func>
   friend class event_channel_read_storage;
+  template <class Content, std::size_t InSize, class Func>
+  friend class event_channel_write_storage;
   using value_t = ContentType;
   using impl_t = channel_impl<value_t, Size>;
 

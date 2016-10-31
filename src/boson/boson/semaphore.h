@@ -11,6 +11,8 @@ namespace boson {
 
 template <class ContentType, std::size_t Size, class Func>
 class event_channel_read_storage;
+template <class ContentType, std::size_t Size, class Func>
+class event_channel_write_storage;
 
 /**
  * Semaphore for routines only
@@ -22,6 +24,8 @@ class semaphore {
   friend class internal::routine;
   template <class Content, std::size_t Size, class Func>
   friend class event_channel_read_storage;
+  template <class Content, std::size_t Size, class Func>
+  friend class event_channel_write_storage;
   using queue_t = queues::lcrq;
   queue_t waiters_;
   std::atomic<int> counter_;
@@ -66,6 +70,12 @@ bool semaphore::wait(std::chrono::milliseconds timeout) {
  * shared_semaphore is a wrapper for shared_ptr of a semaphore
  */
 class shared_semaphore {
+  friend class internal::thread;
+  friend class internal::routine;
+  template <class Content, std::size_t Size, class Func>
+  friend class event_channel_read_storage;
+  template <class Content, std::size_t Size, class Func>
+  friend class event_channel_write_storage;
   std::shared_ptr<semaphore> impl_;
 
  public:

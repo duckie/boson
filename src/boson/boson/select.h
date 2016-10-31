@@ -6,6 +6,43 @@
 namespace boson {
 
 template <class Func>
+class event_timer_storage {
+  internal::routine_time_point target_; 
+  Func func_;
+
+ public:
+  using func_type = Func;
+  using return_type = decltype(std::declval<Func>()());
+
+  static return_type execute(event_timer_storage * self) {
+    return self->func_();
+  }
+
+  event_timer_storage(int timeout_ms, Func&& cb)
+      : target_{std::chrono::time_point_cast<std::chrono::milliseconds>(
+            std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(timeout_ms))},
+        func_{std::move(cb)} {
+  }
+
+  event_timer_storage(int timeout_ms, Func const& cb)
+      : target_{std::chrono::time_point_cast<std::chrono::milliseconds>(
+            std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(timeout_ms))},
+        func_{cb} {
+  }
+
+  bool subscribe(internal::routine* current) {
+    current->add_timer(this->target_);
+    return false;
+  }
+};
+
+template <class Func> 
+event_timer_storage<Func>
+event_timer(int timeout_ms, Func&& cb) {
+    return {timeout_ms,std::forward<Func>(cb)};
+}
+
+template <class Func>
 class event_io_base_storage {
   protected:
     fd_t fd_;
@@ -187,9 +224,9 @@ class event_channel_read_storage {
 
     bool subscribe(internal::routine* current) {
       auto& semaphore = channel_.channel_->readers_slots_;
-      int result = semaphore.counter_.fetch_sub(1, std::memory_order_acquire);
+      int result = semaphore.impl_->counter_.fetch_sub(1, std::memory_order_acquire);
       if (result <= 0) {
-        current->add_semaphore_wait(&semaphore);
+        current->add_semaphore_wait(semaphore.impl_.get());
         return false;
       }
       return true;
@@ -205,7 +242,7 @@ event_read(channel<ContentType,Size>& chan, ContentType& value, Func&& cb) {
 template <class ContentType, std::size_t Size, class Func>
 class event_channel_write_storage {
     channel<ContentType,Size>& channel_;
-    ContentType& value_;
+    ContentType value_;
     Func func_;
 
  public:
@@ -214,23 +251,23 @@ class event_channel_write_storage {
     using return_type = decltype(std::declval<Func>()());
 
     static return_type execute(event_channel_write_storage* self) {
-        self->channel_.consume_write(self->value_);
+        self->channel_.consume_write(std::move(self->value_));
         return self->func_();
     }
 
-    event_channel_write_storage(channel_type& channel, ContentType& value, Func&& cb)
+    event_channel_write_storage(channel_type& channel, ContentType value, Func&& cb)
         : channel_{channel}, value_{value}, func_{std::move(cb)} {
     }
 
-    event_channel_write_storage(channel_type& channel, ContentType& value, Func const& cb)
+    event_channel_write_storage(channel_type& channel, ContentType value, Func const& cb)
         : channel_{channel}, value_{value}, func_{cb} {
     }
 
     bool subscribe(internal::routine* current) {
-      auto& semaphore = channel_.channel_->writers_slots_;
-      int result = semaphore.counter_.fetch_sub(1, std::memory_order_acquire);
+      auto& semaphore = channel_.channel_->writer_slots_;
+      int result = semaphore.impl_->counter_.fetch_sub(1, std::memory_order_acquire);
       if (result <= 0) {
-        current->add_semaphore_wait(&semaphore);
+        current->add_semaphore_wait(semaphore.impl_.get());
         return false;
       }
       return true;
@@ -239,8 +276,8 @@ class event_channel_write_storage {
 
 template <class ContentType, std::size_t Size, class Func>
 event_channel_write_storage<ContentType, Size, Func>
-event_write(channel<ContentType,Size>& chan, ContentType& value, Func&& cb) {
-    return {chan, value, std::forward<Func>(cb)};
+event_write(channel<ContentType,Size>& chan, ContentType value, Func&& cb) {
+    return {chan, std::move(value), std::forward<Func>(cb)};
 }
 
 template <class Selector, class ReturnType> 

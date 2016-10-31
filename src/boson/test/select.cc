@@ -148,19 +148,39 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
     ::close(pipe_fds2[1]);
   }
 
+  std::this_thread::sleep_for(10ms);
   SECTION("Channels") {
+    debug::log("Test");
     boson::run(1, [&]() {
-      boson::channel<std::nullptr_t,1> tickets;
-      boson::channel<std::nullptr_t,1> tickets1;
-      boson::channel<std::nullptr_t,1> tickets2;
+      boson::channel<int,1> tickets_a2b;
+      boson::channel<int,1> tickets_b2a;
+      boson::channel<int,1> tickets1;
+      boson::channel<int,1> tickets2;
       start(
-          [](auto t1, auto t2, auto tickets) -> void {
+          [](auto t1, auto t2, auto a2b, auto b2a) -> void {
+            //std::nullptr_t sink;
+            int sink;
             int result = 0;
-            size_t data;
             int chandata;
-            result = boson::select_any(                 //
-                event_read(t1, &data, sizeof(size_t),  //
-                           [](ssize_t) {
+            result = boson::select_any(                //
+                event_read(t1, chandata, //
+                           []() {
+                             return 1;  //
+                           }),
+                event_read(t2, chandata,  //
+                           []() {
+                             return 2;  //
+                           }),
+                event_timer(0, //
+                           []() {
+                             return 3;  //
+                           }));
+            CHECK(result == 3);
+            a2b << 0;  // Allow producer to continue
+
+            result = boson::select_any(                //
+                event_read(t1, chandata, //
+                           []() {
                              return 1;  //
                            }),
                 event_read(t2, chandata,  //
@@ -168,39 +188,50 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
                              return 2;  //
                            }));
             CHECK(result == 2);
-            result = boson::select_any(                 //
-                event_read(t1, &data, sizeof(size_t),  //
-                           [](ssize_t) {
-                             return 1;  //
-                           }),
-                event_read(t2, chandata,  //
+            a2b << 0;
+
+            // My turn to wait a ticket
+            b2a >> sink;
+
+            t1 >> chandata;
+            t2 >> chandata;
+          },
+          tickets1, tickets2, tickets_a2b, tickets_b2a);
+
+      start(
+          [](auto t1, auto t2, auto a2b, auto b2a) -> void {
+            //std::nullptr_t sink;
+            int sink;
+            a2b >> sink;
+
+            t2 << 1;
+            a2b >> sink; // Wait for other routine to consume
+
+            int result = boson::select_any(                //
+                event_write(t1, 2, //
                            []() {
-                             return 2;  //
-                           }));
-            CHECK(result == 2);
-            tickets << nullptr;
-            result = boson::select_any(                 //
-                event_read(t1, &data, sizeof(size_t),  //
-                           [](ssize_t) {
                              return 1;  //
                            }),
-                event_read(t2, chandata,  //
+                event_write(t2, 3,  //
                            []() {
                              return 2;  //
                            }));
             CHECK(result == 1);
-          },
-          t1, t2, tickets);
 
-      start(
-          [](auto t1, auto t2, auto tickets) -> void {
-            std::nullptr_t sink;
-            size_t data{0};
-            out2 << 1;
-            tickets >> sink; // Wait for other routin to finish first test
-            boson::write(out1, &data, sizeof(data));
+            result = boson::select_any(                //
+                event_write(t1, 2, //
+                           []() {
+                             return 1;  //
+                           }),
+                event_write(t2, 3,  //
+                           []() {
+                             return 2;  //
+                           }));
+            CHECK(result == 2);
+
+            b2a << 0;
           },
-          t1, t2, tickets);
+          tickets1, tickets2, tickets_a2b, tickets_b2a);
     });
   }
 
