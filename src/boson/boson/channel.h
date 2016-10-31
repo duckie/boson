@@ -13,13 +13,19 @@ namespace boson {
 
 template <class ContentType, std::size_t Size>
 class channel_impl {
+  static_assert(0 < Size, "Boson channels do not support zero size.");
+  template <class Content, std::size_t InSize, class Func>
+  friend class event_channel_read_storage;
+  template <class Content, std::size_t InSize, class Func>
+  friend class event_channel_write_storage;
+
   std::array<ContentType, Size> buffer_;
   std::atomic<size_t> head_;
   std::atomic<size_t> tail_;
 
   // Waiting lists
-  boson::semaphore readers_slots_;
-  boson::semaphore writer_slots_;
+  boson::shared_semaphore readers_slots_;
+  boson::shared_semaphore writer_slots_;
 
  public:
   channel_impl() : buffer_{}, head_{0}, tail_{0}, readers_slots_(0), writer_slots_(Size) {
@@ -27,6 +33,18 @@ class channel_impl {
 
   ~channel_impl() {
     // delete queue_;
+  }
+
+  void consume_write(thread_id tid, ContentType value) {
+    size_t head = head_.fetch_add(1, std::memory_order_acq_rel);
+    buffer_[head % Size] = std::move(value);
+    readers_slots_.post();
+  }
+
+  void consume_read(thread_id tid, ContentType& value) {
+    size_t tail = tail_.fetch_add(1, std::memory_order_acq_rel);
+    value = std::move(buffer_[tail % Size]);
+    writer_slots_.post();
   }
 
   /**
@@ -38,9 +56,7 @@ class channel_impl {
     bool ticket = writer_slots_.wait(timeout_ms = -1);
     if (!ticket)
       return false;
-    size_t head = head_.fetch_add(1, std::memory_order_acq_rel);
-    buffer_[head % Size] = std::move(value);
-    readers_slots_.post();
+    consume_write(tid, value);
     return true;
   }
 
@@ -48,51 +64,7 @@ class channel_impl {
     bool ticket = readers_slots_.wait(timeout_ms);
     if (!ticket)
       return false;
-    size_t tail = tail_.fetch_add(1, std::memory_order_acq_rel);
-    value = std::move(buffer_[tail % Size]);
-    writer_slots_.post();
-    return true;
-  }
-};
-
-/**
- * Specialization for the sync channel
- */
-template <class ContentType>
-class channel_impl<ContentType, 0> {
-  using queue_t = queues::base_wfqueue;
-  ContentType buffer_;
-  boson::semaphore readers_slots_;
-  boson::semaphore writer_slots_;
-
- public:
-  channel_impl() : readers_slots_(0), writer_slots_(1) {
-  }
-
-  ~channel_impl() {
-    // delete queue_;
-  }
-
-  /**
-   * Write an element in the channel
-   *
-   * Returns false only if the channel is closed.
-   */
-  bool write(thread_id tid, ContentType value, int timeout_ms = -1) {
-    bool ticket = writer_slots_.wait(timeout_ms);
-    if (!ticket)
-      return false;
-    buffer_ = std::move(value);
-    readers_slots_.post();
-    return true;
-  }
-
-  bool read(thread_id tid, ContentType& value, int timeout_ms = -1) {
-    bool ticket = readers_slots_.wait(timeout_ms);
-    if (!ticket)
-      return false;
-    value = std::move(buffer_);
-    writer_slots_.post();
+    consume_read(tid, value);
     return true;
   }
 };
@@ -101,14 +73,33 @@ class channel_impl<ContentType, 0> {
  * Specialization for the channel containing nothing
  */
 template <std::size_t Size>
-class channel_impl<std::nullptr_t, Size> {
-  boson::semaphore semaphore_;
+class channel_impl<std::nullptr_t,Size> {
+  static_assert(0 < Size, "Boson channels do not support zero size.");
+  template <class Content, std::size_t InSize, class Func>
+  friend class event_channel_read_storage;
+  template <class Content, std::size_t InSize, class Func>
+  friend class event_channel_write_storage;
+
+  using ContentType = std::nullptr_t;
+
+  // Waiting lists
+  boson::shared_semaphore readers_slots_;
+  boson::shared_semaphore writer_slots_;
 
  public:
-  channel_impl() : semaphore_{Size} {
+  channel_impl() : readers_slots_(0), writer_slots_(Size) {
   }
 
   ~channel_impl() {
+  }
+
+  void consume_write(thread_id tid, ContentType value) {
+    readers_slots_.post();
+  }
+
+  void consume_read(thread_id tid, ContentType& value) {
+    value = nullptr;
+    writer_slots_.post();
   }
 
   /**
@@ -116,16 +107,19 @@ class channel_impl<std::nullptr_t, Size> {
    *
    * Returns false only if the channel is closed.
    */
-  bool write(thread_id tid, std::nullptr_t, int timeout_ms = -1) {
-    semaphore_.post();
+  bool write(thread_id tid, ContentType value, int timeout_ms = -1) {
+    bool ticket = writer_slots_.wait(timeout_ms = -1);
+    if (!ticket)
+      return false;
+    consume_write(tid, value);
     return true;
   }
 
-  bool read(thread_id tid, std::nullptr_t& value, int timeout_ms = -1) {
-    bool ticket = semaphore_.wait(timeout_ms);
+  bool read(thread_id tid, ContentType& value, int  timeout_ms = -1) {
+    bool ticket = readers_slots_.wait(timeout_ms);
     if (!ticket)
       return false;
-    value = nullptr;
+    consume_read(tid, value);
     return true;
   }
 };
@@ -140,6 +134,10 @@ class channel_impl<std::nullptr_t, Size> {
  */
 template <class ContentType, std::size_t Size>
 class channel {
+  template <class Content, std::size_t InSize, class Func>
+  friend class event_channel_read_storage;
+  template <class Content, std::size_t InSize, class Func>
+  friend class event_channel_write_storage;
   using value_t = ContentType;
   using impl_t = channel_impl<value_t, Size>;
 
@@ -176,6 +174,13 @@ class channel {
   //inline bool write(Args&&... args) {
     //return channel_->write(get_id(), std::forward<Args>(args)...);
   //}
+  inline void consume_write(ContentType value) {
+    channel_->consume_write(get_id(), std::move(value));
+  }
+
+  inline void consume_read(ContentType& value) {
+    channel_->consume_read(get_id(), value);
+  }
 
   inline bool write(ContentType value, int timeout_ms = -1) {
     return channel_->write(get_id(), std::move(value), timeout_ms);

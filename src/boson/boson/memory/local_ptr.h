@@ -78,11 +78,16 @@ class local_ptr final {
     decrement();
   }
 
-  inline void invalidate_all() {
+  inline void reset(T* new_value = nullptr) {
+    // Assert ref ?
     if (ref_) {
       delete ref_->value;
-      ref_->value = nullptr;
+      ref_->value = new_value;
     }
+  }
+
+  inline void invalidate_all() {
+    reset();
   }
 
   inline operator bool () const {

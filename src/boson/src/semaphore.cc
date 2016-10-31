@@ -30,7 +30,7 @@ bool semaphore::pop_a_waiter(internal::thread* current) {
       managing_thread->push_command(
           current->id(), std::make_unique<thread_command>(
                              thread_command_type::schedule_waiting_routine,
-                             std::make_pair(this,waiter->second)));
+                             std::make_pair(this->shared_from_this(),waiter->second)));
       delete waiter;
       return true;
     }
@@ -42,8 +42,8 @@ bool semaphore::wait(int timeout) {
   using namespace internal;
   int result = counter_.fetch_sub(1,std::memory_order_acquire);
   routine* current_routine = nullptr;
-  while(result <= 0) {
-  //if(result <= 0) {
+  //while(result <= 0) {
+  if(result <= 0) {
     // We failed to get the semaphore, we have to suspend the routine
     thread* this_thread = internal::current_thread();
     assert(this_thread);
@@ -60,7 +60,7 @@ bool semaphore::wait(int timeout) {
       current_routine->status_ = routine_status::running;
       return false;
     }
-    result = counter_.fetch_sub(1,std::memory_order_acquire);
+    //result = counter_.fetch_sub(1,std::memory_order_acquire);
     current_routine->previous_status_ = routine_status::wait_events;
     current_routine->status_ = routine_status::running;
   }
@@ -70,7 +70,7 @@ bool semaphore::wait(int timeout) {
 void semaphore::post() {
   using namespace internal;
   int result = counter_.fetch_add(1,std::memory_order_release);
-  if (0 <= result) {
+  if (0 == result) {
     // We may not gotten in the middle of a wait, so we cant avoid to try a pop
     pop_a_waiter(internal::current_thread());
   }

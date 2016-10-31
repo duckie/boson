@@ -43,11 +43,12 @@ namespace internal {
 // static thread_local transfer_t current_thread_context = {nullptr, nullptr};
 
 enum class routine_status {
-  is_new,          // Routine has been created but never started
-  running,         // Routine is currently running
-  yielding,        // Routine yielded and waits to be resumed
-  wait_events,     // Routine awaits some events
-  finished         // Routine finished execution
+  is_new,                // Routine has been created but never started
+  running,               // Routine is currently running
+  yielding,              // Routine yielded and waits to be resumed
+  wait_events,           // Routine awaits some events
+  sema_event_candidate,  // Special status to use the routine as a scheduled one
+  finished               // Routine finished execution
 };
 
 using routine_time_point =
@@ -129,8 +130,9 @@ class function_holder_impl : public function_holder {
 
  public:
   function_holder_impl(Function func, Args... args)
-      : func_{std::move(func)}, args_{std::forward<Args>(args)...} {
+      : func_{func}, args_{std::forward<Args>(args)...} {
   }
+
   void operator()() override {
     return experimental::apply(func_, std::move(args_));
   }
@@ -182,7 +184,8 @@ class routine {
   std::vector<waited_event> previous_events_;
   std::vector<waited_event> events_;
   routine_local_ptr_t current_ptr_;
-  event_type happened_type_;
+  event_type happened_type_ = event_type::none;
+  size_t happened_index_ = 0;
 
  public:
   template <class Function, class... Args>
@@ -223,10 +226,14 @@ class routine {
   void add_write(int fd);
 
   // Effectively commits the event set and suspends the routine
-  void commit_event_round();
+  size_t commit_event_round();
+
+  void cancel_event_round();
+
+  void set_as_semaphore_event_candidate(std::size_t index);
 
   // Called by the thread to tell an event happened
-  void event_happened(std::size_t index, event_status status = event_status::ok);
+  bool event_happened(std::size_t index, event_status status = event_status::ok);
 
   /**
    * Starts or resume the routine
@@ -237,16 +244,8 @@ class routine {
    *
    */
   void resume(thread* managing_thread);
-  // void queue_write(queues::base_wfqueue& queue, void* data);
-  // void* queue_read(queues::base_wfqueue& queue);
 
-  /**
-   * Tells the routine it can be executed
-   *
-   * When the wait is over, the routine must be informed it can
-   * execute by putting its status to "yielding"
-   */
-  inline void expected_event_happened();
+  inline size_t happened_index() const;
 };
 
 // Inline implementations
@@ -262,8 +261,8 @@ routine_status routine::status() const {
   return status_;
 }
 
-void routine::expected_event_happened() {
-  status_ = routine_status::yielding;
+size_t routine::happened_index() const {
+    return happened_index_;
 }
 
 }  // namespace internal

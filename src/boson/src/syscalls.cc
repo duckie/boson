@@ -32,7 +32,6 @@ int wait_readiness(fd_t fd, bool read, int timeout_ms) {
   using namespace std::chrono;
   thread* this_thread = current_thread();
   routine* current_routine = this_thread->running_routine();
-  routine_io_event new_event{fd, -1, false, false};
   current_routine->start_event_round();
   if (read) {
     current_routine->add_read(fd);
