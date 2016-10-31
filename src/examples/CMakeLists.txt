@@ -13,29 +13,21 @@ set(LIBRARIES)
 file(GLOB srcs *.cc)
 list(REMOVE_ITEM srcs "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cc")
 
-add_executable(basic_loop src/basic_loop.cc)
-target_link_libraries(basic_loop boson ${LIBRARIES})
+macro(add_example NAME)
+    add_executable(${NAME} src/${NAME}.cc)
+    target_link_libraries(${NAME} boson ${LIBRARIES})
+endmacro()
 
-add_executable(timed_loop src/timed_loop.cc)
-target_link_libraries(timed_loop boson ${LIBRARIES})
+add_example(basic_loop)
+add_example(timed_loop)
+add_example(rw_loop)
+add_example(mutex_loop)
+add_example(channel_loop)
+add_example(channel_loop2)
+add_example(socket_server)
+add_example(chat_server)
+add_example(full_chat_server)
 
-add_executable(rw_loop src/rw_loop.cc)
-target_link_libraries(rw_loop boson ${LIBRARIES})
-
-add_executable(mutex_loop src/mutex_loop.cc)
-target_link_libraries(mutex_loop boson ${LIBRARIES})
-
-add_executable(channel_loop src/channel_loop.cc)
-target_link_libraries(channel_loop boson ${LIBRARIES})
-
-add_executable(channel_loop2 src/channel_loop2.cc)
-target_link_libraries(channel_loop2 boson ${LIBRARIES})
-
-add_executable(socket_server src/socket_server.cc)
-target_link_libraries(socket_server boson ${LIBRARIES})
-
-add_executable(chat_server src/chat_server.cc)
-target_link_libraries(chat_server boson ${LIBRARIES})
-
-add_executable(full_chat_server src/full_chat_server.cc)
-target_link_libraries(full_chat_server boson ${LIBRARIES})
+add_example(readme1)
+add_example(readme2)
+add_example(readme3)

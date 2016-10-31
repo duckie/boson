@@ -11,6 +11,12 @@ This project is currently a proof of concept. New features and performance impro
 
 The Boson Framework only supports Linux on x86-64 platforms for now, but Windows and Mac OS are in the roadmap.
 
+### What's the point ?
+
+The main point is to simplify writing concurrent applications by removing the asynchronous logic from the developer's mind. The developer only uses blocking calls, and the whole logic is written sequentially. Under the hood, blocking calls are not blocking from the OS standpoint, since the thread is still used to execute some tasks. This is different from using multiple thread because :
+- Routines (or fibers) are much more lighter than threads to launch and to schedule
+- Interruption points are known by the developer, whereas they are not when scheduling threads.
+
 ## Quick overview
 
 The goal of the framework is to use ligh routines instead of threads. In Go, these are called Goroutines. In the C++ world, it is known as fibers. In the boson framework, we just call it routines.
@@ -25,39 +31,161 @@ boson::run(1 /* number of thread */, []() {
 });
 ```
 
-### Two routines in one thread
-
-This snippet launches two routines:
-
-```C++
-boson::run(1 /* number of thread */, []() {
-  boson::start([]() {
-    for (int i=0; i < 10; ++i) {
-      std::cout << "I am routine A." << std::endl;
-      boson::yield();  // Give back control to the scheduler
-    }
-  });
-  boson::start([]() {
-    for (int i=0; i < 10; ++i) {
-      std::cout << "I am routine B." << std::endl;
-      boson::yield();  // Give back control to the scheduler
-    }
-  });
-});
-```
-
-## System calls
+### System calls
 
 The boson framework provides its versions of system calls that are scheduled away for efficiency with an event loop. Current available syscalls are `sleep`, `read`, `write`, `accept`, `recv` and `send`. See [an example](./src/examples/src/socket_server.cc).
 
+This snippet launches two routines doing different jobs, in a single thread.
+
+```C++
+void timer(int out, bool& stopper) {
+  while(!stopper) {
+    boson::sleep(1000ms);
+    boson::write(out,"Tick !\n",7);
+  }
+  boson::write(out,"Stop !\n",7);
+}
+
+void user_input(int in, bool& stopper) {
+  char buffer[1];
+  boson::read(in, &buffer, sizeof(buffer));
+  stopper = true;
+}
+
+int main(int argc, char *argv[]) {
+  bool stopper = false;
+  boson::run(1, [&stopper]() {
+    boson::start(timer, 1, stopper);
+    boson::start(user_input, 0, stopper);
+  });
+}
+```
+
+This executable prints `Tick !` every second and quits if the user enter anything on the standard input. We dont have to manage concurrency on the `stopper` variable since we know only one thread uses it. Plus, we know at which points routine might be interrupted.
+
 ## Channels
 
-The boson framework implements channels similar to Go ones. See [an example](./src/examples/src/channel_loop.cc).
+The boson framework implements channels similar to Go ones. Channels are used to communicate between routines. They can be used over multiple threads.
 
-## See examples
+This snippets listens to the standard input in one thread and writes to two different files in two other threads. A channel is used to communicate. This also demonstrates the use of a generic lambda and a generic functor. Boson system calls are not used on the files because files on disk cannot be polled for events (not allowed by the Linux kernel).
+
+```
+struct writer {
+template <class Channel>
+void operator()(Channel input, char const* filename) const {
+  auto file = std::ofstream(filename);
+  if (file) {
+    std::string buffer;
+    for(;;) {
+        input >> buffer;
+        file << buffer << std::flush;
+    }
+  }
+}
+};
+
+int main(int argc, char *argv[]) {
+  boson::run(3, []() {
+    boson::channel<std::string, 3> pipe;
+
+    // Listen stdin
+    boson::start([](int in, auto output) -> void {
+      char buffer[2048];
+      while(0 < boson::read(in, &buffer, sizeof(buffer))) {
+        output << std::string(buffer);
+      }
+    }, 0, pipe);
+
+    // Output in files
+    writer functor;
+    boson::start(functor, pipe, "file1.txt");
+    boson::start(functor, pipe, "file2.txt");
+  });
+}
+```
+
+Channels must be transfered by copy. Generic lambdas, when used as a routine seed, must explicitely state that they return `void`. The why will be exlained in detail in further documentation. Thread are assigned to routines with a round-robin fashion. The thread id can be explicitely given when starting a routine.
+
+```
+boson::start_explicit(0, [](int in, auto output) -> void {...}, 0, pipe);
+boson::start_explicit(1, functor, pipe, "file1.txt");
+boson::start_explicit(2, functor, pipe, "file2.txt");
+```
+
+See [an example](./src/examples/src/channel_loop.cc).
+
+## The select statement
+
+The select statement is similar to the Go one, but with a nice twist : it can be used with a mix of channels and syscalls. 
+
+```
+// Create a pipe
+int pipe_fds[2];
+::pipe(pipe_fds);
+
+boson::run(1, [&]() {
+using namespace boson;
+
+// Create channel
+channel<int, 3> chan;
+
+// Start a producer
+start([](int out, auto chan) -> void {
+    std::nullptr_t sink {};
+    int data = 1;
+    boson::write(out, &data, sizeof(data));
+    chan << data;
+}, pipe_fds[1], chan);
+
+// Start a consumer
+start([](int in, auto chan) -> void {
+    int buffer = 0;
+    bool stop = false;
+    while (!stop) {
+      select_any(  //
+          event_read(in, &buffer, sizeof(buffer),
+                     [](ssize_t rc) {  //
+                       std::cout << "Got data from the pipe \n";
+                     }),
+          event_read(chan, buffer,
+                     []() {  //
+                       std::cout << "Got data from the channel \n";
+                     }),
+          event_timer(100ms,
+                      [&stop]() {  //
+                        std::cout << "Nobody loves me anymore :(\n";
+                        stop = true;
+                      }));
+    }
+},  pipe_fds[0], chan);
+});
+```
+
+`select_any` can return a value :
+
+
+```
+int result = select_any(                                                    //
+    event_read(in, &buffer, sizeof(buffer), [](ssize_t rc) { return 1; }),  //
+    event_read(chan, buffer, []() { return 2; }),                           //
+    event_timer(100ms, []() { return 3; }));                                //
+switch(result) {
+  case 1:
+    std::cout << "Got data from the pipe \n";
+    break;
+  case 2:
+    std::cout << "Got data from the channel \n";
+    break;
+  default:
+    std::cout << "Nobody loves me anymore :(\n";
+    stop = true;
+    break;
+}
+```
+
+## See other examples
 
 Head to the [examples](./src/examples/src) to see more code.
-
 
 ## How to build
 
