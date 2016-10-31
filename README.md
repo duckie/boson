@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
 }
 ```
 
-Channels must be transfered by copy. Generic lambdas, when used as a routine seed, must explicitely state that they return `void`. The why will be exlained in detail in further documentation. Threads are assigned to routines with a round-robin fashion. The thread id can be explicitely given when starting a routine.
+Channels must be transfered by copy. Generic lambdas, when used as a routine seed, must explicitely state that they return `void`. The why will be explained in detail in further documentation. Threads are assigned to routines in a round-robin fashion. The thread id can be explicitely given when starting a routine.
 
 ```C++
 boson::start_explicit(0, [](int in, auto output) -> void {...}, 0, pipe);
