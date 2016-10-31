@@ -61,15 +61,15 @@ int main(int argc, char *argv[]) {
 }
 ```
 
-This executable prints `Tick !` every second and quits if the user enter anything on the standard input. We dont have to manage concurrency on the `stopper` variable since we know only one thread uses it. Plus, we know at which points routine might be interrupted.
+This executable prints `Tick !` every second and quits if the user enters anything on the standard input. We dont have to manage concurrency on the `stopper` variable since we know only one thread uses it. Plus, we know at which points the routines might be interrupted.
 
 ## Channels
 
 The boson framework implements channels similar to Go ones. Channels are used to communicate between routines. They can be used over multiple threads.
 
-This snippets listens to the standard input in one thread and writes to two different files in two other threads. A channel is used to communicate. This also demonstrates the use of a generic lambda and a generic functor. Boson system calls are not used on the files because files on disk cannot be polled for events (not allowed by the Linux kernel).
+This snippet listens to the standard input in one thread and writes to two different files in two other threads. A channel is used to communicate. This also demonstrates the use of a generic lambda and a generic functor. Boson system calls are not used on the files because files on disk cannot be polled for events (not allowed by the Linux kernel).
 
-```
+```C++
 struct writer {
 template <class Channel>
 void operator()(Channel input, char const* filename) const {
@@ -104,9 +104,9 @@ int main(int argc, char *argv[]) {
 }
 ```
 
-Channels must be transfered by copy. Generic lambdas, when used as a routine seed, must explicitely state that they return `void`. The why will be exlained in detail in further documentation. Thread are assigned to routines with a round-robin fashion. The thread id can be explicitely given when starting a routine.
+Channels must be transfered by copy. Generic lambdas, when used as a routine seed, must explicitely state that they return `void`. The why will be exlained in detail in further documentation. Threads are assigned to routines with a round-robin fashion. The thread id can be explicitely given when starting a routine.
 
-```
+```C++
 boson::start_explicit(0, [](int in, auto output) -> void {...}, 0, pipe);
 boson::start_explicit(1, functor, pipe, "file1.txt");
 boson::start_explicit(2, functor, pipe, "file2.txt");
@@ -118,7 +118,7 @@ See [an example](./src/examples/src/channel_loop.cc).
 
 The select statement is similar to the Go one, but with a nice twist : it can be used with a mix of channels and syscalls. 
 
-```
+```C++
 // Create a pipe
 int pipe_fds[2];
 ::pipe(pipe_fds);
@@ -164,7 +164,7 @@ start([](int in, auto chan) -> void {
 `select_any` can return a value :
 
 
-```
+```C++
 int result = select_any(                                                    //
     event_read(in, &buffer, sizeof(buffer), [](ssize_t rc) { return 1; }),  //
     event_read(chan, buffer, []() { return 2; }),                           //
