@@ -14,7 +14,7 @@ inline int time_factor() {
 #ifdef BOSON_USE_VALGRIND
   return RUNNING_ON_VALGRIND ? 10 : 1;
 #else
-  return 1
+  return 1;
 #endif 
 }
 }
