@@ -41,7 +41,7 @@ void routine::add_semaphore_wait(semaphore* sema) {
   auto slot_index = thread_->register_semaphore_wait(routine_slot{current_ptr_,events_.size()-1});
   sema->waiters_.write(thread_->id(), new std::pair<thread*, std::size_t>{thread_, slot_index});
   int result = sema->counter_.fetch_add(1,std::memory_order_release);
-  if (0 <= result) {
+  if (0 == result) {
     sema->pop_a_waiter(thread_);
   }
 }
@@ -136,7 +136,7 @@ bool routine::event_happened(std::size_t index, event_status status) {
         sema->waiters_.write(thread_->id(),
                              new std::pair<thread*, std::size_t>{thread_, slot_index});
         result = sema->counter_.fetch_add(1, std::memory_order_release);
-        if (0 <= result) {
+        if (0 == result) {
           sema->pop_a_waiter(thread_);
         }
         return false;

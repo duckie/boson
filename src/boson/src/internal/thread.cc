@@ -6,7 +6,6 @@
 #include "exception.h"
 #include "internal/routine.h"
 #include "logger.h"
-#include "logger.h"
 #include "semaphore.h"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wundefined-var-template"
@@ -67,8 +66,6 @@ void engine_proxy::set_id() {
 void thread::handle_engine_event() {
   thread_command* received_command = nullptr;
   while ((received_command = static_cast<thread_command*>(engine_queue_.read(id())))) {
-    static int sub = 0;
-    // nb_pending_commands_.fetch_sub(1,std::memory_order_release);
     nb_pending_commands_.fetch_sub(1);
     switch (received_command->type) {
       case thread_command_type::add_routine:
@@ -76,14 +73,16 @@ void thread::handle_engine_event() {
                 routine_slot{std::move(received_command->data.get<routine_ptr_t>()), 0});
         break;
       case thread_command_type::schedule_waiting_routine: {
-        auto& data = received_command->data.get<std::pair<semaphore*, std::size_t>>();
+        auto& data = received_command->data.get<std::pair<std::weak_ptr<semaphore>, std::size_t>>();
         auto& shared_routine = suspended_slots_[data.second];
         // If not previously invalidated by a timeout
         if (shared_routine.ptr) {
           shared_routine.ptr->get()->set_as_semaphore_event_candidate(shared_routine.event_index);
         }
         else {
-          data.first->pop_a_waiter(this);
+          auto sema_pointer = data.first.lock();
+          if (sema_pointer)
+            sema_pointer->pop_a_waiter(this);
         }
         suspended_slots_.free(data.second);
       } break;
@@ -207,47 +206,49 @@ bool thread::execute_scheduled_routines() {
   while (!scheduled_routines_.empty()) {
     // For now; we schedule them in order
     auto& slot = scheduled_routines_.front();
-    auto routine = running_routine_ = slot.ptr->get();
+    if (slot.ptr) {
+      auto routine = running_routine_ = slot.ptr->get();
 
-    bool run_routine = true;
-    // Try to get a semaphore ticket, if relevant
-    if (routine->status() == routine_status::sema_event_candidate) {
-      run_routine = routine->event_happened(slot.event_index);
-      // If success, get back the unique ownserhip of the routine
-      if (run_routine) {
-        slot.ptr = routine_local_ptr_t(routine_ptr_t(routine));
+      bool run_routine = true;
+      // Try to get a semaphore ticket, if relevant
+      if (routine->status() == routine_status::sema_event_candidate) {
+        run_routine = routine->event_happened(slot.event_index);
+        // If success, get back the unique ownserhip of the routine
+        if (run_routine) {
+          slot.ptr = routine_local_ptr_t(routine_ptr_t(routine));
+        }
       }
+
+      if (run_routine) routine->resume(this);
+      switch (routine->status()) {
+        case routine_status::is_new:
+        case routine_status::running: {
+          // Not supposed to happen
+          assert(false);
+        } break;
+        case routine_status::yielding: {
+          // If not finished, then we reschedule it
+          next_scheduled_routines.emplace_back(
+              routine_slot{routine_local_ptr_t(routine_ptr_t(slot.ptr->release())), 0});
+        } break;
+        case routine_status::wait_events: {
+          slot.ptr->release();
+        } break;
+        case routine_status::sema_event_candidate: {
+          // Thats means no event happened for the routine, so we must let the slot pointer
+          // untouched for other events to stay valid
+          routine->status_ = routine_status::wait_events;
+        } break;
+        case routine_status::finished: {
+          // Should have been made by the routine by closing the FD
+        } break;
+      };
+
+      // if (routine.get()) {
+      // debug::log("Routine {}:{}:{} will be deleted.", id(), routine->id(),
+      // static_cast<int>(routine->status()));
+      //}
     }
-
-    if (run_routine) 
-        routine->resume(this);
-    switch (routine->status()) {
-      case routine_status::is_new:
-      case routine_status::running: {
-        // Not supposed to happen
-        assert(false);
-      } break;
-      case routine_status::yielding: {
-        // If not finished, then we reschedule it
-        next_scheduled_routines.emplace_back(routine_slot{routine_local_ptr_t(routine_ptr_t(slot.ptr->release())),0});
-      } break;
-      case routine_status::wait_events: {
-        slot.ptr->release();
-      } break;
-      case routine_status::sema_event_candidate: {
-        // Thats means no event happened for the routine, so we must let the slot pointer
-        // untouched for other events to stay valid
-        routine->status_ = routine_status::wait_events;
-      } break;
-      case routine_status::finished: {
-        // Should have been made by the routine by closing the FD
-      } break;
-    };
-
-    // if (routine.get()) {
-    // debug::log("Routine {}:{}:{} will be deleted.", id(), routine->id(),
-    // static_cast<int>(routine->status()));
-    //}
     scheduled_routines_.pop_front();
   }
 
@@ -269,19 +270,24 @@ bool thread::execute_scheduled_routines() {
   bool no_more_routines =
       scheduled_routines_.empty() && timed_routines_.empty() && 0 == nb_suspended_routines_;
   if (no_more_routines) {
-    if (thread_status::finishing == status_) {
-      unregister_all_events();
-      status_ = thread_status::finished;
-      return false;
-    } else if (0 == nb_pending_commands) {
-      engine_proxy_.notify_idle(0);
-      return false;
+    if (0 == nb_pending_commands) {
+        if (thread_status::finishing == status_) {
+          unregister_all_events();
+          status_ = thread_status::finished;
+          return false;
+        }
+        else {
+          engine_proxy_.notify_idle(0);
+          return false;
+        }
     }
   } else {
     if (scheduled_routines_.empty()) {
       size_t nb_routines = timed_routines_.size() + nb_suspended_routines_;
       if (0 == nb_pending_commands) {
-        if (0 == nb_routines) engine_proxy_.notify_idle(0);
+        if (0 == nb_routines) {
+            engine_proxy_.notify_idle(0);
+        }
         return false;
       } else {
         // Schedule pending commands immediately

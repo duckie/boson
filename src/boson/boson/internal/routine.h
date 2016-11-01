@@ -130,8 +130,9 @@ class function_holder_impl : public function_holder {
 
  public:
   function_holder_impl(Function func, Args... args)
-      : func_{std::move(func)}, args_{std::forward<Args>(args)...} {
+      : func_{func}, args_{std::forward<Args>(args)...} {
   }
+
   void operator()() override {
     return experimental::apply(func_, std::move(args_));
   }

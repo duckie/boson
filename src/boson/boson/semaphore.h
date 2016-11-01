@@ -19,7 +19,7 @@ class event_channel_write_storage;
  *
  * The boson semaphore may only be used from routines.
  */
-class semaphore {
+class semaphore : public std::enable_shared_from_this<semaphore> {
   friend class internal::thread;
   friend class internal::routine;
   template <class Content, std::size_t Size, class Func>

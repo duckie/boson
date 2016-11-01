@@ -5,12 +5,26 @@
 #include "boson/logger.h"
 #include "boson/semaphore.h"
 #include "boson/select.h"
+#ifdef BOSON_USE_VALGRIND
+#include "valgrind/valgrind.h"
+#endif 
 
 using namespace boson;
 using namespace std::literals;
 
+namespace {
+inline int time_factor() {
+#ifdef BOSON_USE_VALGRIND
+  return RUNNING_ON_VALGRIND ? 10 : 1;
+#else
+  return 1
+#endif 
+}
+}
+
 TEST_CASE("Routines - I/O", "[routines][i/o]") {
   boson::debug::logger_instance(&std::cout);
+
 
   SECTION("Simple pipes") {
     int pipe_fds[2];
@@ -20,7 +34,7 @@ TEST_CASE("Routines - I/O", "[routines][i/o]") {
       start(
           [](int in) -> void {
             size_t data;
-            int result = boson::read(in, &data, sizeof(size_t), 5ms);
+            int result = boson::read(in, &data, sizeof(size_t), time_factor()*5ms);
             CHECK(result == boson::code_timeout);
             result = boson::read(in, &data, sizeof(size_t));
             CHECK(0 < result);
@@ -30,7 +44,7 @@ TEST_CASE("Routines - I/O", "[routines][i/o]") {
       start(
           [](int out) -> void {
             size_t data{0};
-            boson::sleep(10ms);
+            boson::sleep(time_factor()*10ms);
             int result = boson::write(out, &data, sizeof(data));
             CHECK(0 < result);
           },
@@ -148,9 +162,9 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
     ::close(pipe_fds2[1]);
   }
 
-  std::this_thread::sleep_for(10ms);
+  std::this_thread::sleep_for(time_factor()*10ms);
+  //SECTION("Channels") {
   SECTION("Channels") {
-    debug::log("Test");
     boson::run(1, [&]() {
       boson::channel<int,1> tickets_a2b;
       boson::channel<int,1> tickets_b2a;
@@ -194,7 +208,9 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
             b2a >> sink;
 
             t1 >> chandata;
+            CHECK(chandata == 2);
             t2 >> chandata;
+            CHECK(chandata == 3);
           },
           tickets1, tickets2, tickets_a2b, tickets_b2a);
 
@@ -203,11 +219,12 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
             //std::nullptr_t sink;
             int sink;
             a2b >> sink;
+            int result = -1;
 
             t2 << 1;
             a2b >> sink; // Wait for other routine to consume
 
-            int result = boson::select_any(                //
+            result = boson::select_any(                //
                 event_write(t1, 2, //
                            []() {
                              return 1;  //

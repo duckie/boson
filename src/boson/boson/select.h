@@ -18,15 +18,15 @@ class event_timer_storage {
     return self->func_();
   }
 
-  event_timer_storage(int timeout_ms, Func&& cb)
+  event_timer_storage(std::chrono::milliseconds timeout, Func&& cb)
       : target_{std::chrono::time_point_cast<std::chrono::milliseconds>(
-            std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(timeout_ms))},
+            std::chrono::high_resolution_clock::now() + timeout)},
         func_{std::move(cb)} {
   }
 
-  event_timer_storage(int timeout_ms, Func const& cb)
+  event_timer_storage(std::chrono::milliseconds timeout, Func const& cb)
       : target_{std::chrono::time_point_cast<std::chrono::milliseconds>(
-            std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(timeout_ms))},
+            std::chrono::high_resolution_clock::now() + timeout)},
         func_{cb} {
   }
 
@@ -36,10 +36,14 @@ class event_timer_storage {
   }
 };
 
-template <class Func> 
-event_timer_storage<Func>
-event_timer(int timeout_ms, Func&& cb) {
-    return {timeout_ms,std::forward<Func>(cb)};
+template <class Func>
+event_timer_storage<Func> event_timer(int timeout_ms, Func&& cb) {
+  return {std::chrono::milliseconds(timeout_ms), std::forward<Func>(cb)};
+}
+
+template <class Func>
+event_timer_storage<Func> event_timer(std::chrono::milliseconds timeout, Func&& cb) {
+  return {timeout, std::forward<Func>(cb)};
 }
 
 template <class Func>
