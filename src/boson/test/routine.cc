@@ -45,29 +45,58 @@ TEST_CASE("Routines - Panic", "[routines][panic]") {
 TEST_CASE("Routines - Semaphores", "[routines][semaphore]") {
   boson::debug::logger_instance(&std::cout);
 
+  SECTION("Normal semaphore") {
+    boson::run(1, [&]() {
+      shared_semaphore sema(1);
 
-  boson::run(1, [&]() {
-    shared_semaphore sema(1);
-
-    start([](auto sema) -> void {
-      bool result = sema.wait();
-      CHECK(result == true);
-      boson::sleep(time_factor()*10ms);
-      sema.post();
-      boson::sleep(time_factor()*10ms);
-      result = sema.wait();
-      CHECK(result == true);
-    },sema);
-
-    start([](auto sema) -> void {
-      bool result = sema.wait(time_factor()*5ms);
-      CHECK(result == false);
-      if (!result) {  // To avoid an infinite block if failure (ex valgrind)
+      start([](auto sema) -> void {
+        bool result = sema.wait();
+        CHECK(result == true);
+        boson::sleep(time_factor()*10ms);
+        sema.post();
+        boson::sleep(time_factor()*10ms);
         result = sema.wait();
         CHECK(result == true);
-        boson::sleep(time_factor()*5ms);
-      }
-      sema.post();
-    },sema);
-  });
+      },sema);
+
+      start([](auto sema) -> void {
+        bool result = sema.wait(time_factor()*5ms);
+        CHECK(result == false);
+        if (!result) {  // To avoid an infinite block if failure (ex valgrind)
+          result = sema.wait();
+          CHECK(result == true);
+          boson::sleep(time_factor()*5ms);
+        }
+        sema.post();
+      },sema);
+    });
+  }
+
+
+  SECTION("Disabled semaphore") {
+    boson::run(1, [&]() {
+      shared_semaphore sema(1);
+
+      start([](auto sema) -> void {
+        bool result = sema.wait();
+        CHECK(result == true);
+        boson::sleep(time_factor()*10ms);
+        sema.post();
+        boson::sleep(time_factor()*10ms);
+        result = sema.wait();
+        CHECK(result == true);
+      },sema);
+
+      start([](auto sema) -> void {
+        bool result = sema.wait(time_factor()*5ms);
+        CHECK(result == false);
+        if (!result) {  // To avoid an infinite block if failure (ex valgrind)
+          result = sema.wait();
+          CHECK(result == true);
+          boson::sleep(time_factor()*5ms);
+        }
+        sema.post();
+      },sema);
+    });
+  }
 }

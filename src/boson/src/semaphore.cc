@@ -38,12 +38,15 @@ bool semaphore::pop_a_waiter(internal::thread* current) {
   return true;
 }
 
-bool semaphore::wait(int timeout) {
+semaphore_result semaphore::wait(int timeout) {
   using namespace internal;
   int result = counter_.fetch_sub(1,std::memory_order_acquire);
   routine* current_routine = nullptr;
-  //while(result <= 0) {
   if(result <= 0) {
+    if (disabling_threshold < result) {
+      counter_.fetch_add(1,std::memory_order_relaxed);
+      return { semaphore_return_value::disabled };
+    }
     // We failed to get the semaphore, we have to suspend the routine
     thread* this_thread = internal::current_thread();
     assert(this_thread);
@@ -58,19 +61,21 @@ bool semaphore::wait(int timeout) {
     if (current_routine->happened_type_ == event_type::timer) {
       current_routine->previous_status_ = routine_status::wait_events;
       current_routine->status_ = routine_status::running;
-      return false;
+      return { semaphore_return_value::timedout };
     }
-    //result = counter_.fetch_sub(1,std::memory_order_acquire);
     current_routine->previous_status_ = routine_status::wait_events;
     current_routine->status_ = routine_status::running;
   }
-  return true;
+  return { semaphore_return_value::ok };
 }
 
 void semaphore::post() {
   using namespace internal;
   int result = counter_.fetch_add(1,std::memory_order_release);
-  if (0 == result) {
+  if (disabling_threshold < result) {
+    counter_.fetch_sub(1,std::memory_order_relaxed);
+  }
+  else if(0 == result) {
     // We may not gotten in the middle of a wait, so we cant avoid to try a pop
     pop_a_waiter(internal::current_thread());
   }
