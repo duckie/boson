@@ -125,11 +125,14 @@ template <class Function, class... Args>
 class function_holder_impl : public function_holder {
   using ArgsTuple = typename extract_tuple_arguments<Function, Args...>::type;
   Function func_;
-  //std::tuple<Args...> args_;
   ArgsTuple args_;
 
  public:
-  function_holder_impl(Function func, Args... args)
+  function_holder_impl(Function&& func, Args... args)
+      : func_{std::move(func)}, args_{std::forward<Args>(args)...} {
+  }
+
+  function_holder_impl(Function const& func, Args... args)
       : func_{func}, args_{std::forward<Args>(args)...} {
   }
 
@@ -140,7 +143,7 @@ class function_holder_impl : public function_holder {
 
 template <class Function, class... Args>
 decltype(auto) make_unique_function_holder(Function&& func, Args&&... args) {
-  return std::unique_ptr<function_holder>(new function_holder_impl<Function, Args...>(
+  return std::unique_ptr<function_holder>(new function_holder_impl<std::decay_t<Function>, Args...>(
       std::forward<Function>(func), std::forward<Args>(args)...));
 }
 }  // namespace detail
