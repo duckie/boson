@@ -14,6 +14,20 @@ class event_channel_read_storage;
 template <class ContentType, std::size_t Size, class Func>
 class event_channel_write_storage;
 
+enum class semaphore_return_value { ok, timedout, disabled };
+
+struct semaphore_result {
+  semaphore_return_value value;
+
+  inline operator bool() const {
+    return value == semaphore_return_value::ok;
+  }
+
+  inline operator semaphore_return_value() const {
+    return value;
+  }
+};
+
 /**
  * Semaphore for routines only
  *
@@ -26,6 +40,10 @@ class semaphore : public std::enable_shared_from_this<semaphore> {
   friend class event_channel_read_storage;
   template <class Content, std::size_t Size, class Func>
   friend class event_channel_write_storage;
+
+  static constexpr int disabling_threshold = 0x40000000;
+  static constexpr int disabled_standpoint = 0x60000000;
+
   using queue_t = queues::lcrq;
   queue_t waiters_;
   std::atomic<int> counter_;
@@ -50,19 +68,29 @@ class semaphore : public std::enable_shared_from_this<semaphore> {
   virtual ~semaphore();
 
   /**
+   * Disable the semaphore for future uses of wait
+   *
+   * Posts will be accepted, no wait will be allowed anymore
+   */
+  inline void disable();
+
+  /**
    * takes a semaphore ticker if it could, otherwise suspend the routine until a ticker is available
    */
-  bool wait(int timeout_ms = -1);
+  semaphore_result wait(int timeout_ms = -1);
 
-  inline bool wait(std::chrono::milliseconds);
+  inline semaphore_result wait(std::chrono::milliseconds);
   /**
    * give back semaphore ticket. Always non blocking
    */
   void post();
 };
 
+void semaphore::disable() {
+  counter_.store(disabled_standpoint, std::memory_order_release);
+}
 
-bool semaphore::wait(std::chrono::milliseconds timeout) {
+semaphore_result semaphore::wait(std::chrono::milliseconds timeout) {
   return wait(timeout.count());
 }
 
@@ -86,8 +114,8 @@ class shared_semaphore {
   shared_semaphore& operator=(shared_semaphore&&) = default;
   virtual ~shared_semaphore() = default;
 
-  inline bool wait(int timeout_ms = -1);
-  inline bool wait(std::chrono::milliseconds timeout);
+  inline semaphore_result wait(int timeout_ms = -1);
+  inline semaphore_result wait(std::chrono::milliseconds timeout);
   inline void post();
 };
 
@@ -96,14 +124,13 @@ class shared_semaphore {
 shared_semaphore::shared_semaphore(int capacity) : impl_{new semaphore(capacity)} {
 }
 
-bool shared_semaphore::wait(int timeout) {
+semaphore_result shared_semaphore::wait(int timeout) {
   return impl_->wait(timeout);
 }
 
-bool shared_semaphore::wait(std::chrono::milliseconds timeout) {
+semaphore_result shared_semaphore::wait(std::chrono::milliseconds timeout) {
   return impl_->wait(timeout);
 }
-
 
 void shared_semaphore::post() {
   impl_->post();

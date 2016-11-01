@@ -21,7 +21,6 @@ int main(int argc, char *argv[]) {
 
     // Start a producer
     start([](int out, auto chan) -> void {
-        std::nullptr_t sink {};
         int data = 1;
         boson::write(out, &data, sizeof(data));
         chan << data;
