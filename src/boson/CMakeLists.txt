@@ -10,6 +10,12 @@ add_library(boson_fcontext OBJECT
   #src/asm/ontop_x86_64_sysv_elf_gas.S # Not used actually
   )
 
+# Remove some specific warnings
+# - About unknown pragmas
+if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang" OR ${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-pragmas")
+endif()
+
 # Import configuration options into code
 file(GLOB lib_sources src/*.cc src/internal/*.cc src/queues/*.cc src/net/*.cc)
 file(GLOB lib_linux_sources src/linux/*.cc)

@@ -1,14 +1,8 @@
 # Boost support
 set(LIBRARIES)
-#find_package(Boost COMPONENTS context REQUIRED)
-#if(Boost_FOUND)
- #include_directories(${Boost_INCLUDE_DIRS})
-    #if(CMAKE_COMPILER_IS_GNUCXX)
-        #set(LIBRARIES "${LIBRARIES}" "${Boost_LIBRARIES}")
-    #else()
-        #link_directories(${Boost_LIBRARY_DIRS})
-    #endif()
-#endif()
+if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang" OR ${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-pragmas")
+endif()
 
 file(GLOB srcs *.cc)
 list(REMOVE_ITEM srcs "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cc")

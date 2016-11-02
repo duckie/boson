@@ -32,6 +32,9 @@ struct extract_tuple_argument_impl;
 template <class Ret, class F, class InTuple, size_t Index, size_t... IHead, size_t... ITail>
 struct extract_tuple_argument_impl<Ret, F, InTuple, std::index_sequence<IHead...>,
                                    std::index_sequence<ITail...>, Index> {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wundefined-internal"
+#pragma GCC diagnostic ignored "-Wundefined-inline"
   template <typename T>
   static constexpr auto check_take(T*) -> typename std::is_same<
       decltype(std::declval<F>()(
@@ -45,6 +48,7 @@ struct extract_tuple_argument_impl<Ret, F, InTuple, std::index_sequence<IHead...
   static constexpr bool is_generic = decltype(check_take<routine_placeholder_probe>(0))::value;
   using type = std::conditional_t<(!take_copy && is_generic) || (take_copy && !is_generic),
                                   std::decay_t<Arg>, Arg>;
+#pragma GCC diagnostic pop
 };
 
 template <class Ret, class F, class InTuple, size_t Index>

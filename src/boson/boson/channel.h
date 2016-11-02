@@ -35,13 +35,13 @@ class channel_impl {
     // delete queue_;
   }
 
-  void consume_write(thread_id tid, ContentType value) {
+  void consume_write(thread_id, ContentType value) {
     size_t head = head_.fetch_add(1, std::memory_order_acq_rel);
     buffer_[head % Size] = std::move(value);
     readers_slots_.post();
   }
 
-  void consume_read(thread_id tid, ContentType& value) {
+  void consume_read(thread_id, ContentType& value) {
     size_t tail = tail_.fetch_add(1, std::memory_order_acq_rel);
     value = std::move(buffer_[tail % Size]);
     writer_slots_.post();

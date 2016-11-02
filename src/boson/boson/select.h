@@ -307,7 +307,7 @@ auto select_any(Selectors&& ... selectors)
       make_selector_subscribe<Selectors>()...};
   static std::array<return_type (*)(void*), sizeof...(Selectors)> callers{
       make_selector_execute<Selectors, return_type>()...};
-  std::array<void*, sizeof...(Selectors)> selector_ptrs{&selectors...};
+  std::array<void*, sizeof...(Selectors)> selector_ptrs{(&selectors)...};
 
   internal::thread* this_thread = internal::current_thread();
   internal::routine* current_routine = this_thread->running_routine();
