@@ -90,6 +90,7 @@ void routine::cancel_event_round() {
       case event_type::sema_wait:
         --thread_->nb_suspended_routines_;
         break;
+      case event_type::sema_closed:
       case event_type::io_read_panic:
       case event_type::io_write_panic:
         assert(false);
@@ -127,7 +128,11 @@ bool routine::event_happened(std::size_t index, event_status status) {
       --thread_->nb_suspended_routines_;
       auto sema = event.data.get<routine_sema_event_data>().sema;
       int result = sema->counter_.fetch_sub(1,std::memory_order_acquire);
-      if (result <= 0) {
+      if (semaphore::disabling_threshold < result) {
+        sema->counter_.fetch_add(1,std::memory_order_relaxed);
+        happened_type_ = event_type::sema_closed;
+      }
+      else if (result <= 0) {
         // Failed candidacy
         // Do not invalidate pointers of other events
         // Do not change the routine status
@@ -141,8 +146,11 @@ bool routine::event_happened(std::size_t index, event_status status) {
         }
         return false;
       }
-      happened_type_ = event_type::sema_wait;
+      else {
+        happened_type_ = event_type::sema_wait;
+      }
     } break;
+    case event_type::sema_closed:
     case event_type::io_read_panic:
     case event_type::io_write_panic:
       assert(false);
@@ -169,6 +177,7 @@ bool routine::event_happened(std::size_t index, event_status status) {
         case event_type::sema_wait:
           --thread_->nb_suspended_routines_;
           break;
+        case event_type::sema_closed:
         case event_type::io_read_panic:
         case event_type::io_write_panic:
           assert(false);
@@ -177,7 +186,7 @@ bool routine::event_happened(std::size_t index, event_status status) {
     }
   }
 
-  if (happened_type_ == event_type::sema_wait) {
+  if (happened_type_ == event_type::sema_wait || happened_type_ == event_type::sema_closed) {
     status_ = routine_status::yielding;
     current_ptr_->release();  // In this particular case, the scheduler gets back routine ownership
     current_ptr_.invalidate_all();

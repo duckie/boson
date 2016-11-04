@@ -72,7 +72,7 @@ class semaphore : public std::enable_shared_from_this<semaphore> {
    *
    * Posts will be accepted, no wait will be allowed anymore
    */
-  inline void disable();
+  void disable();
 
   /**
    * takes a semaphore ticker if it could, otherwise suspend the routine until a ticker is available
@@ -80,15 +80,13 @@ class semaphore : public std::enable_shared_from_this<semaphore> {
   semaphore_result wait(int timeout_ms = -1);
 
   inline semaphore_result wait(std::chrono::milliseconds);
+
   /**
    * give back semaphore ticket. Always non blocking
    */
   void post();
 };
 
-void semaphore::disable() {
-  counter_.store(disabled_standpoint, std::memory_order_release);
-}
 
 semaphore_result semaphore::wait(std::chrono::milliseconds timeout) {
   return wait(timeout.count());
@@ -114,6 +112,7 @@ class shared_semaphore {
   shared_semaphore& operator=(shared_semaphore&&) = default;
   virtual ~shared_semaphore() = default;
 
+  inline void disable();
   inline semaphore_result wait(int timeout_ms = -1);
   inline semaphore_result wait(std::chrono::milliseconds timeout);
   inline void post();
@@ -122,6 +121,10 @@ class shared_semaphore {
 // inline implementations
 
 shared_semaphore::shared_semaphore(int capacity) : impl_{new semaphore(capacity)} {
+}
+
+void shared_semaphore::disable() {
+  return impl_->disable();
 }
 
 semaphore_result shared_semaphore::wait(int timeout) {

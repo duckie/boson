@@ -11,6 +11,20 @@
 
 namespace boson {
 
+enum class channel_result_value { ok, timedout, closed };
+
+struct channel_result {
+  channel_result_value value;
+
+  inline operator bool () const {
+    return value == channel_result_value::ok;
+  };
+
+  inline operator channel_result_value () const {
+    return value;
+  }
+};
+
 template <class ContentType, std::size_t Size>
 class channel_impl {
   static_assert(0 < Size, "Boson channels do not support zero size.");
@@ -35,6 +49,10 @@ class channel_impl {
     // delete queue_;
   }
 
+  inline void close() {
+    //writer_slots_.wait(timeout_ms = -1);
+  }
+
   void consume_write(thread_id, ContentType value) {
     size_t head = head_.fetch_add(1, std::memory_order_acq_rel);
     buffer_[head % Size] = std::move(value);
@@ -52,20 +70,22 @@ class channel_impl {
    *
    * Returns false only if the channel is closed.
    */
-  bool write(thread_id tid, ContentType value, int timeout_ms = -1) {
-    bool ticket = writer_slots_.wait(timeout_ms = -1);
+  channel_result write(thread_id tid, ContentType value, int timeout_ms = -1) {
+    auto ticket = writer_slots_.wait(timeout_ms = -1);
     if (!ticket)
-      return false;
+      return {ticket == semaphore_return_value::timedout ? channel_result_value::timedout
+                                                         : channel_result_value::closed};
     consume_write(tid, value);
-    return true;
+    return { channel_result_value::ok };
   }
 
-  bool read(thread_id tid, ContentType& value, int  timeout_ms = -1) {
-    bool ticket = readers_slots_.wait(timeout_ms);
+  channel_result read(thread_id tid, ContentType& value, int  timeout_ms = -1) {
+    auto ticket = readers_slots_.wait(timeout_ms);
     if (!ticket)
-      return false;
+      return {ticket == semaphore_return_value::timedout ? channel_result_value::timedout
+                                                         : channel_result_value::closed};
     consume_read(tid, value);
-    return true;
+    return { channel_result_value::ok };
   }
 };
 
@@ -107,20 +127,22 @@ class channel_impl<std::nullptr_t,Size> {
    *
    * Returns false only if the channel is closed.
    */
-  bool write(thread_id tid, ContentType value, int timeout_ms = -1) {
-    bool ticket = writer_slots_.wait(timeout_ms = -1);
+  channel_result write(thread_id tid, ContentType value, int timeout_ms = -1) {
+    auto ticket = writer_slots_.wait(timeout_ms = -1);
     if (!ticket)
-      return false;
+      return {ticket == semaphore_return_value::timedout ? channel_result_value::timedout
+                                                         : channel_result_value::closed};
     consume_write(tid, value);
-    return true;
+    return { channel_result_value::ok };
   }
 
-  bool read(thread_id tid, ContentType& value, int  timeout_ms = -1) {
-    bool ticket = readers_slots_.wait(timeout_ms);
+  channel_result read(thread_id tid, ContentType& value, int  timeout_ms = -1) {
+    auto ticket = readers_slots_.wait(timeout_ms);
     if (!ticket)
-      return false;
+      return {ticket == semaphore_return_value::timedout ? channel_result_value::timedout
+                                                         : channel_result_value::closed};
     consume_read(tid, value);
-    return true;
+    return { channel_result_value::ok };
   }
 };
 
@@ -174,6 +196,10 @@ class channel {
   //inline bool write(Args&&... args) {
     //return channel_->write(get_id(), std::forward<Args>(args)...);
   //}
+  inline void close() {
+    //channel
+  }
+
   inline void consume_write(ContentType value) {
     channel_->consume_write(get_id(), std::move(value));
   }
@@ -182,24 +208,24 @@ class channel {
     channel_->consume_read(get_id(), value);
   }
 
-  inline bool write(ContentType value, int timeout_ms = -1) {
+  inline channel_result write(ContentType value, int timeout_ms = -1) {
     return channel_->write(get_id(), std::move(value), timeout_ms);
   }
 
-  inline bool read(ContentType& value, int timeout_ms = -1) {
+  inline channel_result read(ContentType& value, int timeout_ms = -1) {
     return channel_->read(get_id(), value, timeout_ms);
   }
 };
 
 template <class ContentType, std::size_t Size, class ValueType>
 inline auto operator << (channel<ContentType, Size>& channel, ValueType&& value) 
--> typename std::enable_if<std::is_convertible<ValueType,ContentType>::value, bool>::type
+-> typename std::enable_if<std::is_convertible<ValueType,ContentType>::value, channel_result>::type
 {
   return channel.write(static_cast<ContentType>(std::forward<ValueType>(value)));
 }
 
 template <class ContentType, std::size_t Size>
-inline auto operator >> (channel<ContentType, Size>& channel, ContentType& value) 
+inline channel_result operator >> (channel<ContentType, Size>& channel, ContentType& value) 
 {
   return channel.read(value);
 }

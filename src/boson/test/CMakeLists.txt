@@ -15,15 +15,17 @@ endmacro()
 
 # Reference test sources
 #add_project_test(test1 CATCH)
-add_project_test(queues_weakrb CATCH)
-add_project_test(test_wfqueue CATCH)
+add_project_test(channel CATCH)
 add_project_test(event_loop CATCH)
-add_project_test(memory_sparse_vector CATCH)
 add_project_test(memory_flat_unordered_set CATCH)
+add_project_test(memory_sparse_vector CATCH)
+add_project_test(queues_weakrb CATCH)
 add_project_test(routine CATCH)
-add_project_test(test_local_ptr CATCH)
-add_project_test(static CATCH)
 add_project_test(select CATCH)
+add_project_test(semaphore CATCH)
+add_project_test(static CATCH)
+add_project_test(test_local_ptr CATCH)
+add_project_test(test_wfqueue CATCH)
 
 # Create main test executable
 add_executable(unit_tests ${catch_exe_source_list})
