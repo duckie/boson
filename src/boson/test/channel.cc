@@ -22,23 +22,26 @@ inline int time_factor() {
 }
 }
 
-static constexpr int nb_iter = 2;
-static constexpr int channel_size = 5;
+static constexpr int nb_iter = 10;
+static constexpr int channel_size = 2;
 
 TEST_CASE("Channels", "[channels]") {
   boson::debug::logger_instance(&std::cout);
 
-  SECTION("Simple pipes") {
-    boson::run(3, []() {
+  std::vector<int> ids;
+  std::vector<int> acks;
+
+  SECTION("Simple pipes - Producer/Consumer") {
+    boson::run(3, [&]() {
       using namespace boson;
       channel<int, channel_size> a2b;
       channel<int, channel_size> b2a;
-      channel<int, 1> b2c;
-      channel<int, 1> c2b;
+      //channel<int, 1> b2c;
+      //channel<int, 1> c2b;
 
       // Start a producer
       start(
-          [](auto in, auto out) -> void {
+          [&](auto in, auto out) -> void {
             int ack_result = 0;
             for (int i = 0; i < nb_iter; ++i) {
               // Send async
@@ -48,7 +51,48 @@ TEST_CASE("Channels", "[channels]") {
               // get ack
               for (int j = 0; j < channel_size; ++j) {
                 in >> ack_result;
-                CHECK(ack_result == i * channel_size + j);
+                acks.push_back(ack_result);
+              }
+            }
+          },
+          b2a, a2b);
+
+      // Start a consumer
+      start(
+          [&](auto in, auto out) -> void {
+            int result = 0;
+            while (result < nb_iter * channel_size - 1) {
+              in >> result;
+              ids.push_back(result);
+              out << result;
+            }
+          },
+          a2b, b2a);
+    });
+    
+  }
+
+  SECTION("Simple pipes - Producer/Router/Consumer") {
+    boson::run(3, [&]() {
+      using namespace boson;
+      channel<int, channel_size> a2b;
+      channel<int, channel_size> b2a;
+      channel<int, 1> b2c;
+      channel<int, 1> c2b;
+
+      // Start a producer
+      start(
+          [&](auto in, auto out) -> void {
+            int ack_result = 0;
+            for (int i = 0; i < nb_iter; ++i) {
+              // Send async
+              for (int j = 0; j < channel_size; ++j) {
+                out << (i * channel_size + j);
+              }
+              // get ack
+              for (int j = 0; j < channel_size; ++j) {
+                in >> ack_result;
+                acks.push_back(ack_result);
               }
             }
           },
@@ -69,18 +113,24 @@ TEST_CASE("Channels", "[channels]") {
 
       // Start a consumer
       start(
-          [](auto in, auto out) -> void {
+          [&](auto in, auto out) -> void {
             int result = 0;
-            int expected_value = 0;
             while (result < nb_iter * channel_size - 1) {
               in >> result;
-              CHECK(result == expected_value);
+              ids.push_back(result);
               out << result;
-              ++expected_value;
             }
           },
           b2c, c2b);
     });
   }
+
+  // Playd one time for each section
+  std::vector<int> expected(nb_iter * channel_size,0);
+  for(int i = 0; i < nb_iter * channel_size;++i) {
+    expected[i] = i;
+  }
+  CHECK(ids == expected);
+  CHECK(acks == expected);
 }
 

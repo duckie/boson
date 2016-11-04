@@ -1,7 +1,6 @@
 #include "boson/semaphore.h"
 #include <cassert>
 #include "boson/engine.h"
-#include "boson/logger.h"
 
 using namespace std::chrono;
 
@@ -91,7 +90,7 @@ void semaphore::post() {
   if (disabling_threshold < result) {
     counter_.fetch_sub(1,std::memory_order_relaxed);
   }
-  else if(0 == result) {
+  else if(0 <= result) {
     // We may not gotten in the middle of a wait, so we cant avoid to try a pop
     pop_a_waiter(internal::current_thread());
   }
