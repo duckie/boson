@@ -84,7 +84,7 @@ class semaphore : public std::enable_shared_from_this<semaphore> {
   /**
    * give back semaphore ticket. Always non blocking
    */
-  void post();
+  semaphore_result post();
 };
 
 
@@ -115,7 +115,7 @@ class shared_semaphore {
   inline void disable();
   inline semaphore_result wait(int timeout_ms = -1);
   inline semaphore_result wait(std::chrono::milliseconds timeout);
-  inline void post();
+  inline semaphore_result post();
 };
 
 // inline implementations
@@ -135,8 +135,8 @@ semaphore_result shared_semaphore::wait(std::chrono::milliseconds timeout) {
   return impl_->wait(timeout);
 }
 
-void shared_semaphore::post() {
-  impl_->post();
+semaphore_result shared_semaphore::post() {
+  return impl_->post();
 }
 
 }  // namespace boson

@@ -58,11 +58,11 @@ semaphore_result semaphore::wait(int timeout) {
   int result = counter_.fetch_sub(1,std::memory_order_acquire);
   routine* current_routine = nullptr;
   event_type happened_type = event_type::sema_wait;
-  if(result <= 0) {
-    if (disabling_threshold < result) {
-      counter_.fetch_add(1,std::memory_order_relaxed);
-      return { semaphore_return_value::disabled };
-    }
+  if (disabling_threshold < result) {
+    counter_.fetch_add(1,std::memory_order_relaxed);
+    happened_type = event_type::sema_closed;
+  }
+  else if(result <= 0) {
     // We failed to get the semaphore, we have to suspend the routine
     thread* this_thread = internal::current_thread();
     assert(this_thread);
@@ -84,17 +84,19 @@ semaphore_result semaphore::wait(int timeout) {
                                                          : semaphore_return_value::timedout};
 }
 
-void semaphore::post() {
+semaphore_result semaphore::post() {
   using namespace internal;
   int result = counter_.fetch_add(1,std::memory_order_release);
   if (disabling_threshold < result) {
     counter_.fetch_sub(1,std::memory_order_relaxed);
+    return {semaphore_return_value::disabled};
   }
   else if(0 <= result) {
     // We may not gotten in the middle of a wait, so we cant avoid to try a pop
     pop_a_waiter(internal::current_thread());
   }
   // We do not yield, this is the wait purpose
+  return {semaphore_return_value::ok};
 }
 
 }  // namespace boson

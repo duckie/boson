@@ -50,7 +50,9 @@ class channel_impl {
   }
 
   inline void close() {
-    //writer_slots_.wait(timeout_ms = -1);
+    writer_slots_.disable();
+    if (head_.load(std::memory_order_acquire) - tail_.load(std::memory_order_acquire) == 0)
+      readers_slots_.disable();
   }
 
   void consume_write(thread_id, ContentType value) {
@@ -62,7 +64,11 @@ class channel_impl {
   void consume_read(thread_id, ContentType& value) {
     size_t tail = tail_.fetch_add(1, std::memory_order_acq_rel);
     value = std::move(buffer_[tail % Size]);
-    writer_slots_.post();
+    auto rc = writer_slots_.post();
+    if (!rc) { // Channel has been closed !
+      if (head_.load(std::memory_order_acquire) - tail_.load(std::memory_order_acquire) == 0) // All elements are consumed
+        readers_slots_.disable();
+    }
   }
 
   /**
@@ -81,9 +87,11 @@ class channel_impl {
 
   channel_result read(thread_id tid, ContentType& value, int  timeout_ms = -1) {
     auto ticket = readers_slots_.wait(timeout_ms);
-    if (!ticket)
+    if (!ticket) {
       return {ticket == semaphore_return_value::timedout ? channel_result_value::timedout
                                                          : channel_result_value::closed};
+
+    }
     consume_read(tid, value);
     return { channel_result_value::ok };
   }
@@ -111,6 +119,10 @@ class channel_impl<std::nullptr_t,Size> {
   }
 
   ~channel_impl() {
+  }
+
+  inline void close() {
+    writer_slots_.disable();
   }
 
   void consume_write(thread_id tid, ContentType value) {
@@ -197,7 +209,7 @@ class channel {
     //return channel_->write(get_id(), std::forward<Args>(args)...);
   //}
   inline void close() {
-    //channel
+    channel_->close();
   }
 
   inline void consume_write(ContentType value) {

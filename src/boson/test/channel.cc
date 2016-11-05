@@ -1,10 +1,10 @@
 #include "catch.hpp"
 #include "boson/boson.h"
 #include <unistd.h>
-#include <iostream>
 #include "boson/logger.h"
 #include "boson/semaphore.h"
 #include "boson/select.h"
+#include <iostream>
 #ifdef BOSON_USE_VALGRIND
 #include "valgrind/valgrind.h"
 #endif 
@@ -23,7 +23,7 @@ inline int time_factor() {
 }
 
 static constexpr int nb_iter = 10;
-static constexpr int channel_size = 2;
+static constexpr int channel_size = 5;
 
 TEST_CASE("Channels", "[channels]") {
   boson::debug::logger_instance(&std::cout);
@@ -122,6 +122,46 @@ TEST_CASE("Channels", "[channels]") {
             }
           },
           b2c, c2b);
+    });
+  }
+
+  SECTION("Simple closed channels") {
+    boson::run(3, [&]() {
+      using namespace boson;
+      channel<int, channel_size> a2b;
+      channel<int, channel_size> b2c;
+
+      // Start a producer
+      start(
+          [&](auto out) -> void {
+            int ack_result = 0;
+            for (int i = 0; i < nb_iter * channel_size; ++i) {
+              out << i;    
+            }
+            out.close();
+          },
+          a2b);
+
+      // Start a router
+      start(
+          [&](auto in, auto out) -> void {
+            int result = 0;
+            while (in >> result) {
+              ids.push_back(result);
+              out << result;
+            }
+            out.close();
+          },
+          a2b, b2c);
+
+      start(
+          [&](auto in) -> void {
+            int result = 0;
+            while (in >> result) {
+              acks.push_back(result);
+            }
+          },
+          b2c);
     });
   }
 
