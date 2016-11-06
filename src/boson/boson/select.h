@@ -118,7 +118,7 @@ event_recv(fd_t fd, void* buf, size_t count, int flags, Func&& cb) {
 }
 
 template <class Func>
-class event_accept_storage : public event_io_base_storage<Func> {
+class event_accept_storage {
   socket_t socket_;
   sockaddr* address_;
   socklen_t* address_len_;

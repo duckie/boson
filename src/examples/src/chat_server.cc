@@ -4,83 +4,92 @@
 #include "boson/channel.h"
 #include "boson/net/socket.h"
 #include "fmt/format.h"
+#include "boson/select.h"
 
 using namespace boson;
 
-enum class command_type { add, write, remove };
-
-struct command {
-  command_type type;
-  variant<int, std::pair<int, std::string>> data;
-};
-
-void listen_client(int fd, channel<command, 5> chan) {
+template <class A, class B>
+void listen_client(int fd, A msg_chan, B close_chan) {
   std::array<char, 2048> buffer;
   ssize_t nread = 0;
   while (0 < (nread = boson::recv(fd, buffer.data(), buffer.size(), 0))) {
     std::string data(buffer.data(), nread-2);
     if (data.substr(0, 4) == "quit") {
-      chan << command{command_type::remove, fd};
       break;
     } else {
-      chan << command{command_type::write, {fd, fmt::format("Client {} says: {}\n", fd, data)}};
+      msg_chan << fmt::format("Client {} says: {}\n", fd, data);
     }
   }
+  if (nread != boson::code_panic)
+    close_chan << fd;
 }
 
-void listen_new_connections(int server_fd, channel<command, 5> chan) {
-  struct sockaddr_in cli_addr;
-  socklen_t clilen;
-  clilen = sizeof(cli_addr);
-  for (;;) {
-    int newsockfd = boson::accept(server_fd, (struct sockaddr *)&cli_addr, &clilen);
-    if (newsockfd < 0 && errno != EAGAIN)
-      break;
-    chan << command{command_type::add, newsockfd};
+void broadcast_message(std::set<int> const& connections, std::string const& data) {
+  std::shared_ptr<std::string> shared_data { new std::string(data) };
+  for (auto dest : connections) {
+    boson::start([dest,shared_data]() { boson::send(dest, shared_data->c_str(), shared_data->size(), 0); });
   }
 }
 
 int main(int argc, char *argv[]) {
   boson::run(1, []() {
-    // Create a channel
-    channel<command, 5> loop_input;
+    channel<int, 1> new_connection;
+    channel<std::string, 1> messages;
+    channel<int, 1> close_connection;;
 
     // Create socket and list to connections
-    using namespace boson;
     int sockfd = net::create_listening_socket(8080);
-    start(listen_new_connections, sockfd, loop_input);
+    struct sockaddr_in cli_addr;
+    socklen_t clilen = sizeof(cli_addr);
 
     // Main loop
-    command new_command;
+    std::array<char, 2048> buffer;
     std::set<int> conns;
     bool exit = false;
-    while (!exit) {
-      loop_input >> new_command;
-      switch (new_command.type) {
-        case command_type::add: {
-          int new_conn = new_command.data.get<int>();
-          std::cout << "Opening connection on " << new_conn << std::endl;
-          conns.insert(new_conn);
-          start(listen_client, new_conn, loop_input);
-          loop_input << command { command_type::write, {new_conn, fmt::format("Client {} joined.\n",new_conn)}};
-        } break;
-        case command_type::write: {
-          int client = -1;
-          std::string data;
-          std::tie(client, data) = new_command.data.get<std::pair<int, std::string>>();
-          for (auto dest : conns) {
-            boson::send(dest, data.c_str(), data.size(), 0);
-          }
-        } break;
-        case command_type::remove: {
-          int old_conn = new_command.data.get<int>();
-          std::cout << "Closing connection on " << old_conn << std::endl;
-          conns.erase(old_conn);
-          ::shutdown(old_conn, SHUT_WR);
-          ::close(old_conn);
-          loop_input << command { command_type::write, { old_conn, fmt::format("Client {} exited.\n",old_conn)} };
-          } break;
-      }
+    while(!exit) {
+      int conn = 0;
+      std::string message;
+      select_any(                                                     //
+          event_accept(sockfd, (struct sockaddr*)&cli_addr, &clilen,  //
+                       [&](int conn) {                                //
+                         if (0 <= conn) {
+                           std::cout << "Opening connection on " << conn << std::endl;
+                           conns.insert(conn);
+                           start(listen_client<decltype(messages), decltype(close_connection)>,
+                                 conn, messages, close_connection);
+                           broadcast_message(conns, fmt::format("Client {} joined.\n", conn));
+                         } else if (errno != EAGAIN) {
+                           exit = true;
+                         }
+                       }),
+          event_read(0, buffer.data(), buffer.size(),  // Listen stdin
+                     [&](ssize_t nread) {
+                       std::string data(buffer.data(), nread - 1);
+                       if (data.substr(0, 4) == "quit") {
+                         std::string message("Server exited.\n");
+                         for (auto dest : conns) {
+                           boson::send(dest, message.c_str(), message.size(), 0);
+                           ::shutdown(dest, SHUT_WR);
+                           ::close(dest);
+                           boson::fd_panic(dest);
+                         }
+                         exit = true;
+                       } else {
+                         std::cout << fmt::format("Unknown command \"{}\".\n\n", data);
+                       }
+                     }),
+          event_read(messages, message,
+                     [&]() {  //
+                       broadcast_message(conns, message);
+                     }),
+          event_read(close_connection, conn,
+                     [&]() {  //
+                       std::cout << "Closing connection on " << conn << std::endl;
+                       conns.erase(conn);
+                       ::shutdown(conn, SHUT_WR);
+                       ::close(conn);
+                       broadcast_message(conns, fmt::format("Client {} exited.\n", conn));
+                     }));
     };
   });
 }

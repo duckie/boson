@@ -5,6 +5,7 @@
 #include <cstring>
 #include "exception.h"
 #include "system.h"
+#include <iostream>
 
 namespace boson {
 event_loop_impl::fd_data& event_loop_impl::get_fd_data(int fd) {
@@ -24,7 +25,11 @@ void event_loop_impl::epoll_update(int fd, fd_data& fddata, bool del_if_no_event
     return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_MOD, fd, &new_event);
     if (return_code < 0) {
       if (ENOENT == errno) {
+        if (fd == 0)
+          std::cout << "Here\n";
         return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, fd, &new_event);
+        if (fd == 0)
+          std::cout << "Here " << (errno == ENOENT) << " " << strerror(errno) << "\n";
       } else if (EBADF == errno) {
         // Dispatch panic
         if (0 <= fddata.idx_read)
