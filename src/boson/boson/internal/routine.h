@@ -60,6 +60,7 @@ enum class event_type {
   io_read,
   io_write,
   sema_wait,
+  sema_closed,
   io_read_panic,
   io_write_panic
 };

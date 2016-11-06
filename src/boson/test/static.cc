@@ -40,38 +40,38 @@ TEST_CASE("Check templates","[static]") {
   //static_assert(has_operator<decltype(fg1)>::value,"");
 
   // Funtion alway takes by copy
-  //static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(f1),A,B,C>::type>::value,"");
-  //static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(f1),A,B&,C>::type>::value,"");
-  //static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(f1),A,B const&,C>::type>::value,"");
+  static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(f1),A,B,C>::type>::value,"");
+  static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(f1),A,B&,C>::type>::value,"");
+  static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(f1),A,B const&,C>::type>::value,"");
 //
   //// Function takes by ref if possible
-  ////static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(f2),A,B,C>::type>::value,"");  // Must not compile
-  //static_assert(std::is_same<tuple<A,B&,C>, typename extract_tuple_arguments<decltype(f2),A,B&,C>::type>::value,"");
-  ////static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(f2),A,B const&,C>::type>::value,"");   // Must not compile
+  //static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(f2),A,B,C>::type>::value,"");  // Must not compile
+  static_assert(std::is_same<tuple<A,B&,C>, typename extract_tuple_arguments<decltype(f2),A,B&,C>::type>::value,"");
+  //static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(f2),A,B const&,C>::type>::value,"");   // Must not compile
   //
 //
   //// Takes by reference only
-  //static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(f3),A,B,C>::type>::value,"");
-  //static_assert(std::is_same<tuple<A,B&,C>, typename extract_tuple_arguments<decltype(f3),A,B&,C>::type>::value,"");
-  //static_assert(std::is_same<tuple<A,B const&,C>, typename extract_tuple_arguments<decltype(f3),A,B const&,C>::type>::value,"");
+  static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(f3),A,B,C>::type>::value,"");
+  static_assert(std::is_same<tuple<A,B&,C>, typename extract_tuple_arguments<decltype(f3),A,B&,C>::type>::value,"");
+  static_assert(std::is_same<tuple<A,B const&,C>, typename extract_tuple_arguments<decltype(f3),A,B const&,C>::type>::value,"");
   //
   //// Auto lambdas are considered as copy
 //
   //// Funtion alway takes by copy
-  //static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(fl1),A,B,C>::type>::value,"");
-  //static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(fl1),A,B&,C>::type>::value,"");
-  //static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(fl1),A,B const&,C>::type>::value,"");
+  static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(fl1),A,B,C>::type>::value,"");
+  static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(fl1),A,B&,C>::type>::value,"");
+  static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(fl1),A,B const&,C>::type>::value,"");
 //
   //// Function takes by ref if possible
-  ////static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(f2),A,B,C>::type>::value,"");  // Must not compile
-  //static_assert(std::is_same<tuple<A,B&,C>, typename extract_tuple_arguments<decltype(fl2),A,B&,C>::type>::value,"");
-  ////static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(f2),A,B const&,C>::type>::value,"");   // Must not compile
+  //static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(f2),A,B,C>::type>::value,"");  // Must not compile
+  static_assert(std::is_same<tuple<A,B&,C>, typename extract_tuple_arguments<decltype(fl2),A,B&,C>::type>::value,"");
+  //static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(f2),A,B const&,C>::type>::value,"");   // Must not compile
   //
 //
   //// Takes by reference only
-  //static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(fl3),A,B,C>::type>::value,"");
-  //static_assert(std::is_same<tuple<A,B&,C>, typename extract_tuple_arguments<decltype(fl3),A,B&,C>::type>::value,"");
-  //static_assert(std::is_same<tuple<A,B const&,C>, typename extract_tuple_arguments<decltype(fl3),A,B const&,C>::type>::value,"");  // Not happy it compiles :(
+  static_assert(std::is_same<tuple<A,B,C>, typename extract_tuple_arguments<decltype(fl3),A,B,C>::type>::value,"");
+  static_assert(std::is_same<tuple<A,B&,C>, typename extract_tuple_arguments<decltype(fl3),A,B&,C>::type>::value,"");
+  static_assert(std::is_same<tuple<A,B const&,C>, typename extract_tuple_arguments<decltype(fl3),A,B const&,C>::type>::value,"");  // Not happy it compiles :(
 
   CHECK(true);
 }
