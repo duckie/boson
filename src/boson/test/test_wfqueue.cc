@@ -5,7 +5,7 @@
 #include <random>
 #include <thread>
 #include <vector>
-//#include "boson/queues/wfqueue.h"
+#include <mutex>
 #include "boson/queues/lcrq.h"
 #include "catch.hpp"
 
@@ -15,23 +15,22 @@ static constexpr size_t nb_iter = 1e5 + 153;
 
 using namespace std;
 
-TEST_CASE("Queues - WfQueue - simple case", "[queues][wfqueue]") {
-  // boson::queues::wfqueue<int*> queue(2);
-  // int i = 0;
-  // void* none = queue.read(0);
-  // CHECK(none == nullptr);
-  // queue.write(0,&i);
-  // void* val = queue.read(0);
-  // CHECK(val == &i);
-  // none = queue.read(0);
-  // CHECK(none == nullptr);
-  // queue.write(0,nullptr);
-  // none = queue.read(0);
-  // CHECK(none == nullptr);
-  // queue_
+TEST_CASE("Queues - WfQueue - simple case", "[queues][lcrq]") {
+   boson::queues::lcrq queue(2);
+   int i = 0;
+   void* none = queue.read(0);
+   CHECK(none == nullptr);
+   queue.write(0,&i);
+   void* val = queue.read(0);
+   CHECK(val == &i);
+   none = queue.read(0);
+   CHECK(none == nullptr);
+   queue.write(0,nullptr);
+   none = queue.read(0);
+   CHECK(none == nullptr);
 }
 
-TEST_CASE("Queues - WfQueue - sums", "[queues][wfqueue]") {
+TEST_CASE("Queues - WfQueue - sums", "[queues][lcrq]") {
   constexpr size_t const nb_prod = 16;
   constexpr size_t const nb_cons = 16;
   constexpr size_t const nb_iter = 1e3;
@@ -40,6 +39,7 @@ TEST_CASE("Queues - WfQueue - sums", "[queues][wfqueue]") {
   constexpr size_t const nb_main_threads = 4;
 
   std::array<std::thread, nb_main_threads> main_threads;
+  std::mutex test_protection;
   for (int j = 0; j < nb_main_threads; ++j) {
     main_threads[j] = std::thread([&]() {
       size_t nnb_iter = nb_iter;
@@ -96,6 +96,7 @@ TEST_CASE("Queues - WfQueue - sums", "[queues][wfqueue]") {
       size_t sum = 0;
       for (auto val : output) sum = sum + val;
 
+      std::lock_guard<std::mutex> test_guard{test_protection};
       CHECK(sum == expected);
     });
   }
