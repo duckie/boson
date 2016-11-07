@@ -20,7 +20,6 @@ add_example(channel_loop)
 add_example(channel_loop2)
 add_example(socket_server)
 add_example(chat_server)
-add_example(full_chat_server)
 
 add_example(readme1)
 add_example(readme2)
