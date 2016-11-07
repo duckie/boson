@@ -5,7 +5,6 @@
 #include <cstring>
 #include "exception.h"
 #include "system.h"
-#include <iostream>
 
 namespace boson {
 event_loop_impl::fd_data& event_loop_impl::get_fd_data(int fd) {
@@ -25,11 +24,7 @@ void event_loop_impl::epoll_update(int fd, fd_data& fddata, bool del_if_no_event
     return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_MOD, fd, &new_event);
     if (return_code < 0) {
       if (ENOENT == errno) {
-        if (fd == 0)
-          std::cout << "Here\n";
         return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, fd, &new_event);
-        if (fd == 0)
-          std::cout << "Here " << (errno == ENOENT) << " " << strerror(errno) << "\n";
       } else if (EBADF == errno) {
         // Dispatch panic
         if (0 <= fddata.idx_read)
@@ -62,7 +57,7 @@ void event_loop_impl::dispatch_event(int event_id, event_status status) {
         broken_loop_event_data* data = nullptr;
         while((data = static_cast<decltype(data)>(loop_breaker_queue_.read(0)))) {
           // We just ignore fds we dont have
-          if (data->fd < fd_data_.size()) {
+          if (static_cast<size_t>(data->fd) < fd_data_.size()) {
             auto& fddata = get_fd_data(data->fd);
             if (0 <= fddata.idx_read)
               dispatch_event(fddata.idx_read, event_status::panic);
@@ -125,7 +120,7 @@ void* event_loop_impl::get_data(int event_id) {
 }
 
 std::tuple<int,int> event_loop_impl::get_events(int fd) {
-  if (fd < fd_data_.size()) {
+  if (static_cast<size_t>(fd) < fd_data_.size()) {
     auto& data = get_fd_data(fd);
     return std::make_tuple(data.idx_read, data.idx_write);
   }

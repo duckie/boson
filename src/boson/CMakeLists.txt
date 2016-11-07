@@ -1,4 +1,4 @@
-set(LIBRARIES json_backbone fmt wfqueue)
+set(LIBRARIES fmt wfqueue)
 
 Find_Package(Threads REQUIRED)
 set(LIBRARIES "${LIBRARIES}" ${CMAKE_THREAD_LIBS_INIT})

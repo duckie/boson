@@ -37,7 +37,6 @@ void routine::start_event_round() {
 
 void routine::add_semaphore_wait(semaphore* sema) {
   events_.emplace_back(waited_event{event_type::sema_wait, routine_sema_event_data{sema}});
-  auto& event = events_.back();
   auto slot_index = thread_->register_semaphore_wait(routine_slot{current_ptr_,events_.size()-1});
   sema->waiters_.write(thread_->id(), new std::pair<thread*, std::size_t>{thread_, slot_index});
   int result = sema->counter_.fetch_add(1,std::memory_order_release);
@@ -55,13 +54,11 @@ void routine::add_timer(routine_time_point date) {
 
 void routine::add_read(int fd) {
   events_.emplace_back(waited_event{event_type::io_read, fd});
-  auto& event = events_.back();
   thread_->register_read(fd, routine_slot{current_ptr_, events_.size() -1});
 }
 
 void routine::add_write(int fd) {
   events_.emplace_back(waited_event{event_type::io_write, fd});
-  auto& event = events_.back();
   thread_->register_write(fd, routine_slot{current_ptr_, events_.size() -1});
 }
 

@@ -54,7 +54,7 @@ class weakrb {
 
   template <class... Args>
   bool write(Args&&... args) {
-    size_t back, front;
+    size_t back;
     back = back_.load(order_relaxed);
     if (pfront_ + size_ - back < 1) {
       pfront_ = front_.load(order_acquire);
@@ -66,7 +66,7 @@ class weakrb {
   };
 
   bool read(content_type& element) {
-    size_t back, front;
+    size_t front;
     front = front_.load(std::memory_order::memory_order_relaxed);
     if (cback_ - front < 1) {
       cback_ = back_.load(order_acquire);

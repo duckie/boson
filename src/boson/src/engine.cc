@@ -1,5 +1,4 @@
 #include "engine.h"
-#include "logger.h"
 
 namespace boson {
 
@@ -80,8 +79,8 @@ void engine::wait_all_routines() {
 }
 
 engine::engine(size_t max_nb_cores)
-    : max_nb_cores_{max_nb_cores},
-      nb_active_threads_{max_nb_cores},
+    : nb_active_threads_{max_nb_cores},
+      max_nb_cores_{max_nb_cores},
       command_queue_{static_cast<int>(max_nb_cores + 1)},
       command_pushers_{0} {
   // Start threads

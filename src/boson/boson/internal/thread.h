@@ -5,7 +5,6 @@
 #include <atomic>
 #include <cassert>
 #include <chrono>
-#include <json_backbone.hpp>
 #include <deque>
 #include <map>
 #include <memory>
@@ -14,9 +13,9 @@
 #include "boson/event_loop.h"
 #include "boson/memory/local_ptr.h"
 #include "boson/memory/sparse_vector.h"
-#include "boson/logger.h"
 #include "boson/queues/lcrq.h"
 #include "routine.h"
+#include "../external/json_backbone.hpp"
 
 namespace json_backbone {
 template <>

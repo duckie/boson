@@ -21,7 +21,6 @@ semaphore::~semaphore() {
 
 bool semaphore::pop_a_waiter(internal::thread* current) {
   using namespace internal;
-  routine* current_routine = nullptr;
   int result = 1;
   if(0 < result) {
     auto waiter = static_cast<std::pair<internal::thread*,std::size_t>*>(waiters_.read(current->id()));
@@ -56,7 +55,6 @@ void semaphore::disable() {
 semaphore_result semaphore::wait(int timeout) {
   using namespace internal;
   int result = counter_.fetch_sub(1,std::memory_order_acquire);
-  routine* current_routine = nullptr;
   event_type happened_type = event_type::sema_wait;
   if (disabling_threshold < result) {
     counter_.fetch_add(1,std::memory_order_relaxed);

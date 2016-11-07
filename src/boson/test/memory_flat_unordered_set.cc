@@ -26,7 +26,7 @@ TEST_CASE("Flat unordered set", "[memory][flat_unordered_set]") {
     // Fill up the instance
     std::uniform_int_distribution<int> dis(0, nb_elements - 1);
     std::unordered_set<int> expected_set;
-    for (int index = 0; index < nb_elements * nb_iterations; ++index) {
+    for (size_t index = 0; index < nb_elements * nb_iterations; ++index) {
       int value = dis(generator);
       instance.insert(value);
       expected_set.insert(value);

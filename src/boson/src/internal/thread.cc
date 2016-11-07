@@ -5,12 +5,7 @@
 #include "engine.h"
 #include "exception.h"
 #include "internal/routine.h"
-#include "logger.h"
 #include "semaphore.h"
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wundefined-var-template"
-#include "fmt/format.h"
-#pragma GCC diagnostic pop
 
 namespace boson {
 namespace internal {

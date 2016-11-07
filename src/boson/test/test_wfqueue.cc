@@ -40,7 +40,7 @@ TEST_CASE("Queues - WfQueue - sums", "[queues][lcrq]") {
 
   std::array<std::thread, nb_main_threads> main_threads;
   std::mutex test_protection;
-  for (int j = 0; j < nb_main_threads; ++j) {
+  for (size_t j = 0; j < nb_main_threads; ++j) {
     main_threads[j] = std::thread([&]() {
       size_t nnb_iter = nb_iter;
       // boson::queues::base_wfqueue queue(nb_prod + nb_cons);
@@ -57,7 +57,7 @@ TEST_CASE("Queues - WfQueue - sums", "[queues][lcrq]") {
         expected += index;
       }
       //
-      for (int index = 0; index < nb_prod; ++index) {
+      for (size_t index = 0; index < nb_prod; ++index) {
         input_th[index] = std::thread(
             [&](int index) {
               for (size_t i = 0; i < input[index].size(); ++i) {
@@ -69,7 +69,7 @@ TEST_CASE("Queues - WfQueue - sums", "[queues][lcrq]") {
       }
       //
       //
-      for (int index = 0; index < nb_cons; ++index) {
+      for (size_t index = 0; index < nb_cons; ++index) {
         output_th[index] = std::thread(
             [&](int index) {
               size_t val = 0;
@@ -100,7 +100,7 @@ TEST_CASE("Queues - WfQueue - sums", "[queues][lcrq]") {
       CHECK(sum == expected);
     });
   }
-  for (int j = 0; j < nb_main_threads; ++j) {
+  for (size_t j = 0; j < nb_main_threads; ++j) {
     main_threads[j].join();
   }
 }

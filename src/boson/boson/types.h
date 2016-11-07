@@ -1,7 +1,7 @@
 #ifndef BOSON_TYPES_H_
 #define BOSON_TYPES_H_
 
-#include "json_backbone.hpp"
+#include "external/json_backbone.hpp"
 
 namespace boson {
 template <class ... T> using variant = json_backbone::variant<T ...>;

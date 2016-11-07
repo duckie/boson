@@ -11,7 +11,7 @@
 #include <vector>
 #include "internal/routine.h"
 #include "internal/thread.h"
-#include "json_backbone.hpp"
+#include "external/json_backbone.hpp"
 #include "queues/lcrq.h"
 
 namespace boson {

@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
     boson::run(nb_threads, [&]() -> void {
       using namespace boson;
       channel<int, nb_iter> chan;
-      for (int index = 0; index < nb_prod; ++index) {
+      for (size_t index = 0; index < nb_prod; ++index) {
         start(
             [&, index](auto chan) -> void {
               for (size_t i = 0; i < input[index].size(); ++i) {
@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
             },
             dup(chan));
       }
-      for (int index = 0; index < nb_cons; ++index) {
+      for (size_t index = 0; index < nb_cons; ++index) {
         start(
             [&, index](auto chan) -> void {
               int val = 0;
