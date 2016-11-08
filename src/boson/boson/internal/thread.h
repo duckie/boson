@@ -13,6 +13,7 @@
 #include "boson/event_loop.h"
 #include "boson/memory/local_ptr.h"
 #include "boson/memory/sparse_vector.h"
+#include "boson/queues/mpsc.h"
 #include "boson/queues/lcrq.h"
 #include "routine.h"
 #include "../external/json_backbone.hpp"
@@ -107,7 +108,8 @@ class thread : public event_handler {
   friend class routine;
 
   friend class boson::semaphore;
-  using engine_queue_t = queues::lcrq;
+  //using engine_queue_t = queues::lcrq;
+  using engine_queue_t = queues::mpsc<std::unique_ptr<thread_command>>;
 
   engine_proxy engine_proxy_;
   std::deque<routine_slot> scheduled_routines_;

@@ -5,15 +5,18 @@ namespace boson {
 void engine::push_command(thread_id from, std::unique_ptr<command> new_command) {
   command_pushers_.fetch_add(std::memory_order_release);
   // command_waiter_.notify_one();
-  command_queue_.write(static_cast<int>(from), new_command.release());
+  //command_queue_.write(static_cast<int>(from), new_command.release());
+  command_queue_.write(std::move(new_command));
   command_waiter_.notify_one();
 }
 
 void engine::execute_commands() {
   std::unique_ptr<command> new_command;
   do {
-    new_command.reset(static_cast<command*>(command_queue_.read(max_nb_cores_)));
-    if (new_command) {
+    //new_command.reset(static_cast<command*>(command_queue_.read(max_nb_cores_)));
+    //if (new_command) {
+    new_command.release();
+    if (command_queue_.read(new_command)) {
       switch (new_command->type) {
         case command_type::add_routine: {
           thread_id target_thread;
@@ -81,7 +84,8 @@ void engine::wait_all_routines() {
 engine::engine(size_t max_nb_cores)
     : nb_active_threads_{max_nb_cores},
       max_nb_cores_{max_nb_cores},
-      command_queue_{static_cast<int>(max_nb_cores + 1)},
+      //command_queue_{static_cast<int>(max_nb_cores + 1)},
+      command_queue_{},
       command_pushers_{0} {
   // Start threads
   threads_.reserve(max_nb_cores);

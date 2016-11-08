@@ -51,6 +51,7 @@ include_directories(${MANUAL_INCLUDE_DIRS})
 
 project_add_3rdparty(catch)
 project_add_3rdparty(wfqueue)
+project_add_3rdparty(queues)
 project_add_3rdparty(fmt)
 
 # By default we put binaries into this directory

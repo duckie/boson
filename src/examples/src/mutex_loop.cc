@@ -76,34 +76,34 @@ int main(int argc, char* argv[]) {
   }
   auto t3 = high_resolution_clock::now();
   {
-    //std::vector<int> data;
-    //std::vector<int> data2;
-    //std::mutex std_mut;
-    //std::mutex std_mut2;
-    //// Execute a routine communication through pipes
-    //boson::run(nb_threads, [&]() mutable {
-      //using namespace boson;
-      //for (int i = 0; i < nb_threads / 2; ++i) {
-        //start([&data, &std_mut]() mutable {
-          //for (int j = 0; j < nb_iter; ++j) {
-            //std_mut.lock();
-            //data.push_back(1);
-            ////std::this_thread::sleep_for(2ms);
-            //std_mut.unlock();
-            ////std::this_thread::yield();
-          //}
-        //});
-        //start([&data2, &std_mut2]() mutable {
-          //for (int j = 0; j < nb_iter; ++j) {
-            //std_mut2.lock();
-            //data2.push_back(1);
-            ////std::this_thread::sleep_for(2ms);
-            //std_mut2.unlock();
-            ////std::this_thread::yield();
-          //}
-        //});
-      //}
-    //});
+    std::vector<int> data;
+    std::vector<int> data2;
+    std::mutex std_mut;
+    std::mutex std_mut2;
+    // Execute a routine communication through pipes
+    boson::run(nb_threads, [&]() mutable {
+      using namespace boson;
+      for (int i = 0; i < nb_threads / 2; ++i) {
+        start([&data, &std_mut]() mutable {
+          for (int j = 0; j < nb_iter; ++j) {
+            std_mut.lock();
+            data.push_back(1);
+            //std::this_thread::sleep_for(2ms);
+            std_mut.unlock();
+            //std::this_thread::yield();
+          }
+        });
+        start([&data2, &std_mut2]() mutable {
+          for (int j = 0; j < nb_iter; ++j) {
+            std_mut2.lock();
+            data2.push_back(1);
+            //std::this_thread::sleep_for(2ms);
+            std_mut2.unlock();
+            //std::this_thread::yield();
+          }
+        });
+      }
+    });
   }
   auto t4 = high_resolution_clock::now();
   std::cout << fmt::format("Pass 1: {}\n", duration_cast<milliseconds>(t2 - t1).count())
