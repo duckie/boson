@@ -33,3 +33,12 @@ add_executable(unit_tests ${catch_exe_source_list})
 target_link_libraries(unit_tests ${PROJECT_NAME} testlib catch wfqueue)
 add_dependencies(build-test unit_tests)
 project_add_test(lib${PROJECT_NAME}_unit_tests ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/unit_tests)
+
+
+# Perf test
+macro(add_perf_test_exe name)
+  add_executable(${name} perf/${name}.cc)
+  target_link_libraries(${name} ${PROJECT_NAME} testlib catch wfqueue)
+endmacro()
+
+add_perf_test_exe(ramgrowth01)
