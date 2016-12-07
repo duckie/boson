@@ -13,9 +13,7 @@ void engine::push_command(thread_id from, std::unique_ptr<command> new_command) 
 void engine::execute_commands() {
   std::unique_ptr<command> new_command;
   do {
-    //new_command.reset(static_cast<command*>(command_queue_.read(max_nb_cores_)));
-    //if (new_command) {
-    new_command.release();
+    new_command.reset(nullptr);
     if (command_queue_.read(new_command)) {
       switch (new_command->type) {
         case command_type::add_routine: {
