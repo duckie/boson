@@ -92,6 +92,9 @@ class vectorized_queue {
     return data_[index];
   }
 
+  /**
+   * Writes a cell in amortized constant time
+   */
   std::size_t write(ValueType value) {
     std::size_t index = first_free_cell_;
     if (first_free_cell_ == empty) {
@@ -142,6 +145,20 @@ class vectorized_queue {
     node.next = first_free_cell_;
     first_free_cell_ = index;
   }
+
+  /**
+   * Reads the queue in constant time
+   */
+  bool read(ValueType& value) {
+    if (head_ == empty)
+      return false;
+    assert(has(head_));
+    auto& node = data_[head_];
+    value = std::move(*reinterpret_cast<ValueType const*>(&node.value));
+    free(head_);
+    return true;
+  }
+
 };
 
 }  // namespace memory
