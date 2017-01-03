@@ -11,17 +11,15 @@ namespace boson {
 namespace queues {
 
 /**
- * Sparse vector maintains a changing array in memory
+ * A qeue with amortized constant time for write, read and deletion 
  *
- * The idea of sparse vector is to keep allocated a given
- * number of elements and to keep indexes always valid even
- * if there is a deletion in the midle of it.
+ * The vectorized queue offers an interface allowing the user
+ * to delete any queued element with a limited cost. Each element 
+ * is identified by and index when written.
  *
- * The "free" cells will be stored in a chained way and can be claimed
- * back when a new element needs to be stored.
- *
- * There is no way for the user to know wether an allocated
- * cell is valid or not
+ * Write is an amortized constant.
+ * Read is constant.
+ * Delete (anywhere) is constant.
  */
 template <class ValueType>
 class vectorized_queue {
@@ -46,7 +44,6 @@ class vectorized_queue {
   };
 
   std::vector<cell> data_;
-  //std::vector<int64_t> free_cells_;
   std::size_t first_free_cell_{empty};
   std::size_t head_{empty};
   std::size_t tail_{empty};
@@ -58,6 +55,7 @@ class vectorized_queue {
 #endif
 
  public:
+  using value_type = ValueType;
   vectorized_queue() = default;
   vectorized_queue(vectorized_queue const&) = default;
   vectorized_queue(vectorized_queue&&) = default;

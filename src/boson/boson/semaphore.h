@@ -3,9 +3,11 @@
 
 #include <memory>
 #include <chrono>
+#include <mutex>
 #include "internal/routine.h"
 #include "internal/thread.h"
 #include "queues/lcrq.h"
+#include "queues/vectorized_queue.h"
 
 namespace boson {
 
@@ -44,8 +46,10 @@ class semaphore : public std::enable_shared_from_this<semaphore> {
   static constexpr int disabling_threshold = 0x40000000;
   static constexpr int disabled_standpoint = 0x60000000;
 
-  using queue_t = queues::lcrq;
+  using waiting_unit_t = std::pair<internal::thread*,std::size_t>;
+  using queue_t = queues::vectorized_queue<waiting_unit_t>;
   queue_t waiters_;
+  std::mutex waiters_lock_;
   std::atomic<int> counter_;
 
   /**
@@ -58,6 +62,9 @@ class semaphore : public std::enable_shared_from_this<semaphore> {
    * none could be poped
    */
   bool pop_a_waiter(internal::thread* current = nullptr);
+  size_t write(internal::thread* target, std::size_t index);
+  bool read(waiting_unit_t& waiter); 
+  void free(size_t index);
 
  public:
   semaphore(int capacity);

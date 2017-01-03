@@ -72,6 +72,7 @@ struct routine_timer_event_data {
 
 struct routine_sema_event_data {
   semaphore* sema;
+  size_t index;
 };
 
 struct routine_io_event {
