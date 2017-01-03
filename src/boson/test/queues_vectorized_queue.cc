@@ -1,3 +1,4 @@
+#include <iostream>
 #include <algorithm>
 #include <random>
 #include <vector>
@@ -5,7 +6,7 @@
 #include "boson/queues/vectorized_queue.h"
 #include "catch.hpp"
 
-TEST_CASE("Sparse vector - Allocation algorithm", "[queues][vectorized_queue]") {
+TEST_CASE("Vectorized queue - Allocation algorithm", "[queues][vectorized_queue]") {
   constexpr size_t const nb_elements = 1e2;
   std::random_device seed;
   std::mt19937_64 generator{seed()};
