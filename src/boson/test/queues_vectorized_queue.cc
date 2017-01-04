@@ -6,6 +6,29 @@
 #include "boson/queues/vectorized_queue.h"
 #include "catch.hpp"
 
+TEST_CASE("Vectorized queue - Simple behavior", "[queues][vectorized_queue]") {
+  // Instantiate a sparse vector
+  boson::queues::vectorized_queue<bool> queue;
+  queue.write(true);
+
+  // Push then empty
+  bool value = false;
+  CHECK(queue.read(value));
+  CHECK(value);
+  value = false;
+  CHECK(!queue.read(value));
+  CHECK(!queue.read(value));
+
+  // Redo
+  value = false;
+  queue.write(true);
+  CHECK(queue.read(value));
+  CHECK(value);
+  value = false;
+  CHECK(!queue.read(value));
+  CHECK(!queue.read(value));
+}
+
 TEST_CASE("Vectorized queue - Allocation algorithm", "[queues][vectorized_queue]") {
   constexpr size_t const nb_elements = 1e2;
   std::random_device seed;

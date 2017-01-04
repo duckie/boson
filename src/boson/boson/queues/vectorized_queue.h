@@ -96,7 +96,7 @@ class vectorized_queue {
   std::size_t write(ValueType value) {
     std::size_t index = first_free_cell_;
     if (first_free_cell_ == empty) {
-      data_.emplace_back(cell{{}, empty, empty});
+      data_.emplace_back(cell{{}, data_.size(), empty});
       index = data_.size() - 1;
     }
     auto& node = data_[index];
@@ -124,6 +124,8 @@ class vectorized_queue {
         assert(has(head_));
         data_[head_].previous = empty;
       }
+      if (index == tail_)
+        tail_ = empty;
     }
     else if (index == tail_) {
       tail_ = node.previous;
