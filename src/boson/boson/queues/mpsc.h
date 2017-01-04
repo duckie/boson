@@ -31,6 +31,9 @@
 
 #include <atomic>
 #include <cstring>
+#include <type_traits>
+#include <utility>
+
 
 namespace boson {
 namespace queues {
@@ -87,9 +90,6 @@ class mpsc {
 
   std::atomic<buffer_node_t*> _head;
   std::atomic<buffer_node_t*> _tail;
-
-  // mpsc_queue_t(const mpsc_queue_t&) = delete;
-  // void operator=(const mpsc_queue_t&) = delete;
 };
 }
 }

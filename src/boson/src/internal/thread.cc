@@ -1,7 +1,6 @@
 #include "internal/thread.h"
 #include <cassert>
 #include <chrono>
-#include <iostream>
 #include "engine.h"
 #include "exception.h"
 #include "internal/routine.h"
@@ -147,6 +146,10 @@ void thread::register_write(int fd, routine_slot slot) {
   ++nb_suspended_routines_;
 }
 
+void thread::unregister_expired_slot(std::size_t slot_index) {
+  suspended_slots_.free(slot_index);
+}
+
 thread::thread(engine& parent_engine)
     : engine_proxy_(parent_engine),
       loop_(*this,static_cast<int>(parent_engine.max_nb_cores() + 1)),
@@ -213,7 +216,7 @@ bool thread::execute_scheduled_routines() {
       // Try to get a semaphore ticket, if relevant
       if (routine->status() == routine_status::sema_event_candidate) {
         run_routine = routine->event_happened(slot.event_index);
-        // If success, get back the unique ownserhip of the routine
+        // If success, get back the unique ownership of the routine
         if (run_routine) {
           slot.ptr = routine_local_ptr_t(routine_ptr_t(routine));
         }

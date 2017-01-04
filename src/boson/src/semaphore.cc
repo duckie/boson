@@ -44,9 +44,9 @@ bool semaphore::read(waiting_unit_t& waiter) {
   return waiters_.read(waiter);
 }
 
-void semaphore::free(size_t index) {
+bool semaphore::free(size_t index) {
   std::lock_guard<std::mutex> guard(waiters_lock_);
-  waiters_.free(index);
+  return waiters_.lazy_free(index);
 }
 
 void semaphore::disable() {

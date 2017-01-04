@@ -114,6 +114,8 @@ class vectorized_queue {
 
   /**
    * free frees a cell in constant time
+   *
+   * Behavior is undefined if the cell is not occupied
    */
   void free(std::size_t index) {
     assert(has(index));
@@ -145,6 +147,17 @@ class vectorized_queue {
     node.next = first_free_cell_;
     first_free_cell_ = index;
   }
+  
+  /**
+   * Same a free but does nothing if the celle does not exist
+   */
+  inline bool lazy_free(std::size_t index) {
+    if (index < data_.size() && data_[index].previous != index) {
+      free(index);
+      return true;
+    }
+    return false;
+  }
 
   /**
    * Reads the queue in constant time
@@ -154,7 +167,7 @@ class vectorized_queue {
       return false;
     assert(has(head_));
     auto& node = data_[head_];
-    value = std::move(*reinterpret_cast<ValueType const*>(&node.value));
+    value = std::move(*reinterpret_cast<ValueType*>(&node.value));
     free(head_);
     return true;
   }

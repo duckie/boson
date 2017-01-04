@@ -64,7 +64,7 @@ class semaphore : public std::enable_shared_from_this<semaphore> {
   bool pop_a_waiter(internal::thread* current = nullptr);
   size_t write(internal::thread* target, std::size_t index);
   bool read(waiting_unit_t& waiter); 
-  void free(size_t index);
+  bool free(size_t index);
 
  public:
   semaphore(int capacity);

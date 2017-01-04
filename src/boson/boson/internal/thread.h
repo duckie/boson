@@ -14,7 +14,9 @@
 #include "boson/memory/local_ptr.h"
 #include "boson/memory/sparse_vector.h"
 #include "boson/queues/mpsc.h"
+#include "boson/queues/simple.h"
 #include "boson/queues/lcrq.h"
+#include "boson/queues/vectorized_queue.h"
 #include "routine.h"
 #include "../external/json_backbone.hpp"
 
@@ -108,8 +110,9 @@ class thread : public event_handler {
   friend class routine;
 
   friend class boson::semaphore;
-  //using engine_queue_t = queues::lcrq;
   using engine_queue_t = queues::mpsc<std::unique_ptr<thread_command>>;
+  //using engine_queue_t = queues::simple_queue<std::unique_ptr<thread_command>>;
+  //using engine_queue_t = queues::vectorized_queue<std::unique_ptr<thread_command>>; // NOT THREAD SAFE !!
 
   engine_proxy engine_proxy_;
   std::deque<routine_slot> scheduled_routines_;
@@ -180,11 +183,26 @@ class thread : public event_handler {
   // Returns the slot index used to push in the semaphore waiters queue
   std::size_t register_semaphore_wait(routine_slot slot);
 
-  // Registers a fd for reading. Returns the event_index of the event_loop
+  // Registers a fd for reading. 
+  //
+  // Does not return the slot because it manages them itself. This is possible because these
+  // events are not produced/consumed by other threads
+  //
   void register_read(int fd, routine_slot slot);
 
+  // Registers a fd for writing
+  //
+  // Does not return the slot because it manages them itself. This is possible because these
+  // events are not produced/consumed by other threads
+  //
   void register_write(int fd, routine_slot slot);
-  
+
+  /**
+   * Unregisters the given slot
+   *
+   * This is used when cancelling semaphore events directly into their queue
+   */
+  void unregister_expired_slot(std::size_t slot_index);
 
   /**
    * Sets a routine for execution at the next round
