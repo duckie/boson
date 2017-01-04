@@ -3,16 +3,16 @@
 #pragma once
 
 #include <chrono>
-#include <json_backbone.hpp>
 #include <memory>
+#include <vector>
 #include "boson/std/experimental/apply.h"
 #include "boson/syscalls.h"
 #include "boson/utility.h"
 #include "boson/memory/local_ptr.h"
 #include "fcontext.h"
 #include "stack.h"
-#include <vector>
 #include "../event_loop.h"
+#include "../external/json_backbone.hpp"
 
 namespace boson {
 
@@ -72,6 +72,8 @@ struct routine_timer_event_data {
 
 struct routine_sema_event_data {
   semaphore* sema;
+  size_t index;
+  size_t slot_index;
 };
 
 struct routine_io_event {
@@ -249,7 +251,17 @@ class routine {
    */
   void resume(thread* managing_thread);
 
+  /**
+   * Returns the index in the list of events
+   * which triggered the context switch
+   */
   inline size_t happened_index() const;
+
+  /**
+   * Returns the type of events that triggered
+   * the context switch. This is used for error management
+   */
+  inline event_type happened_type() const;
 };
 
 // Inline implementations
@@ -268,6 +280,11 @@ routine_status routine::status() const {
 size_t routine::happened_index() const {
     return happened_index_;
 }
+
+event_type routine::happened_type() const {
+    return happened_type_;
+}
+
 
 }  // namespace internal
 }  // namespace boson

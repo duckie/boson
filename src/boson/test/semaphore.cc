@@ -28,7 +28,7 @@ TEST_CASE("Semaphore - Disabling", "[semaphore]") {
 
       start([](auto sema) -> void {
         bool result = sema.wait();
-        CHECK(result == true);
+        CHECK((result == true));
         boson::sleep(time_factor()*10ms);
         sema.post();
         boson::sleep(time_factor()*10ms);

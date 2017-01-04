@@ -177,11 +177,11 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
             int chandata;
             result = boson::select_any(                //
                 event_read(t1, chandata, //
-                           []() {
+                           [](bool) {
                              return 1;  //
                            }),
                 event_read(t2, chandata,  //
-                           []() {
+                           [](bool) {
                              return 2;  //
                            }),
                 event_timer(0, //
@@ -193,11 +193,11 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
 
             result = boson::select_any(                //
                 event_read(t1, chandata, //
-                           []() {
+                           [](bool) {
                              return 1;  //
                            }),
                 event_read(t2, chandata,  //
-                           []() {
+                           [](bool) {
                              return 2;  //
                            }));
             CHECK(result == 2);
@@ -225,22 +225,22 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
 
             result = boson::select_any(                //
                 event_write(t1, 2, //
-                           []() {
+                           [](bool) {
                              return 1;  //
                            }),
                 event_write(t2, 3,  //
-                           []() {
+                           [](bool) {
                              return 2;  //
                            }));
             CHECK(result == 1);
 
             result = boson::select_any(                //
                 event_write(t1, 2, //
-                           []() {
+                           [](bool) {
                              return 1;  //
                            }),
                 event_write(t2, 3,  //
-                           []() {
+                           [](bool) {
                              return 2;  //
                            }));
             CHECK(result == 2);
@@ -270,7 +270,7 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
                              return 1;  //
                            }),
                 event_read(in2, chandata,  //
-                           []() {
+                           [](bool) {
                              return 2;  //
                            }));
             CHECK(result == 2);
@@ -280,7 +280,7 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
                              return 1;  //
                            }),
                 event_read(in2, chandata,  //
-                           []() {
+                           [](bool) {
                              return 2;  //
                            }));
             CHECK(result == 2);
@@ -291,7 +291,7 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
                              return 1;  //
                            }),
                 event_read(in2, chandata,  //
-                           []() {
+                           [](bool) {
                              return 2;  //
                            }));
             CHECK(result == 1);
@@ -311,5 +311,56 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
 
     ::close(pipe_fds1[0]);
     ::close(pipe_fds1[1]);
+  }
+
+  SECTION("Closing channels") {
+    boson::run(1, [&]() {
+      boson::channel<std::nullptr_t, 1> chan1;
+      boson::channel<std::nullptr_t, 1> chan2;
+
+      start(
+          [](auto c1, auto c2) -> void {
+            std::nullptr_t value{};
+            // c2.read(value);
+            int result = boson::select_any(  //
+                event_read(c1, value,        //
+                           [](bool success) { return success ? 1 : 2; }),
+                event_read(c2, value,  //
+                           [](bool success) { return success ? 3 : 4; }));
+            CHECK(result == 4);
+
+            // Re test, a closed channel should always drop an event immediately
+            result = boson::select_any(  //
+                event_read(c1, value,    //
+                           [](bool success) { return success ? 1 : 2; }),
+                event_read(c2, value,  //
+                           [](bool success) { return success ? 3 : 4; }));
+            CHECK(result == 4);
+
+            // Test with write close
+            c1 << nullptr;
+            result = boson::select_any(   //
+                event_write(c1, nullptr,  //
+                            [](bool success) { return success ? 1 : 2; }));
+            CHECK(result == 2);
+          },
+          chan1, chan2);
+
+      start(
+          [](auto c1, auto c2) -> void {
+            c2.close();
+          },
+          chan1, chan2);
+
+      start(
+          [](auto c1, auto c2) -> void {
+            std::nullptr_t value;
+            // Wait ticket
+            c1 >> value;
+            // Close chanel
+            c1.close();
+          },
+          chan1, chan2);
+    });
   }
 }

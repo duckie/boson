@@ -6,7 +6,7 @@
 #include <thread>
 #include <vector>
 #include <mutex>
-#include "boson/queues/lcrq.h"
+#include "boson/queues/mpsc.h"
 #include "catch.hpp"
 
 namespace {
@@ -15,21 +15,20 @@ static constexpr size_t nb_iter = 1e5 + 153;
 
 using namespace std;
 
-TEST_CASE("Queues - WfQueue - simple case", "[queues][lcrq]") {
-   boson::queues::lcrq queue(2);
+TEST_CASE("Queues - MPSC - simple case", "[queues][mpsc]") {
+   boson::queues::mpsc<int> queue;
    int i = 0;
-   void* none = queue.read(0);
-   CHECK(none == nullptr);
-   queue.write(0,&i);
-   void* val = queue.read(0);
-   CHECK(val == &i);
-   none = queue.read(0);
-   CHECK(none == nullptr);
-   queue.write(0,nullptr);
-   none = queue.read(0);
-   CHECK(none == nullptr);
+   bool result = queue.read(i);
+   CHECK(!result);
+   queue.write(1);
+   result = queue.read(i);
+   CHECK(result);
+   CHECK(i == 1);
+   result = queue.read(i);
+   CHECK(!result);
+   CHECK(i == 1);
 }
-
+/*
 TEST_CASE("Queues - WfQueue - sums", "[queues][lcrq]") {
   constexpr size_t const nb_prod = 16;
   constexpr size_t const nb_cons = 16;
@@ -104,3 +103,4 @@ TEST_CASE("Queues - WfQueue - sums", "[queues][lcrq]") {
     main_threads[j].join();
   }
 }
+*/

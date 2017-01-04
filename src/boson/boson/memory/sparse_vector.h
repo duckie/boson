@@ -31,7 +31,7 @@ class sparse_vector {
 
 #ifndef NDEBUG
   inline bool has(std::size_t index) {
-    return (index < data_.size() && last_free_cell_ != index && free_cells_[index] == -1);
+    return (index < data_.size() && last_free_cell_ != static_cast<int>(index) && free_cells_[index] == -1);
   }
 #endif
 
@@ -81,7 +81,7 @@ class sparse_vector {
       free_cells_.emplace_back(-1);
       return data_.size() - 1;
     } else {
-      std::size_t cell_index = first_free_cell_;
+      int cell_index = first_free_cell_;
 #ifndef NDEBUG
       if (cell_index == last_free_cell_)
         last_free_cell_ = -1;

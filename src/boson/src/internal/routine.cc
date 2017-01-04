@@ -29,17 +29,18 @@ routine::~routine() {
 
 void routine::start_event_round() {
   // Clean previous events
-  previous_events_.clear();
-  std::swap(previous_events_, events_);
+  //previous_events_.clear();
+  //std::swap(previous_events_, events_);
+  events_.clear();
   // Create new event pointer
   current_ptr_ = routine_local_ptr_t(std::unique_ptr<routine>(this));
 }
 
 void routine::add_semaphore_wait(semaphore* sema) {
-  events_.emplace_back(waited_event{event_type::sema_wait, routine_sema_event_data{sema}});
-  auto& event = events_.back();
+  events_.emplace_back(waited_event{event_type::sema_wait, routine_sema_event_data{sema,0,0}});
   auto slot_index = thread_->register_semaphore_wait(routine_slot{current_ptr_,events_.size()-1});
-  sema->waiters_.write(thread_->id(), new std::pair<thread*, std::size_t>{thread_, slot_index});
+  events_.back().data.get<routine_sema_event_data>().index = sema->write(thread_, slot_index);
+  events_.back().data.get<routine_sema_event_data>().slot_index = slot_index;
   int result = sema->counter_.fetch_add(1,std::memory_order_release);
   if (0 <= result) {
     sema->pop_a_waiter(thread_);
@@ -55,13 +56,11 @@ void routine::add_timer(routine_time_point date) {
 
 void routine::add_read(int fd) {
   events_.emplace_back(waited_event{event_type::io_read, fd});
-  auto& event = events_.back();
   thread_->register_read(fd, routine_slot{current_ptr_, events_.size() -1});
 }
 
 void routine::add_write(int fd) {
   events_.emplace_back(waited_event{event_type::io_write, fd});
-  auto& event = events_.back();
   thread_->register_write(fd, routine_slot{current_ptr_, events_.size() -1});
 }
 
@@ -87,9 +86,15 @@ void routine::cancel_event_round() {
       case event_type::io_write:
         --thread_->nb_suspended_routines_;
         break;
-      case event_type::sema_wait:
+      case event_type::sema_wait: {
         --thread_->nb_suspended_routines_;
-        break;
+        // Remove it from the queue in which it is stored
+        auto sema = other.data.get<routine_sema_event_data>().sema;
+        if (sema->free(other.data.get<routine_sema_event_data>().index)) {
+          // If was in the queue, then free the thread slot
+          thread_->unregister_expired_slot(other.data.get<routine_sema_event_data>().slot_index);
+        }
+      } break;
       case event_type::sema_closed:
       case event_type::io_read_panic:
       case event_type::io_write_panic:
@@ -100,7 +105,7 @@ void routine::cancel_event_round() {
   current_ptr_->release();
   current_ptr_.invalidate_all();
   events_.clear();
-  std::swap(previous_events_, events_);
+  //std::swap(previous_events_, events_);
 }
 
 void routine::set_as_semaphore_event_candidate(std::size_t index) {
@@ -136,10 +141,10 @@ bool routine::event_happened(std::size_t index, event_status status) {
         // Failed candidacy
         // Do not invalidate pointers of other events
         // Do not change the routine status
+        // Do not invalidate event slot in the thread
         auto slot_index =
             thread_->register_semaphore_wait(routine_slot{current_ptr_, index});
-        sema->waiters_.write(thread_->id(),
-                             new std::pair<thread*, std::size_t>{thread_, slot_index});
+        event.data.get<routine_sema_event_data>().index = sema->write(thread_, slot_index);
         result = sema->counter_.fetch_add(1, std::memory_order_release);
         if (0 <= result) {
           sema->pop_a_waiter(thread_);
@@ -174,9 +179,15 @@ bool routine::event_happened(std::size_t index, event_status status) {
         case event_type::io_write:
           --thread_->nb_suspended_routines_;
           break;
-        case event_type::sema_wait:
+        case event_type::sema_wait: {
           --thread_->nb_suspended_routines_;
-          break;
+          // Remove it from the queue in which it is stored
+          auto sema = other.data.get<routine_sema_event_data>().sema;
+          if (sema->free(other.data.get<routine_sema_event_data>().index)) {
+            // If was in the queue, then free the thread slot
+            thread_->unregister_expired_slot(other.data.get<routine_sema_event_data>().slot_index);
+          }
+        } break;
         case event_type::sema_closed:
         case event_type::io_read_panic:
         case event_type::io_write_panic:

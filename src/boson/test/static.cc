@@ -1,6 +1,8 @@
 #include "catch.hpp"
 #include "boson/utility.h"
 #include <utility>
+#pragma GCC diagnostic ignored "-Wunused-function"
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 
 using namespace boson;
 using namespace std;

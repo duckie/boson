@@ -1,7 +1,3 @@
-# C++ Project template
-#
-# Proudly bootstrapped by git@github.com:duckie/cpp_project_template.git
-#
 
 # Version guard
 cmake_minimum_required (VERSION 3.2)
@@ -55,7 +51,7 @@ include_directories(${MANUAL_INCLUDE_DIRS})
 
 project_add_3rdparty(catch)
 project_add_3rdparty(wfqueue)
-project_add_3rdparty(json_backbone)
+project_add_3rdparty(queues)
 project_add_3rdparty(fmt)
 
 # By default we put binaries into this directory

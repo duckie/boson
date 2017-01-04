@@ -8,21 +8,31 @@
 
 using namespace boson;
 
-template <class A, class B>
-void listen_client(int fd, A msg_chan, B close_chan) {
-  std::array<char, 2048> buffer;
-  ssize_t nread = 0;
-  while (0 < (nread = boson::recv(fd, buffer.data(), buffer.size(), 0))) {
-    std::string data(buffer.data(), nread-2);
-    if (data.substr(0, 4) == "quit") {
-      break;
-    } else {
-      msg_chan << fmt::format("Client {} says: {}\n", fd, data);
+struct listen_client {
+  template <class A, class B, class C>
+  void operator()(int fd, A msg_chan, B close_chan, C pilot) {
+    std::array<char, 2048> buffer;
+    ssize_t nread = 0;
+    std::nullptr_t close_flag;
+
+    while (0 < (nread = select_any(                                  //
+                    event_recv(fd, buffer.data(), buffer.size(), 0,  //
+                               [](int nread) { return nread; }),
+                    event_read(pilot, close_flag,  //
+                               [](bool success) {
+                                 assert(!success);  // Channel should only be closed here
+                                 return -1;
+                               })))) {
+      std::string data(buffer.data(), nread - 2);
+      if (data.substr(0, 4) == "quit") {
+        break;
+      } else {
+        msg_chan << fmt::format("Client {} says: {}\n", fd, data);
+      }
     }
-  }
-  if (nread != boson::code_panic)
     close_chan << fd;
-}
+  }
+};
 
 void broadcast_message(std::set<int> const& connections, std::string const& data) {
   std::shared_ptr<std::string> shared_data { new std::string(data) };
@@ -35,7 +45,8 @@ int main(int argc, char *argv[]) {
   boson::run(1, []() {
     channel<int, 1> new_connection;
     channel<std::string, 1> messages;
-    channel<int, 1> close_connection;;
+    channel<int, 1> close_connection;
+    channel<std::nullptr_t, 1> pilot;  // Used to broadcast end of service
 
     // Create socket and list to connections
     int sockfd = net::create_listening_socket(8080);
@@ -55,8 +66,7 @@ int main(int argc, char *argv[]) {
                          if (0 <= conn) {
                            std::cout << "Opening connection on " << conn << std::endl;
                            conns.insert(conn);
-                           start(listen_client<decltype(messages), decltype(close_connection)>,
-                                 conn, messages, close_connection);
+                           start(listen_client{}, conn, messages, close_connection, pilot);
                            broadcast_message(conns, fmt::format("Client {} joined.\n", conn));
                          } else if (errno != EAGAIN) {
                            exit = true;
@@ -71,19 +81,20 @@ int main(int argc, char *argv[]) {
                            boson::send(dest, message.c_str(), message.size(), 0);
                            ::shutdown(dest, SHUT_WR);
                            ::close(dest);
-                           boson::fd_panic(dest);
                          }
+                         close_connection.close();  // If client routine trie to use it
+                         pilot.close();  // Tells routines to exit
                          exit = true;
                        } else {
                          std::cout << fmt::format("Unknown command \"{}\".\n\n", data);
                        }
                      }),
           event_read(messages, message,
-                     [&]() {  //
+                     [&](bool) {  //
                        broadcast_message(conns, message);
                      }),
           event_read(close_connection, conn,
-                     [&]() {  //
+                     [&](bool) {  //
                        std::cout << "Closing connection on " << conn << std::endl;
                        conns.erase(conn);
                        ::shutdown(conn, SHUT_WR);

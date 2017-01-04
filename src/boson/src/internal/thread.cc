@@ -1,16 +1,10 @@
 #include "internal/thread.h"
 #include <cassert>
 #include <chrono>
-#include <iostream>
 #include "engine.h"
 #include "exception.h"
 #include "internal/routine.h"
-#include "logger.h"
 #include "semaphore.h"
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wundefined-var-template"
-#include "fmt/format.h"
-#pragma GCC diagnostic pop
 
 namespace boson {
 namespace internal {
@@ -64,8 +58,10 @@ void engine_proxy::set_id() {
 }
 
 void thread::handle_engine_event() {
-  thread_command* received_command = nullptr;
-  while ((received_command = static_cast<thread_command*>(engine_queue_.read(id())))) {
+  //thread_command* received_command = nullptr;
+  //while ((received_command = static_cast<thread_command*>(engine_queue_.read(id())))) {
+  std::unique_ptr<thread_command> received_command;
+  while (engine_queue_.read(received_command)) {
     nb_pending_commands_.fetch_sub(1);
     switch (received_command->type) {
       case thread_command_type::add_routine:
@@ -94,7 +90,8 @@ void thread::handle_engine_event() {
         loop_.send_fd_panic(id(),fd);
         break;
     }
-    delete received_command;
+    //delete received_command;
+    //received_command.reset(nullptr);
   }
 }
 
@@ -149,10 +146,15 @@ void thread::register_write(int fd, routine_slot slot) {
   ++nb_suspended_routines_;
 }
 
+void thread::unregister_expired_slot(std::size_t slot_index) {
+  suspended_slots_.free(slot_index);
+}
+
 thread::thread(engine& parent_engine)
     : engine_proxy_(parent_engine),
       loop_(*this,static_cast<int>(parent_engine.max_nb_cores() + 1)),
-      engine_queue_{static_cast<int>(parent_engine.max_nb_cores() + 1)} {
+      //engine_queue_{static_cast<int>(parent_engine.max_nb_cores() + 1)} {
+      engine_queue_{} {
   engine_event_id_ = loop_.register_event(&engine_event_id_);
   engine_proxy_.set_id();  // Tells the engine which thread id we got
 }
@@ -196,7 +198,8 @@ void thread::write(int fd, void* data, event_status status) {
 // called by engine
 void thread::push_command(thread_id from, std::unique_ptr<thread_command> command) {
   nb_pending_commands_.fetch_add(1);
-  engine_queue_.write(from, command.release());
+  //engine_queue_.write(from, command.release());
+  engine_queue_.write(std::move(command));
   loop_.send_event(engine_event_id_);
 };
 
@@ -213,7 +216,7 @@ bool thread::execute_scheduled_routines() {
       // Try to get a semaphore ticket, if relevant
       if (routine->status() == routine_status::sema_event_candidate) {
         run_routine = routine->event_happened(slot.event_index);
-        // If success, get back the unique ownserhip of the routine
+        // If success, get back the unique ownership of the routine
         if (run_routine) {
           slot.ptr = routine_local_ptr_t(routine_ptr_t(routine));
         }

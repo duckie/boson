@@ -7,56 +7,65 @@ using namespace std::chrono;
 namespace boson {
 
 semaphore::semaphore(int capacity)
-    : waiters_{static_cast<int>(internal::current_thread()->get_engine().max_nb_cores()+1)},
-      counter_{capacity} {
+    : counter_{capacity} {
 }
 
 semaphore::~semaphore() {
   // Clean up stale events
-  std::pair<internal::thread*,std::size_t>* waiter = nullptr;
-  auto current_thread_id = internal::current_thread()->id();
-  while((waiter = static_cast<decltype(waiter)>(waiters_.read(current_thread_id))))
-    delete waiter;
+  std::pair<internal::thread*,std::size_t> waiter;
+  //auto current_thread_id = internal::current_thread()->id();
+  while(waiters_.read(waiter));
 }
 
 bool semaphore::pop_a_waiter(internal::thread* current) {
   using namespace internal;
-  routine* current_routine = nullptr;
   int result = 1;
   if(0 < result) {
-    auto waiter = static_cast<std::pair<internal::thread*,std::size_t>*>(waiters_.read(current->id()));
-    if (waiter) {
-      thread* managing_thread = waiter->first;
+    waiting_unit_t waiter;
+    if (read(waiter)) {
+      thread* managing_thread = waiter.first;
       managing_thread->push_command(
           current->id(), std::make_unique<thread_command>(
                              thread_command_type::schedule_waiting_routine,
-                             std::make_pair(this->shared_from_this(),waiter->second)));
-      delete waiter;
+                             std::make_pair(this->shared_from_this(),waiter.second)));
       return true;
     }
   }
   return true;
 }
 
+size_t semaphore::write(internal::thread* target, std::size_t index) {
+  std::lock_guard<std::mutex> guard(waiters_lock_);
+  return waiters_.write(waiting_unit_t{target, index});
+}
+
+bool semaphore::read(waiting_unit_t& waiter) {
+  std::lock_guard<std::mutex> guard(waiters_lock_);
+  return waiters_.read(waiter);
+}
+
+bool semaphore::free(size_t index) {
+  std::lock_guard<std::mutex> guard(waiters_lock_);
+  return waiters_.lazy_free(index);
+}
+
 void semaphore::disable() {
   using namespace internal;
   counter_.store(disabled_standpoint, std::memory_order_release);
-  std::pair<thread*, std::size_t>* waiter = nullptr;
+  waiting_unit_t waiter;
   auto current_thread_id = current_thread()->id();
-  while ((waiter = static_cast<decltype(waiter)>(waiters_.read(current_thread_id)))) {
-    thread* managing_thread = waiter->first;
+  while (read(waiter)) {
+    thread* managing_thread = waiter.first;
     managing_thread->push_command(
         current_thread_id,
         std::make_unique<thread_command>(thread_command_type::schedule_waiting_routine,
-                                         std::make_pair(this->shared_from_this(), waiter->second)));
-    delete waiter;
+                                         std::make_pair(this->shared_from_this(), waiter.second)));
   }
 }
 
 semaphore_result semaphore::wait(int timeout) {
   using namespace internal;
   int result = counter_.fetch_sub(1,std::memory_order_acquire);
-  routine* current_routine = nullptr;
   event_type happened_type = event_type::sema_wait;
   if (disabling_threshold < result) {
     counter_.fetch_add(1,std::memory_order_relaxed);
