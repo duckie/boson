@@ -123,6 +123,7 @@ class channel_impl<std::nullptr_t,Size> {
 
   inline void close() {
     writer_slots_.disable();
+    readers_slots_.disable();
   }
 
   void consume_write(thread_id tid, ContentType value) {

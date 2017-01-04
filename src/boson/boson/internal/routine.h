@@ -251,7 +251,17 @@ class routine {
    */
   void resume(thread* managing_thread);
 
+  /**
+   * Returns the index in the list of events
+   * which triggered the context switch
+   */
   inline size_t happened_index() const;
+
+  /**
+   * Returns the type of events that triggered
+   * the context switch. This is used for error management
+   */
+  inline event_type happened_type() const;
 };
 
 // Inline implementations
@@ -270,6 +280,11 @@ routine_status routine::status() const {
 size_t routine::happened_index() const {
     return happened_index_;
 }
+
+event_type routine::happened_type() const {
+    return happened_type_;
+}
+
 
 }  // namespace internal
 }  // namespace boson

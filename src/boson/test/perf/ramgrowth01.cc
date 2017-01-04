@@ -40,8 +40,8 @@ int main(void) {
         [](auto c1, auto c2) -> void {
           int result = 0;
           for (;;) {
-            select_any(event_read(c1, result, []() { f2(); }),
-                       event_read(c2, result, []() { f1(); }));
+            select_any(event_read(c1, result, [](bool) { f2(); }),
+                       event_read(c2, result, [](bool) { f1(); }));
             if (result == 0) break;
           }
         },

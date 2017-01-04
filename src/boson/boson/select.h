@@ -14,7 +14,7 @@ class event_timer_storage {
   using func_type = Func;
   using return_type = decltype(std::declval<Func>()());
 
-  static return_type execute(event_timer_storage * self) {
+  static return_type execute(event_timer_storage * self, internal::event_type) {
     return self->func_();
   }
 
@@ -72,7 +72,7 @@ class event_io_read_storage : public event_io_base_storage<Func> {
  public:
   using event_io_base_storage<Func>::event_io_base_storage;
 
-  static typename event_io_base_storage<Func>::return_type execute(event_io_read_storage* self) {
+  static typename event_io_base_storage<Func>::return_type execute(event_io_read_storage* self, internal::event_type) {
     return self->func_(::read(self->fd_, self->buf_, self->count_));
   }
 
@@ -93,7 +93,7 @@ class event_recv_storage : public event_io_base_storage<Func> {
   int flags_;
 
  public:
-  static typename event_io_base_storage<Func>::return_type execute(event_recv_storage * self) {
+  static typename event_io_base_storage<Func>::return_type execute(event_recv_storage * self, internal::event_type) {
     return self->func_(::recv(self->fd_, self->buf_, self->count_, self->flags_));
   }
 
@@ -128,7 +128,7 @@ class event_accept_storage {
   using func_type = Func;
   using return_type = decltype(std::declval<Func>()(std::declval<ssize_t>()));
 
-  static typename event_io_base_storage<Func>::return_type execute(event_accept_storage * self) {
+  static typename event_io_base_storage<Func>::return_type execute(event_accept_storage * self, internal::event_type) {
     return self->func_(::accept(self->socket_, self->address_, self->address_len_));
   }
 
@@ -157,7 +157,7 @@ class event_io_write_storage : public event_io_base_storage<Func> {
  public:
   using event_io_base_storage<Func>::event_io_base_storage;
 
-  static typename event_io_base_storage<Func>::return_type execute(event_io_write_storage* self) {
+  static typename event_io_base_storage<Func>::return_type execute(event_io_write_storage* self, internal::event_type) {
     return self->func_(::write(self->fd_, self->buf_, self->count_));
   }
 
@@ -178,7 +178,7 @@ class event_send_storage : public event_io_base_storage<Func> {
   int flags_; 
 
  public:
-  static typename event_io_base_storage<Func>::return_type execute(event_send_storage* self) {
+  static typename event_io_base_storage<Func>::return_type execute(event_send_storage* self, internal::event_type) {
     return self->func_(::send(self->socket_, self->buf_, self->count_, self->flags_));
   }
 
@@ -211,11 +211,11 @@ class event_channel_read_storage {
  public:
     using channel_type = channel<ContentType,Size>;
     using func_type = Func;
-    using return_type = decltype(std::declval<Func>()());
+    using return_type = decltype(std::declval<Func>()(bool{}));
 
-    static return_type execute(event_channel_read_storage* self) {
+    static return_type execute(event_channel_read_storage* self, internal::event_type type) {
         self->channel_.consume_read(self->value_);
-        return self->func_();
+        return self->func_(type == internal::event_type::sema_wait);
     }
 
     event_channel_read_storage(channel_type& channel, ContentType& value, Func&& cb)
@@ -252,11 +252,11 @@ class event_channel_write_storage {
  public:
     using channel_type = channel<ContentType,Size>;
     using func_type = Func;
-    using return_type = decltype(std::declval<Func>()());
+    using return_type = decltype(std::declval<Func>()(bool{}));
 
-    static return_type execute(event_channel_write_storage* self) {
+    static return_type execute(event_channel_write_storage* self, internal::event_type type) {
         self->channel_.consume_write(std::move(self->value_));
-        return self->func_();
+        return self->func_(type == internal::event_type::sema_wait);
     }
 
     event_channel_write_storage(channel_type& channel, ContentType value, Func&& cb)
@@ -286,8 +286,8 @@ event_write(channel<ContentType,Size>& chan, ContentType value, Func&& cb) {
 
 template <class Selector, class ReturnType> 
 auto make_selector_execute() -> decltype(auto) {
-  return [](void* data) -> ReturnType {
-    return Selector::execute(static_cast<Selector*>(data));
+  return [](void* data, internal::event_type type) -> ReturnType {
+    return Selector::execute(static_cast<Selector*>(data), type);
   };
 }
 
@@ -305,7 +305,7 @@ auto select_any(Selectors&& ... selectors)
   using return_type = std::common_type_t<typename Selectors::return_type...>;
   static std::array<bool(*)(void*, internal::routine*), sizeof...(Selectors)> subscribers{
       make_selector_subscribe<Selectors>()...};
-  static std::array<return_type (*)(void*), sizeof...(Selectors)> callers{
+  static std::array<return_type (*)(void*,internal::event_type), sizeof...(Selectors)> callers{
       make_selector_execute<Selectors, return_type>()...};
   std::array<void*, sizeof...(Selectors)> selector_ptrs{(&selectors)...};
 
@@ -327,7 +327,7 @@ auto select_any(Selectors&& ... selectors)
     current_routine->commit_event_round();
     index = current_routine->happened_index();
   }
-  return (*callers[index])(selector_ptrs[index]);
+  return (*callers[index])(selector_ptrs[index], current_routine->happened_type());
 }
 
 
