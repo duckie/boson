@@ -262,6 +262,11 @@ class routine {
    * the context switch. This is used for error management
    */
   inline event_type happened_type() const;
+
+  /**
+   * Get the offset in the stack of the given pointer
+   */
+  std::size_t get_stack_offset(void* pointer);
 };
 
 // Inline implementations

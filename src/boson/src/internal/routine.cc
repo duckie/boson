@@ -241,6 +241,10 @@ void routine::resume(thread* managing_thread) {
   }
 }
 
+std::size_t routine::get_stack_offset(void* pointer) {
+  return  reinterpret_cast<char*>(stack_.sp) - reinterpret_cast<char*>(pointer);
+}
+
 }  // namespace internal
 
 }  // namespace boson

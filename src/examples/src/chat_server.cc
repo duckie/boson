@@ -2,6 +2,7 @@
 #include <set>
 #include "boson/boson.h"
 #include "boson/channel.h"
+#include "boson/shared_buffer.h"
 #include "boson/net/socket.h"
 #include "fmt/format.h"
 #include "boson/select.h"
@@ -11,19 +12,17 @@ using namespace boson;
 struct listen_client {
   template <class A, class B, class C>
   void operator()(int fd, A msg_chan, B close_chan, C pilot) {
-    std::array<char, 2048> buffer;
+    boson::shared_buffer<std::array<char, 2048>> buffer;
     ssize_t nread = 0;
     std::nullptr_t close_flag;
 
-    while (0 < (nread = select_any(                                  //
-                    event_recv(fd, buffer.data(), buffer.size(), 0,  //
-                               [](int nread) { return nread; }),
-                    event_read(pilot, close_flag,  //
-                               [](bool success) {
-                                 assert(!success);  // Channel should only be closed here
-                                 return -1;
-                               })))) {
-      std::string data(buffer.data(), nread - 2);
+    while (0 < (nread = select_any(                                              //
+                    event_recv(fd, buffer.get().data(), buffer.get().size(), 0,  //
+                               [](int nread) { return nread; }),                 //
+                    event_read(pilot, close_flag,                                //
+                               [](bool) { return -1; })                          //
+                    ))) {
+      std::string data(buffer.get().data(), nread - 2);
       if (data.substr(0, 4) == "quit") {
         break;
       } else {

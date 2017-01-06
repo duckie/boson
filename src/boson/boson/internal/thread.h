@@ -165,6 +165,21 @@ class thread : public event_handler {
   memory::sparse_vector<routine_slot> suspended_slots_;
 
   /**
+   * Struct to store the shared buffer
+   *
+   * The shared buffer is a way of the user to use a thread local
+   * buffer for io without having to repeat the memory everywhere
+   */
+  struct shared_buffer_storage {
+    char* buffer;
+    shared_buffer_storage(size_t size);
+    ~shared_buffer_storage();
+  };
+
+  // Instance of the shared buffer
+  std::map<std::size_t, shared_buffer_storage> shared_buffers_;
+
+  /**
    * React to a request from the main scheduler
    */
   void handle_engine_event();
@@ -240,6 +255,9 @@ class thread : public event_handler {
    */
   void loop();
 
+  /**
+   * Starts a new routine
+   */
   template <class Function, class... Args>
   void start_routine(Function&& func, Args&&... args) {
     engine_proxy_.start_routine(std::make_unique<routine>(engine_proxy_.get_new_routine_id(),
@@ -247,6 +265,9 @@ class thread : public event_handler {
                                                           std::forward<Args>(args)...));
   }
 
+  /**
+   * Starts a new routine in a specific thread
+   */
   template <class Function, class... Args>
   void start_routine_explicit(thread_id id, Function&& func, Args&&... args) {
     engine_proxy_.start_routine(
@@ -254,7 +275,17 @@ class thread : public event_handler {
                                       std::forward<Function>(func), std::forward<Args>(args)...));
   }
 
+  /**
+   * Returns the currently running routine
+   */
   inline routine* running_routine();
+
+  /**
+   * Returns a memory buffer suitable for a shared_buffer
+   *
+   * See documentation of boson::shared_buffer
+   */
+  char* get_shared_buffer(std::size_t minimum_size);
 };
 
 /**

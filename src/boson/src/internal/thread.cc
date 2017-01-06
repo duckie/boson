@@ -152,9 +152,9 @@ void thread::unregister_expired_slot(std::size_t slot_index) {
 
 thread::thread(engine& parent_engine)
     : engine_proxy_(parent_engine),
-      loop_(*this,static_cast<int>(parent_engine.max_nb_cores() + 1)),
-      //engine_queue_{static_cast<int>(parent_engine.max_nb_cores() + 1)} {
-      engine_queue_{} {
+      loop_(*this, static_cast<int>(parent_engine.max_nb_cores() + 1)),
+      engine_queue_{}
+{
   engine_event_id_ = loop_.register_event(&engine_event_id_);
   engine_proxy_.set_id();  // Tells the engine which thread id we got
 }
@@ -356,13 +356,28 @@ void thread::loop() {
   }
 
   engine_proxy_.notify_end();
-  // Should not be useful, but a lil discipline does not hurt
-  // current_thread = nullptr;
 }
 
 thread*& current_thread() {
   thread_local thread* cur_thread = nullptr;
   return cur_thread;
+}
+
+thread::shared_buffer_storage::shared_buffer_storage(size_t init_size)
+    : buffer{reinterpret_cast<char*>(std::malloc(init_size))} {
+}
+
+thread::shared_buffer_storage::~shared_buffer_storage() {
+  std::free(buffer);
+}
+
+char* thread::get_shared_buffer(std::size_t minimum_size) {
+  auto buffer_it = shared_buffers_.find(minimum_size);
+  if (buffer_it == end(shared_buffers_)) {
+    std::tie(buffer_it, std::ignore) =
+        shared_buffers_.emplace(minimum_size, minimum_size);
+  }
+  return buffer_it->second.buffer;
 }
 
 }  // namespace internal
