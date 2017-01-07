@@ -44,6 +44,10 @@ project_enable_documentation()
 
 # Generate configuration
 
+# By default we put binaries into this directory
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 
 ### MANUAL_INCLUDE_DIRS is useful to force ides to find some includes (useless for compilation) ###
 ### To be used by editing the cache manually
@@ -54,9 +58,6 @@ project_add_3rdparty(wfqueue)
 project_add_3rdparty(queues)
 project_add_3rdparty(fmt)
 
-# By default we put binaries into this directory
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang" OR ${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
   #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 endif()

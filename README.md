@@ -148,7 +148,7 @@ start([](int in, auto chan) -> void {
                        std::cout << "Got data from the pipe \n";
                      }),
           event_read(chan, buffer,
-                     []() {  //
+                     [](bool) {  //
                        std::cout << "Got data from the channel \n";
                      }),
           event_timer(100ms,
@@ -167,7 +167,7 @@ start([](int in, auto chan) -> void {
 ```C++
 int result = select_any(                                                    //
     event_read(in, &buffer, sizeof(buffer), [](ssize_t rc) { return 1; }),  //
-    event_read(chan, buffer, []() { return 2; }),                           //
+    event_read(chan, buffer, [](bool) { return 2; }),                       //
     event_timer(100ms, []() { return 3; }));                                //
 switch(result) {
   case 1:

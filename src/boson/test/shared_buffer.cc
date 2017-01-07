@@ -4,9 +4,6 @@
 #include "boson/logger.h"
 #include "boson/shared_buffer.h"
 #include <iostream>
-#ifdef BOSON_USE_VALGRIND
-#include "valgrind/valgrind.h"
-#endif 
 
 using namespace boson;
 
