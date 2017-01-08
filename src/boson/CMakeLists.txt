@@ -17,14 +17,28 @@ if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang" OR ${CMAKE_CXX_COMPILER_ID} STREQU
 endif()
 
 # Import configuration options into code
-file(GLOB lib_sources src/*.cc src/internal/*.cc src/queues/*.cc src/net/*.cc)
+file(GLOB lib_sources 
+  src/*.cc 
+  src/internal/*.cc 
+  src/queues/simple.cc 
+  src/net/*.cc
+  )
 file(GLOB lib_linux_sources src/linux/*.cc)
 set(lib_sources ${lib_sources} ${lib_linux_sources})
+set(lib_queues_sources src/queues/lcrq.cc)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/boson ${CMAKE_CURRENT_SOURCE_DIR}/src/linux)
+
+# Boson lib
 add_library(boson ${lib_sources} $<TARGET_OBJECTS:boson_fcontext>)
-target_compile_options(boson PUBLIC -nostdlib -fPIC)
+target_compile_options(boson PUBLIC -nostdlib)
 target_link_libraries(boson ${LIBRARIES} -lpthread)
-target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(boson PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+# Boson queue lib
+add_library(bosonqueues ${lib_queues_sources})
+target_compile_options(bosonqueues PUBLIC -nostdlib)
+target_link_libraries(bosonqueues ${LIBRARIES})
+target_include_directories(bosonqueues PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(test)

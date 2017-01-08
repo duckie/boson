@@ -23,7 +23,7 @@ cmake ..
 make -j
 ```
 
-`libboson` (the whole framework binary part), 'libfmt' ([awesome string formating tool](http://fmtlib.net))  are availables in `build/lib` as static libraries. It is *highly recommended* not to use `boson` as a shared library.
+`libboson` (the whole framework binary part) and 'libfmt' ([awesome string formating tool](http://fmtlib.net)) are availables in `build/lib` as static libraries. It is *highly recommended* not to use `boson` as a shared library.
 
 ## Quick tutorial
 
@@ -56,7 +56,14 @@ int main() {
 }
 ```
 
+### Engine startup
 
+```c++
+boson::run(1, []() {});
+```
 
+This line starts a boson engine with one thread and a routine in it. It is not mandatory to launch the engine with only one routine, but this is good practice since some particular contructs (such as channels) must be created from a boson routine. This call blocks until every routine has finished execution. This can be seen as the "master event loop".
+
+*Tip*: The engine does not use any global variable. That means you can launch as many instances of the engine that you want in the same executable.
 
 

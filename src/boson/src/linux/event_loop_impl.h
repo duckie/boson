@@ -9,7 +9,7 @@
 #include "system.h"
 #include "memory/sparse_vector.h"
 #include "memory/flat_unordered_set.h"
-#include "queues/lcrq.h"
+#include "queues/simple.h"
 
 namespace boson {
 using epoll_event_t = struct epoll_event;
@@ -79,7 +79,7 @@ class event_loop_impl {
   int loop_breaker_event_;
 
   // Data used when loop is broken
-  queues::lcrq loop_breaker_queue_;
+  queues::simple_void_queue loop_breaker_queue_;
   
   /**
    * Retrieve the event_data for read and write matching this fd

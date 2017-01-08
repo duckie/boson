@@ -42,7 +42,7 @@ class simple_queue {
     queue_.push_back(std::move(value));
   }
 
-  bool  read(T& value) {
+  bool read(T& value) {
     std::lock_guard<std::mutex> guard(mut_);
     if (!queue_.empty()) {
       value = std::move(queue_.front());
