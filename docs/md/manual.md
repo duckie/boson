@@ -27,7 +27,7 @@ make -j
 
 ## Quick tutorial
 
-We'll start with a very simple program and explain each part of it.
+We'll start with a very simple program and explain each part of it. Dump this content in a file, say `main.cc`:
 
 ```c++
 #include "boson/boson.h"
@@ -55,6 +55,14 @@ int main() {
   return 0;
 }
 ```
+
+Then compile it:
+
+```bash
+clang++ main.cc -std=c++14 -I${BOSON_DIR}/src/boson -L${BOSON_DIR}/build/lib -lboson -lpthread
+```
+
+And execute `a.out` to test it.
 
 ### Engine startup
 
