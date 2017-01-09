@@ -25,6 +25,7 @@ enum class loop_end_reason { max_iter_reached, timed_out, error_occured };
  * implementation into platform specific code.
  */
 class event_loop_impl;
+class event_loop_proxy_impl;
 
 /**
  * event_loop is the class encapsulating the asynchronous I/O loop
@@ -34,8 +35,9 @@ class event_loop_impl;
  * code integration.
  *
  */
+template <class LoopImpl>
 class event_loop {
-  std::unique_ptr<event_loop_impl> loop_impl_;
+  std::unique_ptr<LoopImpl> loop_impl_;
 
  public:
   ~event_loop();
@@ -97,7 +99,7 @@ class event_loop {
   /**
    * re-enables a previosuly disabled event
    */
-  void enable(int event_it);
+  void enable(int event_id);
 
   /**
    * Unregister the event and give back its data
@@ -120,5 +122,8 @@ class event_loop {
   loop_end_reason loop(int max_iter = -1, int timeout_ms = -1);
 };
 };
+
+extern template class std::unique_ptr<boson::event_loop_proxy_impl>;
+extern template class boson::event_loop<boson::event_loop_impl>;
 
 #endif  // BOSON_EVENTLOOP_H_

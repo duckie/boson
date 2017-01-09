@@ -2,55 +2,69 @@
 #include "event_loop_impl.h"
 
 namespace boson {
-
-event_loop::~event_loop() {
+template <class LoopImpl>
+event_loop<LoopImpl>::event_loop(event_handler& handler, int nprocs)
+    : loop_impl_{new LoopImpl(handler, nprocs)} {
 }
 
-event_loop::event_loop(event_handler& handler, int nprocs) : loop_impl_{new event_loop_impl{handler,nprocs}} {
-}
+template <class LoopImpl>
+event_loop<LoopImpl>::~event_loop() {}
 
-int event_loop::register_event(void* data) {
+template <class LoopImpl>
+int event_loop<LoopImpl>::register_event(void* data) {
   return loop_impl_->register_event(data);
 }
 
-void* event_loop::get_data(int event_id) {
+template <class LoopImpl>
+void* event_loop<LoopImpl>::get_data(int event_id) {
   return loop_impl_->get_data(event_id);
 }
 
-std::tuple<int,int> event_loop::get_events(int fd) {
+template <class LoopImpl>
+std::tuple<int, int> event_loop<LoopImpl>::get_events(int fd) {
   return loop_impl_->get_events(fd);
 }
 
-void event_loop::send_event(int event) {
+template <class LoopImpl>
+void event_loop<LoopImpl>::send_event(int event) {
   loop_impl_->send_event(event);
 }
 
-int event_loop::register_read(int fd, void* data) {
+template <class LoopImpl>
+int event_loop<LoopImpl>::register_read(int fd, void* data) {
   return loop_impl_->register_read(fd, data);
 }
 
-int event_loop::register_write(int fd, void* data) {
+template <class LoopImpl>
+int event_loop<LoopImpl>::register_write(int fd, void* data) {
   return loop_impl_->register_write(fd, data);
 }
 
-void event_loop::disable(int event_id) {
+template <class LoopImpl>
+void event_loop<LoopImpl>::disable(int event_id) {
   loop_impl_->disable(event_id);
 }
 
-void event_loop::enable(int event_id) {
+template <class LoopImpl>
+void event_loop<LoopImpl>::enable(int event_id) {
   loop_impl_->disable(event_id);
 }
 
-void* event_loop::unregister(int event_id) {
+template <class LoopImpl>
+void* event_loop<LoopImpl>::unregister(int event_id) {
   return loop_impl_->unregister(event_id);
 }
 
-void event_loop::send_fd_panic(int proc_from, int fd) {
+template <class LoopImpl>
+void event_loop<LoopImpl>::send_fd_panic(int proc_from, int fd) {
   loop_impl_->send_fd_panic(proc_from, fd);
 }
 
-loop_end_reason event_loop::loop(int max_iter, int timeout_ms) {
+template <class LoopImpl>
+loop_end_reason event_loop<LoopImpl>::loop(int max_iter, int timeout_ms) {
   return loop_impl_->loop(max_iter, timeout_ms);
 }
+}
 
-}  // namespace boson
+template class std::unique_ptr<boson::event_loop_impl>;
+template class boson::event_loop<boson::event_loop_impl>;

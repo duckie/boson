@@ -14,6 +14,7 @@
 #include "external/json_backbone.hpp"
 #include "queues/lcrq.h"
 #include "queues/mpsc.h"
+#include "event_loop.h"
 
 namespace boson {
 
@@ -25,7 +26,7 @@ class routine;
  * engine encapsulates an instance of the boson runtime
  *
  */
-class engine {
+class engine : public event_handler {
   using thread_t = internal::thread;
   using command_t = internal::thread_command;
   using proxy_t = internal::engine_proxy;
@@ -85,6 +86,8 @@ class engine {
   using queue_t = queues::mpsc<std::unique_ptr<command>>;
   queue_t command_queue_;
   std::condition_variable command_waiter_;
+  //event_loop command_loop_;
+  //int self_event_id_;
   std::atomic<size_t> command_pushers_;
 
   void push_command(thread_id from, std::unique_ptr<command> new_command);
@@ -100,6 +103,10 @@ class engine {
   engine& operator=(engine const&) = delete;
   engine& operator=(engine&&) = default;
   ~engine();
+
+  void event(int event_id, void* data, event_status status) override;
+  void read(int fd, void* data, event_status status) override;
+  void write(int fd, void* data, event_status status) override;
 
   inline size_t max_nb_cores() const;
 

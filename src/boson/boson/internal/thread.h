@@ -135,7 +135,7 @@ class thread : public event_handler {
   /**
    * Event loop managing interruptions
    */
-  event_loop loop_;
+  event_loop<event_loop_impl> loop_;
 
   engine_queue_t engine_queue_;
   std::atomic<std::size_t> nb_pending_commands_{0};
@@ -230,7 +230,7 @@ class thread : public event_handler {
   thread(thread&&) = default;
   thread& operator=(thread const&) = delete;
   thread& operator=(thread&&) = default;
-  ~thread() = default;
+  ~thread();
 
   inline thread_id id() const;
   inline engine const& get_engine() const;

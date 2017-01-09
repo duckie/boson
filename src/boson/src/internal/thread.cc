@@ -159,6 +159,8 @@ thread::thread(engine& parent_engine)
   engine_proxy_.set_id();  // Tells the engine which thread id we got
 }
 
+thread::~thread() {}
+
 void thread::event(int event_id, void* data, event_status status) {
   if (event_id == engine_event_id_) {
     handle_engine_event();
