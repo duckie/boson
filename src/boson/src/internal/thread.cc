@@ -5,6 +5,7 @@
 #include "exception.h"
 #include "internal/routine.h"
 #include "semaphore.h"
+#include "event_loop_impl.h"
 
 namespace boson {
 namespace internal {
@@ -87,7 +88,7 @@ void thread::handle_engine_event() {
         break;
       case thread_command_type::fd_panic:
         auto& fd = received_command->data.get<int>();
-        loop_.send_fd_panic(id(),fd);
+        loop_->send_fd_panic(id(),fd);
         break;
     }
     //delete received_command;
@@ -96,8 +97,8 @@ void thread::handle_engine_event() {
 }
 
 void thread::unregister_all_events() {
-  loop_.unregister(engine_event_id_);
-  //loop_.unregister(self_event_id_);
+  loop_->unregister(engine_event_id_);
+  //loop_->unregister(self_event_id_);
 }
 
 timed_routines_set& thread::register_timer(routine_time_point const& date, routine_slot slot) {
@@ -118,30 +119,30 @@ std::size_t thread::register_semaphore_wait(routine_slot slot) {
 
 void thread::register_read(int fd, routine_slot slot) {
   int existing_read = -1;
-  tie(existing_read, std::ignore) = loop_.get_events(fd);
+  tie(existing_read, std::ignore) = loop_->get_events(fd);
   if (0 <= existing_read) {
-    std::size_t slot_index = reinterpret_cast<std::size_t>(loop_.get_data(existing_read));
+    std::size_t slot_index = reinterpret_cast<std::size_t>(loop_->get_data(existing_read));
     suspended_slots_[slot_index] = slot;
   }
   else {
     auto index = suspended_slots_.allocate();
     suspended_slots_[index] = slot;
-    loop_.register_read(fd, reinterpret_cast<void*>(index));
+    loop_->register_read(fd, reinterpret_cast<void*>(index));
   }
   ++nb_suspended_routines_;
 }
 
 void thread::register_write(int fd, routine_slot slot) {
   int existing_write = -1;
-  tie(std::ignore, existing_write) = loop_.get_events(fd);
+  tie(std::ignore, existing_write) = loop_->get_events(fd);
   if (0 <= existing_write) {
-    std::size_t slot_index = reinterpret_cast<std::size_t>(loop_.get_data(existing_write));
+    std::size_t slot_index = reinterpret_cast<std::size_t>(loop_->get_data(existing_write));
     suspended_slots_[slot_index] = slot;
   }
   else {
     auto index = suspended_slots_.allocate();
     suspended_slots_[index] = slot;
-    loop_.register_write(fd, reinterpret_cast<void*>(index));
+    loop_->register_write(fd, reinterpret_cast<void*>(index));
   }
   ++nb_suspended_routines_;
 }
@@ -152,10 +153,10 @@ void thread::unregister_expired_slot(std::size_t slot_index) {
 
 thread::thread(engine& parent_engine)
     : engine_proxy_(parent_engine),
-      loop_(*this, static_cast<int>(parent_engine.max_nb_cores() + 1)),
+      loop_(new event_loop{*this, static_cast<int>(parent_engine.max_nb_cores() + 1)}),
       engine_queue_{}
 {
-  engine_event_id_ = loop_.register_event(&engine_event_id_);
+  engine_event_id_ = loop_->register_event(&engine_event_id_);
   engine_proxy_.set_id();  // Tells the engine which thread id we got
 }
 
@@ -176,9 +177,9 @@ void thread::read(int fd, void* data, event_status status) {
     // Dry run, just disable the event
     suspended_slots_.free(reinterpret_cast<std::size_t>(data));
     int existing_read = -1;
-    tie(existing_read, std::ignore) = loop_.get_events(fd);
+    tie(existing_read, std::ignore) = loop_->get_events(fd);
     if (0 <= existing_read)
-      loop_.unregister(existing_read);
+      loop_->unregister(existing_read);
   }
 }
 
@@ -191,9 +192,9 @@ void thread::write(int fd, void* data, event_status status) {
     // Dry run, just disable the event
     suspended_slots_.free(reinterpret_cast<std::size_t>(data));
     int existing_write= -1;
-    tie(std::ignore, existing_write) = loop_.get_events(fd);
+    tie(std::ignore, existing_write) = loop_->get_events(fd);
     if (0 <= existing_write)
-      loop_.unregister(existing_write);
+      loop_->unregister(existing_write);
   }
 }
 
@@ -202,7 +203,7 @@ void thread::push_command(thread_id from, std::unique_ptr<thread_command> comman
   nb_pending_commands_.fetch_add(1);
   //engine_queue_.write(from, command.release());
   engine_queue_.write(std::move(command));
-  loop_.send_event(engine_event_id_);
+  loop_->send_event(engine_event_id_);
 };
 
 bool thread::execute_scheduled_routines() {
@@ -296,7 +297,7 @@ bool thread::execute_scheduled_routines() {
         return false;
       } else {
         // Schedule pending commands immediately
-        loop_.send_event(engine_event_id_);
+        loop_->send_event(engine_event_id_);
         return true;
       }
     } else {
@@ -332,7 +333,7 @@ void thread::loop() {
       }
     }
 
-    auto return_code = loop_.loop(1, timeout_ms);
+    auto return_code = loop_->loop(1, timeout_ms);
     switch (return_code) {
       case loop_end_reason::max_iter_reached:
         break;

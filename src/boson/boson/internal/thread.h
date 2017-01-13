@@ -135,7 +135,7 @@ class thread : public event_handler {
   /**
    * Event loop managing interruptions
    */
-  event_loop<event_loop_impl> loop_;
+  std::unique_ptr<event_loop> loop_;
 
   engine_queue_t engine_queue_;
   std::atomic<std::size_t> nb_pending_commands_{0};

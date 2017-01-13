@@ -6,8 +6,10 @@
 #include "exception.h"
 #include "system.h"
 
+template class std::unique_ptr<boson::event_loop>;
+
 namespace boson {
-event_loop_impl::fd_data& event_loop_impl::get_fd_data(int fd) {
+event_loop::fd_data& event_loop::get_fd_data(int fd) {
   size_t index = static_cast<size_t>(fd);
   if (fd_data_.size() <= index) {
     fd_data_.resize(index+1);
@@ -15,7 +17,7 @@ event_loop_impl::fd_data& event_loop_impl::get_fd_data(int fd) {
   return fd_data_[index];
 }
 
-void event_loop_impl::epoll_update(int fd, fd_data& fddata, bool del_if_no_event) {
+void event_loop::epoll_update(int fd, fd_data& fddata, bool del_if_no_event) {
   if (events_.size() < events_data_.data().size()) events_.resize(events_data_.data().size());
   epoll_event_t new_event{(0 <= fddata.idx_read ? EPOLLIN : 0) | (0 <= fddata.idx_write ? EPOLLOUT : 0), {}};
   new_event.data.fd = fd;
@@ -45,7 +47,7 @@ void event_loop_impl::epoll_update(int fd, fd_data& fddata, bool del_if_no_event
   }
 }
 
-void event_loop_impl::dispatch_event(int event_id, event_status status) {
+void event_loop::dispatch_event(int event_id, event_status status) {
   auto& data = events_data_[event_id];
   switch (data.type) {
     case event_type::event_fd: {
@@ -80,7 +82,7 @@ void event_loop_impl::dispatch_event(int event_id, event_status status) {
   }
 }
 
-event_loop_impl::event_loop_impl(event_handler& handler, int nprocs)
+event_loop::event_loop(event_handler& handler, int nprocs)
     : handler_{handler},
       loop_fd_{epoll_create1(0)},
       nb_io_registered_(0),
@@ -90,11 +92,11 @@ event_loop_impl::event_loop_impl(event_handler& handler, int nprocs)
   loop_breaker_event_ = register_event(nullptr);
 }
 
-event_loop_impl::~event_loop_impl() {
+event_loop::~event_loop() {
   ::close(loop_fd_);
 }
 
-int event_loop_impl::register_event(void* data) {
+int event_loop::register_event(void* data) {
   // Creates an eventfd
   int event_fd = ::eventfd(0, 0);
 
@@ -115,11 +117,11 @@ int event_loop_impl::register_event(void* data) {
   return event_id;
 }
 
-void* event_loop_impl::get_data(int event_id) {
+void* event_loop::get_data(int event_id) {
   return  (0 <= event_id) ?  events_data_[event_id].data : nullptr;
 }
 
-std::tuple<int,int> event_loop_impl::get_events(int fd) {
+std::tuple<int,int> event_loop::get_events(int fd) {
   if (static_cast<size_t>(fd) < fd_data_.size()) {
     auto& data = get_fd_data(fd);
     return std::make_tuple(data.idx_read, data.idx_write);
@@ -127,7 +129,7 @@ std::tuple<int,int> event_loop_impl::get_events(int fd) {
   return std::make_tuple(-1,-1);
 }
 
-void event_loop_impl::send_event(int event) {
+void event_loop::send_event(int event) {
   auto& data = events_data_[static_cast<size_t>(event)];
   size_t buffer{1};
   ssize_t nb_bytes = ::write(data.fd, &buffer, 8u);
@@ -137,7 +139,7 @@ void event_loop_impl::send_event(int event) {
   trigger_fd_events_.store(true, std::memory_order_release);
 }
 
-int event_loop_impl::register_read(int fd, void* data) {
+int event_loop::register_read(int fd, void* data) {
   // Creates users data
   size_t event_id = static_cast<int>(events_data_.allocate());
   event_data& ev_data = events_data_[event_id];
@@ -154,7 +156,7 @@ int event_loop_impl::register_read(int fd, void* data) {
   return event_id;
 }
 
-int event_loop_impl::register_write(int fd, void* data) {
+int event_loop::register_write(int fd, void* data) {
   // Creates users data
   size_t event_id = static_cast<int>(events_data_.allocate());
   event_data& ev_data = events_data_[event_id];
@@ -171,7 +173,7 @@ int event_loop_impl::register_write(int fd, void* data) {
   return event_id;
 }
 
-void event_loop_impl::disable(int event_id) {
+void event_loop::disable(int event_id) {
   auto& event_data = events_data_[event_id];
   auto& fddata = get_fd_data(event_data.fd);
   if (event_data.type == event_type::read || event_data.type == event_type::event_fd)
@@ -183,7 +185,7 @@ void event_loop_impl::disable(int event_id) {
   if (event_data.type != event_type::event_fd) --nb_io_registered_;
 }
 
-void event_loop_impl::enable(int event_id) {
+void event_loop::enable(int event_id) {
   auto& event_data = events_data_[event_id];
   auto& fddata = get_fd_data(event_data.fd);
   if (event_data.type == event_type::read || event_data.type == event_type::event_fd)
@@ -194,7 +196,7 @@ void event_loop_impl::enable(int event_id) {
   if (event_data.type != event_type::event_fd) ++nb_io_registered_;
 }
 
-void* event_loop_impl::unregister(int event_id) {
+void* event_loop::unregister(int event_id) {
   auto& event_data = events_data_[event_id];
   auto& fddata = get_fd_data(event_data.fd);
   if (event_data.type == event_type::read || event_data.type == event_type::event_fd)
@@ -213,12 +215,12 @@ void* event_loop_impl::unregister(int event_id) {
   return data;
 }
 
-void event_loop_impl::send_fd_panic(int proc_from,int fd) {
+void event_loop::send_fd_panic(int proc_from,int fd) {
   loop_breaker_queue_.write(proc_from+1, new broken_loop_event_data{fd});
   send_event(loop_breaker_event_);
 }
 
-loop_end_reason event_loop_impl::loop(int max_iter, int timeout_ms) {
+loop_end_reason event_loop::loop(int max_iter, int timeout_ms) {
   bool forever = (-1 == max_iter);
   for (size_t index = 0; index < static_cast<size_t>(max_iter) || forever; ++index) {
     int return_code = 0;

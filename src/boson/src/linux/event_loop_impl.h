@@ -20,7 +20,7 @@ using epoll_event_t = struct epoll_event;
  * Refer to the event loop interface for member functions
  * meaning
  */
-class event_loop_impl {
+class event_loop {
   enum class event_type { event_fd, read, write };
 
   struct event_data {
@@ -104,8 +104,8 @@ class event_loop_impl {
   void dispatch_event(int event_id, event_status status);
 
  public:
-  event_loop_impl(event_handler& handler, int nb_procs);
-  ~event_loop_impl();
+  event_loop(event_handler& handler, int nb_procs);
+  ~event_loop();
   int register_event(void* data);
   void* get_data(int event_id);
   std::tuple<int,int> get_events(int fd);
