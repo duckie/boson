@@ -1,29 +1,68 @@
 package main
 
-import {
-  "fmt"
-  "net"
-  "os"
+import "net"
+import "time"
+import "fmt"
+import "sync/atomic"
+
+func listenClient(clientConn net.Conn, closeChan chan net.Conn, broadcastChan chan string) {
+  buf := make([]byte, 2048)
+  for {
+    nread, err := clientConn.Read(buf)
+    if (err != nil || 0 == nread) {
+      closeChan <- clientConn
+      return 
+    }
+    message := string(buf[:nread-2]) // Looks like it reads \r\n
+    if (message == "quit") {
+      closeChan <- clientConn
+      return 
+    }
+
+    broadcastChan <- message;
+  }
 }
 
-const {
-  join int = iota
-  broadcast
+func handleNewConnections(newConnChan chan net.Conn) {
+  socket, _ := net.Listen("tcp", ":8080") 
+  for {
+    rwc, err := socket.Accept()
+    if (err == nil) {
+      newConnChan <- rwc 
+    }
+  }
 }
 
-type Event struct {
-  commandType int
-  Connecton net.Conn*
-  Message string
+func displayCount(counter * uint64) {
+  for {
+    fmt.Println(atomic.SwapUint64(counter,0))
+    time.Sleep(1*time.Second)
+  }
 }
 
 func main() {
-  socket, err : = net.Listen("tcp", ":33333") if err != nil {
-    fmt.Println("Failed to listen.") os.Exit(1)
-  }
+  newConnChan := make(chan net.Conn,1)
+  broadcastChan := make(chan string,1)
+  closeConnChan := make(chan net.Conn,1)
+  go handleNewConnections(newConnChan)
+  connections := make(map[net.Conn]bool)
+  var counter uint64 = 0
+
+  go displayCount(&counter)
 
   for {
-
-
+    select {
+      case newConn := <- newConnChan:
+        connections[newConn] = true
+        go listenClient(newConn, closeConnChan, broadcastChan)
+      case message := <- broadcastChan:
+        for conn, _ := range connections {
+          conn.Write([]byte(message + "\n"))
+          atomic.AddUint64(&counter,1)
+        }
+      case oldConn := <- closeConnChan:
+        oldConn.Close()
+        delete(connections, oldConn)
+    }
   }
 }

@@ -39,7 +39,7 @@ struct basic_stack_traits {
 };
 
 // TODO: Those are unix specifics, to be defined elsewhere
-using default_stack_traits = basic_stack_traits<8 * 1024 * 1024, 64 * 1024, 8 * 1024>;
+using default_stack_traits = basic_stack_traits<8 * 1024, 64 * 1024, 8 * 1024>;
 
 template <class Traits>
 stack_context allocate() {
