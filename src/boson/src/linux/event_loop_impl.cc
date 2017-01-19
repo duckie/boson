@@ -222,8 +222,10 @@ void event_loop::send_fd_panic(int proc_from,int fd) {
 
 loop_end_reason event_loop::loop(int max_iter, int timeout_ms) {
   bool forever = (-1 == max_iter);
-  for (size_t index = 0; index < static_cast<size_t>(max_iter) || forever; ++index) {
+  bool retry = false;
+  for (size_t index = 0; index < static_cast<size_t>(max_iter) || forever || retry; ++index) {
     int return_code = 0;
+    retry = false;
     if (0 != timeout_ms || 0 < nb_io_registered_ ||
         trigger_fd_events_.load(std::memory_order_acquire)) {
       trigger_fd_events_.store(false, std::memory_order_relaxed);
@@ -235,10 +237,18 @@ loop_end_reason event_loop::loop(int max_iter, int timeout_ms) {
           else
             break;
         case EINTR:
+          //return loop_end_reason::timed_out;
+          //throw exception(std::string("Syscall error (epoll_wait) EINTR : ") + ::strerror(errno));
+          retry = true;
+          break;
         case EBADF:
+          //throw exception(std::string("Syscall error (epoll_wait) EBADF : ") + std::to_string(loop_fd_) + ::strerror(errno));
+          retry = true;
+          break;
         case EFAULT:
+          throw exception(std::string("Syscall error (epoll_wait) EFAULT : ") + ::strerror(errno));
         case EINVAL:
-          throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
+          throw exception(std::string("Syscall error (epoll_wait) EINVAL : ") + ::strerror(errno));
         default:
           break;
       }

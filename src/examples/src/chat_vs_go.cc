@@ -11,6 +11,8 @@
 #include "fmt/format.h"
 #include "iostream"
 
+// sudo perf stat -e 'syscalls:sys_enter_epoll*'
+
 using namespace boson;
 using namespace std::chrono_literals;
 
