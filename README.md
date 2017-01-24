@@ -17,9 +17,18 @@ The main point is to simplify writing concurrent applications by removing the as
 - Routines (or fibers) are much more lighter than threads to launch and to schedule
 - Interruption points are known by the developer, whereas they are not when scheduling threads.
 
+### What about `boost::fiber` ?
+
+There are technical reasons that might make `boson` a better match for your use case:
+- *Ease of use*: Using `boost::fiber` combined with `boost::asio` requires a decent experience of *C++* to be used efficiently. The knowledge curve is steep.
+- *System interface*: the `boson` framework mimics the common system calls. The reason for that is to make synchronous code easily portable into `boson`: you just have to route the system calls to those of `boson`, and make you calls from within a routine. Database drivers are much more easier to write this way. This is also a way to create a familiar ground for *C* and *Go* users.
+- *Select statement*: The `select_*` statement is the key feature of the framework. It is more versatile than the *Go* one, and does not exist in `boost::fiber` (as of time of writing). The `select` statement allows for programming constructs that are hard to reproduce without it.
+
+That said, it is not excluded to use `boost::fiber` as a backend for `boson` in the future if it proves efficient to do so.
+
 ## Quick overview
 
-The goal of the framework is to use ligh routines instead of threads. In Go, these are called Goroutines. In the C++ world, it is known as fibers. In the boson framework, we just call it routines.
+The goal of the framework is to use light routines instead of threads. In Go, these are called Goroutines. In the C++ world, it is known as fibers. In the boson framework, we just call it routines.
 
 ### Launch an instance
 
