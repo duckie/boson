@@ -13,8 +13,8 @@ The Boson Framework only supports Linux on x86-64 platforms for now, but Windows
 
 ### What's the point ?
 
-The main point is to simplify writing concurrent applications by removing the asynchronous logic from the developer's mind. The developer only uses blocking calls, and the whole logic is written sequentially. Under the hood, blocking calls are not blocking from the OS standpoint, since the thread is still used to execute some tasks. This is different from using multiple thread because :
-- Routines (or fibers) are much more lighter than threads to launch and to schedule
+The main point is to simplify writing concurrent applications by removing the asynchronous logic from the developer's mind. The developer only uses blocking calls, and the whole logic is written sequentially. Under the hood, blocking calls are not blocking from the OS standpoint, since the thread is still used to execute some tasks. This is different from using multiple threads because:
+- Routines (or fibers) are lightweight compared to threads, to launch and to schedule.
 - Interruption points are known by the developer, whereas they are not when scheduling threads.
 
 ### What about `boost::fiber` ?
@@ -200,14 +200,12 @@ Head to the [examples](./src/examples/src) to see more code.
 
 ## How to build
 
-The Boson framework needs a modern C++ compiler to be used.
+Please refer to the [documentation](docs/md/manual/md).
 
-```bash
-git clone https://github.com/duckie/boson
-mkdir -p boson/build
-cd boson/build
-cmake ../
-make -j
-```
+## Documentation
 
-Examples binaries will be built in `boson/build/bin`.
+Find the manual [here](docs/md/manual.md). 
+
+# License
+
+The boson framework is distributed under the terms of [The MIT License](https://opensource.org/licenses/mit-license.php). Third parties are distributed under the terms of their own licenses. Third party code is the `3rdparty` directory.
