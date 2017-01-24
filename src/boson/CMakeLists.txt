@@ -5,8 +5,8 @@ set(LIBRARIES "${LIBRARIES}" ${CMAKE_THREAD_LIBS_INIT})
 
 # TODO: Get platform agnostic
 add_library(boson_fcontext OBJECT
-  src/asm/make_x86_64_sysv_elf_gas.S 
-  src/asm/jump_x86_64_sysv_elf_gas.S
+  ${PROJECT_SOURCE_DIR}/3rdparty/boost_context/asm/make_x86_64_sysv_elf_gas.S 
+  ${PROJECT_SOURCE_DIR}/3rdparty/boost_context/asm/jump_x86_64_sysv_elf_gas.S
   #src/asm/ontop_x86_64_sysv_elf_gas.S # Not used actually
   )
 
