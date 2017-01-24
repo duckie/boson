@@ -117,7 +117,7 @@ std::size_t thread::register_semaphore_wait(routine_slot slot) {
   return index;
 }
 
-void thread::register_read(int fd, routine_slot slot) {
+int thread::register_read(int fd, routine_slot slot) {
   int existing_read = -1;
   tie(existing_read, std::ignore) = loop_->get_events(fd);
   if (0 <= existing_read) {
@@ -127,12 +127,13 @@ void thread::register_read(int fd, routine_slot slot) {
   else {
     auto index = suspended_slots_.allocate();
     suspended_slots_[index] = slot;
-    loop_->register_read(fd, reinterpret_cast<void*>(index));
+    existing_read = loop_->register_read(fd, reinterpret_cast<void*>(index));
   }
   ++nb_suspended_routines_;
+  return existing_read;
 }
 
-void thread::register_write(int fd, routine_slot slot) {
+int thread::register_write(int fd, routine_slot slot) {
   int existing_write = -1;
   tie(std::ignore, existing_write) = loop_->get_events(fd);
   if (0 <= existing_write) {
@@ -142,9 +143,10 @@ void thread::register_write(int fd, routine_slot slot) {
   else {
     auto index = suspended_slots_.allocate();
     suspended_slots_[index] = slot;
-    loop_->register_write(fd, reinterpret_cast<void*>(index));
+    existing_write = loop_->register_write(fd, reinterpret_cast<void*>(index));
   }
   ++nb_suspended_routines_;
+  return existing_write;
 }
 
 void thread::unregister_expired_slot(std::size_t slot_index) {

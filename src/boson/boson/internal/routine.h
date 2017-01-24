@@ -65,6 +65,12 @@ enum class event_type {
   io_write_panic
 };
 
+enum class fd_status {
+  unknown,  // Never used
+  ready,    // Has data for a read, ready for write for a write
+  consumed  // No more data for a read, blocked for a write
+};
+
 struct routine_timer_event_data {
   routine_time_point date;
   timed_routines_set* neighbor_timers;
@@ -79,8 +85,11 @@ struct routine_sema_event_data {
 struct routine_io_event {
   int fd;                          // The current FD used
   int event_id;                    // The id used for the event loop
-  bool is_same_as_previous_event;  // Used to limit system calls in loops
-  bool panic;                      // True if event loop answered in panic to this event
+  fd_status read_status;
+  fd_status write_status;
+  //bool is_same_as_previous_event;  // Used to limit system calls in loops
+  //bool panic;                      // True if event loop answered in panic to this event
+  
 };
 
 }

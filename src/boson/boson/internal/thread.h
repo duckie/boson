@@ -200,17 +200,15 @@ class thread : public event_handler {
 
   // Registers a fd for reading. 
   //
-  // Does not return the slot because it manages them itself. This is possible because these
-  // events are not produced/consumed by other threads
+  // Returns event loop event id
   //
-  void register_read(int fd, routine_slot slot);
+  int register_read(int fd, routine_slot slot);
 
   // Registers a fd for writing
   //
-  // Does not return the slot because it manages them itself. This is possible because these
-  // events are not produced/consumed by other threads
+  // Returns event loop event id
   //
-  void register_write(int fd, routine_slot slot);
+  int register_write(int fd, routine_slot slot);
 
   /**
    * Unregisters the given slot
