@@ -68,6 +68,11 @@ inline socket_t accept(socket_t socket, sockaddr *address, socklen_t *address_le
     return accept(socket, address, address_len, timeout.count());
 }
 
+int connect(socket_t sockfd, const sockaddr *addr, socklen_t addrlen, int timeout_ms = -1);
+inline int connect(socket_t sockfd, const sockaddr *addr, socklen_t addrlen, std::chrono::milliseconds timeout) {
+  return connect(sockfd, addr, addrlen, timeout.count());
+}
+
 ssize_t send(socket_t socket, const void *buffer, size_t length, int flags, int timeout_ms = -1);
 
 inline ssize_t send(socket_t socket, const void *buffer, size_t length, int flags, std::chrono::milliseconds timeout) {

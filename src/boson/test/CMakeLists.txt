@@ -29,6 +29,7 @@ add_project_test(test_local_ptr CATCH)
 add_project_test(test_wfqueue CATCH)
 add_project_test(test_mpsc CATCH)
 add_project_test(shared_buffer CATCH)
+add_project_test(sockets CATCH)
 
 # Create main test executable
 add_executable(unit_tests ${catch_exe_source_list})
