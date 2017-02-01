@@ -36,6 +36,11 @@ void consumer(int in, int out) {
   }
 }
 
+void set_no_block(int pipe_fd) {
+  auto flags = ::fcntl(pipe_fd, F_GETFD);
+  ::fcntl(pipe_fd, F_SETFL, flags | O_NONBLOCK);
+}
+
 int main(int argc, char* argv[]) {
   // Set global logger
   boson::debug::logger_instance(&std::cout);
@@ -49,6 +54,16 @@ int main(int argc, char* argv[]) {
   ::pipe(b2c);
   int c2b[2];
   ::pipe(c2b);
+
+  // Make non block
+  ::set_no_block(a2b[1]);
+  ::set_no_block(b2a[0]);
+  ::set_no_block(a2b[0]);
+  ::set_no_block(b2a[1]);
+  ::set_no_block(b2c[1]);
+  ::set_no_block(c2b[0]);
+  ::set_no_block(b2c[0]);
+  ::set_no_block(c2b[1]);
 
   // Execute a routine communication through pipes
   boson::run(1, [&]() {
