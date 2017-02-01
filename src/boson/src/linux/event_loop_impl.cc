@@ -19,7 +19,7 @@ event_loop::fd_data& event_loop::get_fd_data(int fd) {
 
 void event_loop::epoll_update(int fd, fd_data& fddata, bool del_if_no_event) {
   if (events_.size() < events_data_.data().size()) events_.resize(events_data_.data().size());
-  epoll_event_t new_event{(0 <= fddata.idx_read ? EPOLLIN : 0) | (0 <= fddata.idx_write ? EPOLLOUT : 0), {}};
+  epoll_event_t new_event{(0 <= fddata.idx_read ? (EPOLLIN | EPOLLET) : 0) | (0 <= fddata.idx_write ? (EPOLLOUT | EPOLLET): 0), {}};
   new_event.data.fd = fd;
   int return_code = -1;
   if (0 != new_event.events) {

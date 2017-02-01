@@ -77,8 +77,12 @@ class event_io_read_storage : public event_io_base_storage<Func> {
   }
 
   bool subscribe(internal::routine* current) {
-    current->add_read(this->fd_);
-    return false;
+    int return_code = ::read(fd_, buf_,count_);
+    if (0 != return_code && EAGAIN == errno) {
+      current->add_read(this->fd_);
+      return false;
+    }
+    return true;
   }
 };
 
@@ -106,8 +110,12 @@ class event_recv_storage : public event_io_base_storage<Func> {
   }
 
   bool subscribe(internal::routine* current) {
-    current->add_read(this->fd_);
-    return false;
+    int return_code = ::recv(fd_, buf_, count_, flags_);
+    if (0 != return_code && EAGAIN == errno) {
+      current->add_read(this->fd_);
+      return false;
+    }
+    return true;
   }
 };
 
