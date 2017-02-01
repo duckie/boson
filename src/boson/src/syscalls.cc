@@ -68,8 +68,8 @@ socket_t accept(socket_t socket, sockaddr* address, socklen_t* address_len, int 
 
 int connect(socket_t sockfd, const sockaddr *addr, socklen_t addrlen, int timeout_ms) {
   int return_code = ::connect(sockfd, addr, addrlen);
-  if (return_code == EINPROGRESS) {
-    int return_code = wait_write_readiness(sockfd, timeout_ms);
+  if (return_code != 0 && errno == EINPROGRESS) {
+    return_code = wait_write_readiness(sockfd, timeout_ms);
     if (0 == return_code) {
       socklen_t optlen = 0;
       ::getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &return_code, &optlen);

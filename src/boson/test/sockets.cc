@@ -30,17 +30,19 @@ TEST_CASE("Sockets - Simple accept/connect", "[syscalls][sockets][accept][connec
   SECTION("Simple pipes") {
 
     boson::run(1, [&]() {
+      boson::channel<std::nullptr_t,2> tickets;
       start(
-          []() -> void {
+          [](auto tickets) -> void {
             // Listen on a port
             int listening_socket = boson::net::create_listening_socket(10101);
             struct sockaddr_in cli_addr;
             socklen_t clilen = sizeof(cli_addr);
             int new_connection = boson::accept(listening_socket, (struct sockaddr*)&cli_addr, &clilen);
-          });
+            tickets << nullptr;
+          }, tickets);
 
       start(
-          []() -> void {
+          [](auto tickets) -> void {
             struct sockaddr_in cli_addr;
             cli_addr.sin_addr.s_addr = ::inet_addr("127.0.0.1");
             cli_addr.sin_family = AF_INET;
@@ -50,7 +52,12 @@ TEST_CASE("Sockets - Simple accept/connect", "[syscalls][sockets][accept][connec
             ::fcntl(sockfd, F_SETFL, O_NONBLOCK);
             int new_connection = boson::connect(sockfd, (struct sockaddr*)&cli_addr, clilen);
             CHECK(0 == new_connection);
-          });
+            tickets << nullptr;
+          },tickets);
+
+          std::nullptr_t dummy;
+          CHECK(tickets >> dummy);
+          CHECK(tickets >> dummy);
     });
   }
 }
