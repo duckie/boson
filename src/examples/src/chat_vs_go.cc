@@ -10,6 +10,7 @@
 #include "boson/shared_buffer.h"
 #include "fmt/format.h"
 #include "iostream"
+#include <fcntl.h>
 
 // sudo perf stat -e 'syscalls:sys_enter_epoll*'
 
@@ -73,6 +74,7 @@ int main(int argc, char *argv[]) {
       select_any(                           //
           event_read(new_connection, conn,  //
                      [&](bool) {            //
+                       ::fcntl(conn, F_SETFL, ::fcntl(conn, F_GETFD) | O_NONBLOCK);
                        conns.insert(conn);
                        start(listen_client, conn, messages, close_connection);
                      }),

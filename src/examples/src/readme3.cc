@@ -12,6 +12,8 @@ int main(int argc, char *argv[]) {
   // Create a pipe
   int pipe_fds[2];
   ::pipe(pipe_fds);
+  ::fcntl(pipe_fds[0], F_SETFL, ::fcntl(pipe_fds[0], F_GETFD) | O_NONBLOCK);
+  ::fcntl(pipe_fds[1], F_SETFL, ::fcntl(pipe_fds[1], F_GETFD) | O_NONBLOCK);
 
   boson::run(1, [&]() {
     using namespace boson;

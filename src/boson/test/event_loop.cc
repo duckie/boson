@@ -5,6 +5,7 @@
 #include "catch.hpp"
 #include <cstdio>
 #include <sys/socket.h>
+#include <fcntl.h>
 
 using namespace boson;
 
@@ -53,6 +54,8 @@ TEST_CASE("Event Loop - FD Read/Write", "[eventloop][read/write]") {
   handler01 handler_instance;
   int pipe_fds[2];
   ::pipe(pipe_fds);
+  ::fcntl(pipe_fds[0], F_SETFL, ::fcntl(pipe_fds[0], F_GETFD) | O_NONBLOCK);
+  ::fcntl(pipe_fds[1], F_SETFL, ::fcntl(pipe_fds[1], F_GETFD) | O_NONBLOCK);
 
   boson::event_loop loop(handler_instance,1);
   loop.register_read(pipe_fds[0], nullptr);
@@ -110,6 +113,8 @@ TEST_CASE("Event Loop - FD Panic Read/Write", "[eventloop][panic]") {
   handler01 handler_instance;
   int pipe_fds[2];
   ::pipe(pipe_fds);
+  ::fcntl(pipe_fds[0], F_SETFL, ::fcntl(pipe_fds[0], F_GETFD) | O_NONBLOCK);
+  ::fcntl(pipe_fds[1], F_SETFL, ::fcntl(pipe_fds[1], F_GETFD) | O_NONBLOCK);
 
   boson::event_loop loop(handler_instance,1);
   loop.register_read(pipe_fds[0], nullptr);

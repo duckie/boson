@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstdio>
 #include "boson/boson.h"
+#include <fcntl.h>
 
 using namespace std::literals;
 
@@ -22,6 +23,7 @@ int main(int argc, char *argv[]) {
   bool stopper = false;
   boson::run(1, [&stopper]() {
     boson::start(timer, 1, stopper);
+    ::fcntl(0, F_SETFL, ::fcntl(0, F_GETFD) | O_NONBLOCK);
     boson::start(user_input, 0, stopper);
   });
 }

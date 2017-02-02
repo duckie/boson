@@ -29,6 +29,8 @@ TEST_CASE("Routines - I/O", "[routines][i/o]") {
   SECTION("Simple pipes") {
     int pipe_fds[2];
     ::pipe(pipe_fds);
+    ::fcntl(pipe_fds[0], F_SETFL, ::fcntl(pipe_fds[0], F_GETFD) | O_NONBLOCK);
+    ::fcntl(pipe_fds[1], F_SETFL, ::fcntl(pipe_fds[1], F_GETFD) | O_NONBLOCK);
 
     boson::run(1, [&]() {
       start(
@@ -62,8 +64,12 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
   SECTION("Simple pipes - reads") {
     int pipe_fds1[2];
     ::pipe(pipe_fds1);
+    ::fcntl(pipe_fds1[0], F_SETFL, ::fcntl(pipe_fds1[0], F_GETFD) | O_NONBLOCK);
+    ::fcntl(pipe_fds1[1], F_SETFL, ::fcntl(pipe_fds1[1], F_GETFD) | O_NONBLOCK);
     int pipe_fds2[2];
     ::pipe(pipe_fds2);
+    ::fcntl(pipe_fds2[0], F_SETFL, ::fcntl(pipe_fds2[0], F_GETFD) | O_NONBLOCK);
+    ::fcntl(pipe_fds2[1], F_SETFL, ::fcntl(pipe_fds2[1], F_GETFD) | O_NONBLOCK);
 
     boson::run(1, [&]() {
       boson::channel<std::nullptr_t,1> tickets;
@@ -115,8 +121,12 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
   SECTION("Simple pipes - writes") {
     int pipe_fds1[2];
     ::pipe(pipe_fds1);
+    ::fcntl(pipe_fds1[0], F_SETFL, ::fcntl(pipe_fds1[0], F_GETFD) | O_NONBLOCK);
+    ::fcntl(pipe_fds1[1], F_SETFL, ::fcntl(pipe_fds1[1], F_GETFD) | O_NONBLOCK);
     int pipe_fds2[2];
     ::pipe(pipe_fds2);
+    ::fcntl(pipe_fds2[0], F_SETFL, ::fcntl(pipe_fds2[0], F_GETFD) | O_NONBLOCK);
+    ::fcntl(pipe_fds2[1], F_SETFL, ::fcntl(pipe_fds2[1], F_GETFD) | O_NONBLOCK);
 
     boson::run(1, [&]() {
       start(
@@ -129,7 +139,6 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
 
       start(
           [](int in1, int int2, int out1, int out2) -> void {
-            std::nullptr_t sink;
             size_t data{0};
             int result = boson::select_any(                 //
                 event_write(out1, &data, sizeof(size_t),  //
@@ -141,9 +150,16 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
                              return 2;  //
                            }));
             CHECK(result == 1);
+            
+            // Fill up the pipe to make next try blocking
+            ssize_t pipe_size = ::fcntl(out1, F_GETPIPE_SZ);
+            for(ssize_t index = 0; index < (pipe_size - sizeof(size_t)); ++index) {
+              boson::write(out1,"",1);
+            }
+
             result = boson::select_any(                 //
-                event_write(in1, &data, sizeof(size_t),  //
-                           [](ssize_t) {
+                event_write(out1, &data, sizeof(size_t),  //
+                           [](ssize_t rc) {
                              return 1;  //
                            }),
                 event_write(out2, &data, sizeof(size_t),  //
@@ -171,7 +187,6 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
       boson::channel<int,1> tickets2;
       start(
           [](auto t1, auto t2, auto a2b, auto b2a) -> void {
-            //std::nullptr_t sink;
             int sink;
             int result = 0;
             int chandata;
@@ -254,6 +269,8 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
   SECTION("Pipe and channels") {
     int pipe_fds1[2];
     ::pipe(pipe_fds1);
+    ::fcntl(pipe_fds1[0], F_SETFL, ::fcntl(pipe_fds1[0], F_GETFD) | O_NONBLOCK);
+    ::fcntl(pipe_fds1[1], F_SETFL, ::fcntl(pipe_fds1[1], F_GETFD) | O_NONBLOCK);
 
     boson::run(1, [&]() {
       boson::channel<std::nullptr_t,5> tickets;

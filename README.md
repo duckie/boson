@@ -63,6 +63,7 @@ int main(int argc, char *argv[]) {
   bool stopper = false;
   boson::run(1, [&stopper]() {
     boson::start(timer, 1, stopper);
+    ::fcntl(0, F_SETFL, ::fcntl(0, F_GETFD) | O_NONBLOCK);
     boson::start(user_input, 0, stopper);
   });
 }
@@ -130,6 +131,9 @@ The select statement is similar to the Go one, but with a nice twist : it can be
 // Create a pipe
 int pipe_fds[2];
 ::pipe(pipe_fds);
+// Set NONBLOCK flags on pipe fds
+::fcntl(pipe_fds[0], F_SETFL, ::fcntl(pipe_fds[0], F_GETFD) | O_NONBLOCK);
+::fcntl(pipe_fds[1], F_SETFL, ::fcntl(pipe_fds[1], F_GETFD) | O_NONBLOCK);
 
 boson::run(1, [&]() {
 using namespace boson;

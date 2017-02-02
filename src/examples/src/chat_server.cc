@@ -6,6 +6,7 @@
 #include "boson/net/socket.h"
 #include "fmt/format.h"
 #include "boson/select.h"
+#include <fcntl.h>
 
 using namespace boson;
 
@@ -64,6 +65,7 @@ int main(int argc, char *argv[]) {
                        [&](int conn) {                                //
                          if (0 <= conn) {
                            std::cout << "Opening connection on " << conn << std::endl;
+                           ::fcntl(conn, F_SETFL, ::fcntl(conn, F_GETFD) | O_NONBLOCK);
                            conns.insert(conn);
                            start(listen_client{}, conn, messages, close_connection, pilot);
                            broadcast_message(conns, fmt::format("Client {} joined.\n", conn));

@@ -24,6 +24,8 @@ TEST_CASE("Routines - Panic", "[routines][panic]") {
 
   int pipe_fds[2];
   ::pipe(pipe_fds);
+  ::fcntl(pipe_fds[0], F_SETFL, ::fcntl(pipe_fds[0], F_GETFD) | O_NONBLOCK);
+  ::fcntl(pipe_fds[1], F_SETFL, ::fcntl(pipe_fds[1], F_GETFD) | O_NONBLOCK);
   int return_code = 0;
 
   boson::run(1, [&]() {
