@@ -47,9 +47,15 @@ void handleNewConnections(boson::channel<int, 5> newConnChan) {
 }
 
 void displayCounter(std::atomic<uint64_t>* counter) {
+  using namespace std::chrono;
+  auto latest = high_resolution_clock::now();
+  milliseconds step_duration {1000};
   for (;;) {
-    ::printf("%lu\n",counter->exchange(0,std::memory_order_relaxed));
+    ::printf("%lu\n",counter->exchange(0,std::memory_order_relaxed)*1000/step_duration.count());
     boson::sleep(1000ms);
+    auto current = high_resolution_clock::now();
+    step_duration = duration_cast<milliseconds>(current - latest);
+    latest = current;
   }
 }
 

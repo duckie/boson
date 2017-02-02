@@ -140,10 +140,10 @@ bool routine::event_happened(std::size_t index, event_status status) {
         happened_type_ = event_type::sema_closed;
       }
       else if (result <= 0) {
-        // Failed candidacy
-        // Do not invalidate pointers of other events
-        // Do not change the routine status
-        // Do not invalidate event slot in the thread
+        // failed candidacy
+        // do not invalidate pointers of other events
+        // do not change the routine status
+        // do not invalidate event slot in the thread
         auto slot_index =
             thread_->register_semaphore_wait(routine_slot{current_ptr_, index});
         event.data.get<routine_sema_event_data>().index = sema->write(thread_, slot_index);
@@ -164,7 +164,7 @@ bool routine::event_happened(std::size_t index, event_status status) {
       break;
   }
 
-  // Invalidate other events
+  // invalidate other events
   for (auto& other : events_) {
     if (&other != &event) {
       switch (other.type) {
@@ -183,10 +183,10 @@ bool routine::event_happened(std::size_t index, event_status status) {
           break;
         case event_type::sema_wait: {
           --thread_->nb_suspended_routines_;
-          // Remove it from the queue in which it is stored
+          // remove it from the queue in which it is stored
           auto sema = other.data.get<routine_sema_event_data>().sema;
           if (sema->free(other.data.get<routine_sema_event_data>().index)) {
-            // If was in the queue, then free the thread slot
+            // if was in the queue, then free the thread slot
             thread_->unregister_expired_slot(other.data.get<routine_sema_event_data>().slot_index);
           }
         } break;
@@ -201,12 +201,15 @@ bool routine::event_happened(std::size_t index, event_status status) {
 
   if (happened_type_ == event_type::sema_wait || happened_type_ == event_type::sema_closed) {
     status_ = routine_status::yielding;
-    current_ptr_->release();  // In this particular case, the scheduler gets back routine ownership
+    current_ptr_->release();  // in this particular case, the scheduler gets back routine ownership
     current_ptr_.invalidate_all();
     happened_index_ = index;
     return true;
   }
   else if (happened_type_ != event_type::none) {
+    //if (happened_type_ == event_type::timer)
+      //thread_->scheduled_routines_.emplace_front(routine_slot{routine_local_ptr_t(std::unique_ptr<routine>(current_ptr_->release())),0});
+    //else
     thread_->scheduled_routines_.emplace_back(routine_slot{routine_local_ptr_t(std::unique_ptr<routine>(current_ptr_->release())),0});
     current_ptr_.invalidate_all();
     status_ = routine_status::yielding;

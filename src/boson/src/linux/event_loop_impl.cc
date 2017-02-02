@@ -237,13 +237,13 @@ loop_end_reason event_loop::loop(int max_iter, int timeout_ms) {
           else
             break;
         case EINTR:
-          //return loop_end_reason::timed_out;
           //throw exception(std::string("Syscall error (epoll_wait) EINTR : ") + ::strerror(errno));
+          // TODO: real cause to be determined, happens under high contention
           retry = true;
           break;
         case EBADF:
-          //throw exception(std::string("Syscall error (epoll_wait) EBADF : ") + std::to_string(loop_fd_) + ::strerror(errno));
-          retry = true;
+          throw exception(std::string("Syscall error (epoll_wait) EBADF : ") + std::to_string(loop_fd_) + ::strerror(errno));
+          //retry = true;
           break;
         case EFAULT:
           throw exception(std::string("Syscall error (epoll_wait) EFAULT : ") + ::strerror(errno));

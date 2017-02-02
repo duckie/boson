@@ -1,6 +1,8 @@
 #include "boson/syscalls.h"
 #include "boson/internal/routine.h"
 #include "boson/internal/thread.h"
+#include <sys/syscall.h>
+#include <sys/types.h>
 
 namespace boson {
 
@@ -52,23 +54,33 @@ int wait_readiness(fd_t fd, bool read, int timeout_ms) {
 }
 
 ssize_t read(fd_t fd, void* buf, size_t count, int timeout_ms) {
-  int return_code = ::read(fd, buf, count);
+  //int return_code = ::read(fd, buf, count);
+  int return_code = ::syscall(SYS_read, fd, buf, count);
   if (return_code < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
     return_code = wait_read_readiness(fd, timeout_ms);
     if (0 == return_code) {
-      return_code = ::read(fd, buf, count);
+      //return_code = ::read(fd, buf, count);
+      return_code = ::syscall(SYS_read, fd, buf, count);
     }
+  }
+  else {
+    //yield();
   }
   return return_code;
 }
 
 ssize_t write(fd_t fd, const void* buf, size_t count, int timeout_ms) {
-  int return_code = ::write(fd, buf, count);
+  //int return_code = ::write(fd, buf, count);
+  int return_code = ::syscall(SYS_write, fd, buf, count);
   if (return_code < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
     return_code = wait_write_readiness(fd, timeout_ms);
     if (0 == return_code) {
-      return_code = ::write(fd, buf, count);
+      //return_code = ::write(fd, buf, count);
+      return_code = ::syscall(SYS_write, fd, buf, count);
     }
+  }
+  else {
+    //yield();
   }
   return return_code;
 }
@@ -80,6 +92,9 @@ socket_t accept(socket_t socket, sockaddr* address, socklen_t* address_len, int 
     if (0 == return_code) {
       return_code = ::accept(socket, address, address_len);
     }
+  }
+  else {
+    //yield();
   }
   return return_code;
 }
@@ -97,6 +112,9 @@ int connect(socket_t sockfd, const sockaddr *addr, socklen_t addrlen, int timeou
       }
     }
   }
+  else {
+    //yield();
+  }
   return return_code;
 }
 
@@ -108,6 +126,9 @@ ssize_t send(socket_t socket, const void* buffer, size_t length, int flags, int 
       return_code = ::send(socket, buffer, length, flags);
     }
   }
+  else {
+    //yield();
+  }
   return return_code;
 }
 
@@ -118,6 +139,9 @@ ssize_t recv(socket_t socket, void* buffer, size_t length, int flags, int timeou
     if (0 == return_code) {
       return_code = ::recv(socket, buffer, length, flags);
     }
+  }
+  else {
+    //yield();
   }
   return return_code;
 }

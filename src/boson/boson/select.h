@@ -355,6 +355,7 @@ auto select_any(Selectors&& ... selectors)
   }
   if (cancel) {
     current_routine->cancel_event_round();
+    //yield();
   }
   else {
     current_routine->commit_event_round();
