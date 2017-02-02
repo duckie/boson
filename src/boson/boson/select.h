@@ -79,7 +79,7 @@ class event_io_read_storage : public event_io_base_storage<Func> {
 
   bool subscribe(internal::routine* current) {
     this->return_code_ = ::read(this->fd_, this->buf_,this->count_);
-    if (0 != this->return_code_ && (EAGAIN == errno || EWOULDBLOCK == errno)) {
+    if (this->return_code_ < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
       current->add_read(this->fd_);
       return false;
     }
@@ -112,7 +112,7 @@ class event_recv_storage : public event_io_base_storage<Func> {
 
   bool subscribe(internal::routine* current) {
     this->return_code_ = ::recv(this->fd_, this->buf_, this->count_, this->flags_);
-    if (0 != this->return_code_ && (EAGAIN == errno || EWOULDBLOCK == errno)) {
+    if (this->return_code_ < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
       current->add_read(this->fd_);
       return false;
     }
@@ -156,7 +156,7 @@ class event_accept_storage {
 
   bool subscribe(internal::routine* current) {
     this->return_code_ = ::accept(this->socket_, this->address_, this->address_len_);
-    if(0 != this->return_code_ && (EAGAIN == errno || EWOULDBLOCK == errno)) {
+    if(this->return_code_ < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
       current->add_read(this->socket_);
       return false;
     }
@@ -184,7 +184,7 @@ class event_io_write_storage : public event_io_base_storage<Func> {
 
   bool subscribe(internal::routine* current) {
     this->return_code_ = ::write(this->fd_, this->buf_, this->count_);
-    if (0 != this->return_code_ && (EAGAIN == errno || EWOULDBLOCK == errno)) {
+    if (this->return_code_ < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
       current->add_write(this->fd_);
       return false;
     }
@@ -221,7 +221,7 @@ class event_send_storage : public event_io_base_storage<Func> {
 
   bool subscribe(internal::routine* current) {
     this->return_code_ = ::send(this->socket_, this->buf_, this->count_, this->flags_);
-    if (0 != this->return_code_ && (EAGAIN == errno || EWOULDBLOCK == errno)) {
+    if (this->return_code_ < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
       current->add_write(this->socket_);
       return false;
     }

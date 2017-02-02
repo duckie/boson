@@ -53,7 +53,7 @@ int wait_readiness(fd_t fd, bool read, int timeout_ms) {
 
 ssize_t read(fd_t fd, void* buf, size_t count, int timeout_ms) {
   int return_code = ::read(fd, buf, count);
-  if (0 != return_code && (EAGAIN == errno || EWOULDBLOCK == errno)) {
+  if (return_code < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
     return_code = wait_read_readiness(fd, timeout_ms);
     if (0 == return_code) {
       return_code = ::read(fd, buf, count);
@@ -64,7 +64,7 @@ ssize_t read(fd_t fd, void* buf, size_t count, int timeout_ms) {
 
 ssize_t write(fd_t fd, const void* buf, size_t count, int timeout_ms) {
   int return_code = ::write(fd, buf, count);
-  if (0 != return_code && (EAGAIN == errno || EWOULDBLOCK == errno)) {
+  if (return_code < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
     return_code = wait_write_readiness(fd, timeout_ms);
     if (0 == return_code) {
       return_code = ::write(fd, buf, count);
@@ -75,7 +75,7 @@ ssize_t write(fd_t fd, const void* buf, size_t count, int timeout_ms) {
 
 socket_t accept(socket_t socket, sockaddr* address, socklen_t* address_len, int timeout_ms) {
   int return_code = ::accept(socket, address, address_len);
-  if (0 != return_code && (EAGAIN == errno || EWOULDBLOCK == errno)) {
+  if (return_code < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
     return_code = wait_read_readiness(socket, timeout_ms);
     if (0 == return_code) {
       return_code = ::accept(socket, address, address_len);
@@ -86,7 +86,7 @@ socket_t accept(socket_t socket, sockaddr* address, socklen_t* address_len, int 
 
 int connect(socket_t sockfd, const sockaddr *addr, socklen_t addrlen, int timeout_ms) {
   int return_code = ::connect(sockfd, addr, addrlen);
-  if (return_code != 0 && errno == EINPROGRESS) {
+  if (return_code < 0 && errno == EINPROGRESS) {
     return_code = wait_write_readiness(sockfd, timeout_ms);
     if (0 == return_code) {
       socklen_t optlen = 0;
@@ -102,7 +102,7 @@ int connect(socket_t sockfd, const sockaddr *addr, socklen_t addrlen, int timeou
 
 ssize_t send(socket_t socket, const void* buffer, size_t length, int flags, int timeout_ms) {
   int return_code = ::send(socket, buffer, length, flags);
-  if (0 != return_code && (EAGAIN == errno || EWOULDBLOCK == errno)) {
+  if (return_code < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
     return_code = wait_write_readiness(socket, timeout_ms);
     if (0 == return_code) {
       return_code = ::send(socket, buffer, length, flags);
@@ -113,7 +113,7 @@ ssize_t send(socket_t socket, const void* buffer, size_t length, int flags, int 
 
 ssize_t recv(socket_t socket, void* buffer, size_t length, int flags, int timeout_ms) {
   int return_code = ::recv(socket, buffer, length, flags);
-  if (0 != return_code && (EAGAIN == errno || EWOULDBLOCK == errno)) {
+  if (return_code < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
     return_code = wait_read_readiness(socket, timeout_ms);
     if (0 == return_code) {
       return_code = ::recv(socket, buffer, length, flags);
