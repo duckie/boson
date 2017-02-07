@@ -103,7 +103,7 @@ class thread : public event_handler {
   friend void detail::resume_routine(transfer_t);
   friend void boson::yield();
   friend void boson::sleep(std::chrono::milliseconds);
-  friend int boson::wait_readiness(fd_t,bool,int);
+  template <bool> friend int boson::wait_readiness(fd_t,int);
   friend void boson::fd_panic(int fd);
   template <class ContentType>
   friend class channel;

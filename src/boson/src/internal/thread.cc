@@ -177,13 +177,13 @@ void thread::read(int fd, void* data, event_status status) {
   }
   else {
     // Dry run, just disable the event
+    //suspended_slots_.free(reinterpret_cast<std::size_t>(data));
+    int existing_read = -1;
+    tie(existing_read, std::ignore) = loop_->get_events(fd);
+    if (0 <= existing_read)
+      loop_->unregister(existing_read);
     suspended_slots_.free(reinterpret_cast<std::size_t>(data));
   }
-    suspended_slots_.free(reinterpret_cast<std::size_t>(data));
-  int existing_read = -1;
-  tie(existing_read, std::ignore) = loop_->get_events(fd);
-  if (0 <= existing_read)
-    loop_->unregister(existing_read);
 }
 
 void thread::write(int fd, void* data, event_status status) {
@@ -192,13 +192,13 @@ void thread::write(int fd, void* data, event_status status) {
     slot.ptr->get()->event_happened(slot.event_index, status);
   }
   else {
+    int existing_write= -1;
+    tie(std::ignore, existing_write) = loop_->get_events(fd);
+    if (0 <= existing_write)
+      loop_->unregister(existing_write);
     // Dry run, just disable the event
-  }
     suspended_slots_.free(reinterpret_cast<std::size_t>(data));
-  int existing_write= -1;
-  tie(std::ignore, existing_write) = loop_->get_events(fd);
-  if (0 <= existing_write)
-    loop_->unregister(existing_write);
+  }
 }
 
 // called by engine

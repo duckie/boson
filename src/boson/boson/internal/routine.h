@@ -178,7 +178,7 @@ class routine {
   friend void detail::resume_routine(transfer_t);
   friend void boson::yield();
   friend void boson::sleep(std::chrono::milliseconds);
-  friend int boson::wait_readiness(fd_t,bool,int);
+  template <bool> friend int boson::wait_readiness(fd_t,int);
   template <class ContentType>
   friend class channel;
   friend class thread;
