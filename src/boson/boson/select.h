@@ -159,8 +159,30 @@ event_connect(socket_t sockfd, const sockaddr *addr, socklen_t addrlen, Func&& c
     return {std::forward<Func>(cb),sockfd,addr,addrlen,0};
 }
 
+class event_semaphore_wait_base_storage {
+    shared_semaphore& sema_;
+
+ public:
+    //static return_type execute(event_channel_read_storage* self, internal::event_type type,bool) {
+        //self->channel_.consume_read(self->value_);
+        //return self->func_(type == internal::event_type::sema_wait);
+    //}
+
+    event_semaphore_wait_base_storage(shared_semaphore& sema) : sema_{sema} {
+    }
+
+    bool subscribe(internal::routine* current) {
+      int result = sema_.impl_->counter_.fetch_sub(1, std::memory_order_acquire);
+      if (result <= 0) {
+        current->add_semaphore_wait(sema_.impl_.get());
+        return false;
+      }
+      return true;
+    }
+};
+
 template <class ContentType, std::size_t Size, class Func>
-class event_channel_read_storage {
+class event_channel_read_storage : public event_semaphore_wait_base_storage {
     channel<ContentType,Size>& channel_;
     ContentType& value_;
     Func func_;
@@ -176,21 +198,17 @@ class event_channel_read_storage {
     }
 
     event_channel_read_storage(channel_type& channel, ContentType& value, Func&& cb)
-        : channel_{channel}, value_{value}, func_{std::move(cb)} {
+        : event_semaphore_wait_base_storage{channel.channel_->readers_slots_},
+          channel_{channel},
+          value_{value},
+          func_{std::move(cb)} {
     }
 
     event_channel_read_storage(channel_type& channel, ContentType& value, Func const& cb)
-        : channel_{channel}, value_{value}, func_{cb} {
-    }
-
-    bool subscribe(internal::routine* current) {
-      auto& semaphore = channel_.channel_->readers_slots_;
-      int result = semaphore.impl_->counter_.fetch_sub(1, std::memory_order_acquire);
-      if (result <= 0) {
-        current->add_semaphore_wait(semaphore.impl_.get());
-        return false;
-      }
-      return true;
+        : event_semaphore_wait_base_storage{channel.channel_->readers_slots_},
+          channel_{channel},
+          value_{value},
+          func_{cb} {
     }
 };
 
@@ -201,7 +219,7 @@ event_read(channel<ContentType,Size>& chan, ContentType& value, Func&& cb) {
 }
 
 template <class ContentType, std::size_t Size, class Func>
-class event_channel_write_storage {
+class event_channel_write_storage : public event_semaphore_wait_base_storage {
     channel<ContentType,Size>& channel_;
     ContentType value_;
     Func func_;
@@ -217,21 +235,11 @@ class event_channel_write_storage {
     }
 
     event_channel_write_storage(channel_type& channel, ContentType value, Func&& cb)
-        : channel_{channel}, value_{value}, func_{std::move(cb)} {
+        : event_semaphore_wait_base_storage{channel.channel_->writer_slots_}, channel_{channel}, value_{value}, func_{std::move(cb)} {
     }
 
     event_channel_write_storage(channel_type& channel, ContentType value, Func const& cb)
-        : channel_{channel}, value_{value}, func_{cb} {
-    }
-
-    bool subscribe(internal::routine* current) {
-      auto& semaphore = channel_.channel_->writer_slots_;
-      int result = semaphore.impl_->counter_.fetch_sub(1, std::memory_order_acquire);
-      if (result <= 0) {
-        current->add_semaphore_wait(semaphore.impl_.get());
-        return false;
-      }
-      return true;
+        : event_semaphore_wait_base_storage{channel.channel_->writer_slots_}, channel_{channel}, value_{value}, func_{cb} {
     }
 };
 
