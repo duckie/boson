@@ -242,8 +242,8 @@ loop_end_reason event_loop::loop(int max_iter, int timeout_ms) {
           retry = true;
           break;
         case EBADF:
-          throw exception(std::string("Syscall error (epoll_wait) EBADF : ") + std::to_string(loop_fd_) + ::strerror(errno));
-          //retry = true;
+          //throw exception(std::string("Syscall error (epoll_wait) EBADF : ") + std::to_string(loop_fd_) + ::strerror(errno));
+          retry = true;
           break;
         case EFAULT:
           throw exception(std::string("Syscall error (epoll_wait) EFAULT : ") + ::strerror(errno));
