@@ -9,6 +9,8 @@
 #include <sys/types.h>
 #include "internal/routine.h"
 #include "system.h"
+#include "std/experimental/apply.h"
+#include <utility>
 
 namespace boson {
 /**
@@ -19,6 +21,10 @@ namespace boson {
 template <int SyscallId> struct syscall_callable {
   template <class ... Args> static inline decltype(auto) call(Args&& ... args) {
     return ::syscall(SyscallId, std::forward<Args>(args)...);
+  }
+
+  template <class TupleArgs> static inline decltype(auto) apply_call(TupleArgs&& tuple_args) {
+    return experimental::apply(::syscall, std::tuple_cat(std::make_tuple(SyscallId), tuple_args));
   }
 };
 
