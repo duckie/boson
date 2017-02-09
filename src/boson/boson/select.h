@@ -28,19 +28,17 @@ template <class Func, class ... Args, class ... Data> class event_storage<Func, 
   }
 };
 
-}
-}
-
 template <class Func>
 struct event_timer_storage
-    : public internal::select_impl::event_storage<Func, std::tuple<>,
-                                                  std::tuple<internal::routine_time_point>> {
-  using parent_storage = typename internal::select_impl::event_storage<
-      Func, std::tuple<>, std::tuple<internal::routine_time_point>>;
+    : public event_storage<Func, std::tuple<>, std::tuple<internal::routine_time_point>> {
+
+  using parent_storage =
+      event_storage<Func, std::tuple<>, std::tuple<internal::routine_time_point>>;
 
   using parent_storage::parent_storage;
 
-  static typename parent_storage::return_type execute(event_timer_storage* self, internal::event_type, bool) {
+  static typename parent_storage::return_type execute(event_timer_storage* self,
+                                                      internal::event_type, bool) {
     return self->func_();
   }
 
@@ -49,16 +47,19 @@ struct event_timer_storage
     return false;
   }
 };
+}
+}
+
 
 template <class Func>
-event_timer_storage<Func> event_timer(int timeout_ms, Func&& cb) {
+internal::select_impl::event_timer_storage<Func> event_timer(int timeout_ms, Func&& cb) {
   return {std::forward<Func>(cb),
           std::chrono::time_point_cast<std::chrono::milliseconds>(
               std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(timeout_ms))};
 }
 
 template <class Func>
-event_timer_storage<Func> event_timer(std::chrono::milliseconds timeout, Func&& cb) {
+internal::select_impl::event_timer_storage<Func> event_timer(std::chrono::milliseconds timeout, Func&& cb) {
   return {std::forward<Func>(cb), std::chrono::time_point_cast<std::chrono::milliseconds>(
                                       std::chrono::high_resolution_clock::now() + timeout)};
 }
@@ -103,6 +104,9 @@ class event_io_read_storage : public event_io_base_storage<Func> {
     return true;
   }
 };
+
+//template <class Func, int SyscallId, class ... Args> struct event_syscall_storage 
+//: 
 
 template <class Func> 
 event_io_read_storage<Func>
