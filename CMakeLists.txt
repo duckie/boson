@@ -17,6 +17,9 @@ set(CMAKE_VERBOSE_MAKEFILE OFF)
 
 # Check for C++11/14 support
 project_check_cpp_version()
+if (NOT CPP14_SUPPORT)
+  message(FATAL_ERROR "C++14 support is required.")
+endif()
 
 # Check OS
 if (WIN32)
@@ -24,16 +27,8 @@ if (WIN32)
 else()
 endif()
 
-## Snippets to enforce a C++ version
-#if (not CPP14_SUPPORT)
-#  message(FATAL_ERROR "C++14 support is required.")
-#endif()
-if (NOT CPP11_SUPPORT)
-  message(FATAL_ERROR "C++11 support is required.")
-endif()
-
 # Trace compilation for tools (ex: YouCompleteMe)
-set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 configure_file(${PROJECT_SOURCE_DIR}/cmake/BuildConfig.json.in ${PROJECT_SOURCE_DIR}/BuildConfig.json)
 
 # Tooling - some must be declared before adding other subdirectories

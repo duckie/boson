@@ -42,6 +42,7 @@ class semaphore : public std::enable_shared_from_this<semaphore> {
   friend class event_channel_read_storage;
   template <class Content, std::size_t Size, class Func>
   friend class event_channel_write_storage;
+  friend class event_semaphore_wait_base_storage;
 
   static constexpr int disabling_threshold = 0x40000000;
   static constexpr int disabled_standpoint = 0x60000000;
@@ -110,6 +111,7 @@ class shared_semaphore {
   template <class Content, std::size_t Size, class Func>
   friend class event_channel_write_storage;
   std::shared_ptr<semaphore> impl_;
+  friend class event_semaphore_wait_base_storage;
 
  public:
   inline shared_semaphore(int capacity);
