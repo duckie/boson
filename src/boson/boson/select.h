@@ -2,48 +2,65 @@
 #define BOSON_SELECT_H_
 #include "syscalls.h"
 #include "channel.h"
+#include "syscall_traits.h"
+#include "std/experimental/apply.h"
 
 namespace boson {
 
-template <class Func>
-class event_timer_storage {
-  internal::routine_time_point target_; 
+namespace internal {
+namespace select_impl {
+
+template <class Func, class Arguments, class LocalData> class event_storage;
+template <class Func, class ... Args, class ... Data> class event_storage<Func, std::tuple<Args...>, std::tuple<Data...>> {
+ protected:
   Func func_;
+  std::tuple<Args...> args_;
+  std::tuple<Data...> data_;
 
  public:
   using func_type = Func;
-  using return_type = decltype(std::declval<Func>()());
+  using return_type = decltype(std::declval<Func>()(std::declval<Args>()...));
 
-  static return_type execute(event_timer_storage * self, internal::event_type, bool) {
+  event_storage(Func && cb, Args... args, Data... data) : func_{std::move(cb)}, args_{args...}, data_{data...} {
+  }
+
+  event_storage(Func const& cb, Args... args, Data... data) : func_{cb}, args_{args...}, data_{data...} {
+  }
+};
+
+}
+}
+
+template <class Func>
+struct event_timer_storage
+    : public internal::select_impl::event_storage<Func, std::tuple<>,
+                                                  std::tuple<internal::routine_time_point>> {
+  using parent_storage = typename internal::select_impl::event_storage<
+      Func, std::tuple<>, std::tuple<internal::routine_time_point>>;
+
+  using parent_storage::parent_storage;
+
+  static typename parent_storage::return_type execute(event_timer_storage* self, internal::event_type, bool) {
     return self->func_();
   }
 
-  event_timer_storage(std::chrono::milliseconds timeout, Func&& cb)
-      : target_{std::chrono::time_point_cast<std::chrono::milliseconds>(
-            std::chrono::high_resolution_clock::now() + timeout)},
-        func_{std::move(cb)} {
-  }
-
-  event_timer_storage(std::chrono::milliseconds timeout, Func const& cb)
-      : target_{std::chrono::time_point_cast<std::chrono::milliseconds>(
-            std::chrono::high_resolution_clock::now() + timeout)},
-        func_{cb} {
-  }
-
   bool subscribe(internal::routine* current) {
-    current->add_timer(this->target_);
+    current->add_timer(std::get<0>(this->data_));
     return false;
   }
 };
 
 template <class Func>
 event_timer_storage<Func> event_timer(int timeout_ms, Func&& cb) {
-  return {std::chrono::milliseconds(timeout_ms), std::forward<Func>(cb)};
+  return {std::forward<Func>(cb),
+          std::chrono::time_point_cast<std::chrono::milliseconds>(
+              std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(timeout_ms))};
 }
 
 template <class Func>
 event_timer_storage<Func> event_timer(std::chrono::milliseconds timeout, Func&& cb) {
-  return {timeout, std::forward<Func>(cb)};
+  return {std::forward<Func>(cb), std::chrono::time_point_cast<std::chrono::milliseconds>(
+                                      std::chrono::high_resolution_clock::now() + timeout)};
 }
 
 template <class Func>

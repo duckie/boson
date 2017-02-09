@@ -1,64 +1,11 @@
 #include "boson/syscalls.h"
 #include "boson/internal/routine.h"
 #include "boson/internal/thread.h"
-#include <sys/syscall.h>
-#include <sys/types.h>
+#include "boson/syscall_traits.h"
 
 namespace boson {
 
 using namespace internal;
-
-namespace {
-
-/**
- * Bind a syscall to a type
- *
- * This structs represents a kernel syscall within a type
- */
-template <int SyscallId> struct syscall_callable {
-  template <class ... Args> static inline decltype(auto) call(Args&& ... args) {
-    return ::syscall(SyscallId, std::forward<Args>(args)...);
-  }
-};
-
-template <bool IsRead> struct add_event;
-template <> struct add_event<true> {
-  static inline void apply(routine* current, int fd) {
-    current->add_read(fd);
-  }
-};
-template <> struct add_event<false> {
-  static inline void apply(routine* current, int fd) {
-    current->add_write(fd);
-  }
-};
-
-template <int SyscallId> struct syscall_traits;
-
-template <> struct syscall_traits<SYS_read> {
-  static constexpr bool is_read = true;
-};
-
-template <> struct syscall_traits<SYS_write> {
-  static constexpr bool is_read = false;
-};
-
-template <> struct syscall_traits<SYS_recvfrom> {
-  static constexpr bool is_read = true;
-};
-
-template <> struct syscall_traits<SYS_sendto> {
-  static constexpr bool is_read = false;
-};
-
-template <> struct syscall_traits<SYS_accept> {
-  static constexpr bool is_read = true;
-};
-
-template <> struct syscall_traits<SYS_connect> {
-  static constexpr bool is_read = false;
-};
-}
 
 void yield() {
   thread* this_thread = current_thread();
