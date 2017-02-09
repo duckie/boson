@@ -5,6 +5,7 @@
 #include "boson/logger.h"
 #include "boson/semaphore.h"
 #include "boson/select.h"
+#include "boson/net/socket.h"
 #ifdef BOSON_USE_VALGRIND
 #include "valgrind/valgrind.h"
 #endif 
@@ -378,6 +379,79 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
             c1.close();
           },
           chan1, chan2);
+    });
+  }
+
+  SECTION("Select on mutex") {
+    boson::run(1, [&]() {
+      boson::mutex mut1, mut2;
+      mut1.lock();
+      mut2.lock();
+
+      start([](auto m1, auto m2) -> void {
+        using namespace boson;
+        int result = select_any(                 //
+            event_lock(m1, []() { return 1; }),  //
+            event_lock(m2, []() { return 2; })   //
+            );
+        CHECK(result == 2);
+        result = select_any(                 //
+            event_lock(m1, []() { return 1; }),  //
+            event_lock(m2, []() { return 2; })   //
+            );
+        CHECK(result == 1);
+      }, mut1, mut2);
+
+      start([](auto m1, auto m2) -> void {
+        m2.unlock();
+        m1.unlock();
+      }, mut1, mut2);
+    });
+  }
+
+  SECTION("Select on accept/connect") {
+    // A routine that connects to itself in a single thread
+    boson::run(1, [&]() {
+      using namespace boson;
+
+      // Listening socker
+      int listening_socket = boson::net::create_listening_socket(10101);
+      struct sockaddr_in cli_addr;
+      socklen_t clilen = sizeof(cli_addr);
+      //int new_connection = boson::accept(listening_socket, (struct sockaddr*)&cli_addr, &clilen);
+
+      // Connecting socket
+      struct sockaddr_in cli_addr2;
+      cli_addr.sin_addr.s_addr = ::inet_addr("127.0.0.1");
+      cli_addr.sin_family = AF_INET;
+      cli_addr.sin_port = htons(10101);
+      socklen_t clilen2 = sizeof(cli_addr);
+      int sockfd = ::socket(AF_INET, SOCK_STREAM, 0);
+      ::fcntl(sockfd, F_SETFL, O_NONBLOCK);
+      //int new_connection = boson::connect(sockfd, (struct sockaddr*)&cli_addr, clilen);
+      
+      // TODO: to_fix by checking errno
+      int result = select_any( //
+        event_accept(listening_socket, (struct sockaddr*)&cli_addr, &clilen,[](int) {
+          return 0;
+          }), //
+        event_connect(sockfd, (struct sockaddr*)&cli_addr2, clilen2, [](int) {
+            return 1;
+          }) //
+        ); 
+      CHECK(result == 1);
+
+      result = select_any( //
+        event_accept(listening_socket, (struct sockaddr*)&cli_addr, &clilen,[](int) {
+          return 0;
+          }), //
+        event_connect(sockfd, (struct sockaddr*)&cli_addr2, clilen2, [&sockfd](int) {
+            ::shutdown(sockfd, SHUT_WR);
+            ::close(sockfd);
+            return 1;
+          }) //
+        ); 
+      CHECK(result == 1);
     });
   }
 }

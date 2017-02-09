@@ -8,7 +8,9 @@ namespace boson {
  * mutex is a wrapper for shared_ptr of a mutex_impl
  */
 class mutex {
-  std::shared_ptr<semaphore> impl_;
+  template <class Func>
+  friend class event_mutex_lock_storage;
+  shared_semaphore impl_;
 
  public:
   inline mutex();
@@ -25,19 +27,19 @@ class mutex {
 
 // inline implementations
 
-mutex::mutex() : impl_{new semaphore(1)} {
+mutex::mutex() : impl_{1} {
 }
 
 void mutex::lock(int timeout) {
-  impl_->wait(timeout);
+  impl_.wait(timeout);
 }
 
 void mutex::lock(std::chrono::milliseconds timeout) {
-  impl_->wait(timeout);
+  impl_.wait(timeout);
 }
 
 void mutex::unlock() {
-  impl_->post();
+  impl_.post();
 }
 
 }  // namespace boson

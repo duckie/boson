@@ -2,6 +2,7 @@
 #define BOSON_SELECT_H_
 #include "syscalls.h"
 #include "channel.h"
+#include "mutex.h"
 #include "syscall_traits.h"
 #include "std/experimental/apply.h"
 
@@ -163,15 +164,10 @@ class event_semaphore_wait_base_storage {
     shared_semaphore& sema_;
 
  public:
-    //static return_type execute(event_channel_read_storage* self, internal::event_type type,bool) {
-        //self->channel_.consume_read(self->value_);
-        //return self->func_(type == internal::event_type::sema_wait);
-    //}
-
-    event_semaphore_wait_base_storage(shared_semaphore& sema) : sema_{sema} {
+    inline event_semaphore_wait_base_storage(shared_semaphore& sema) : sema_{sema} {
     }
 
-    bool subscribe(internal::routine* current) {
+    inline bool subscribe(internal::routine* current) {
       int result = sema_.impl_->counter_.fetch_sub(1, std::memory_order_acquire);
       if (result <= 0) {
         current->add_semaphore_wait(sema_.impl_.get());
@@ -180,6 +176,35 @@ class event_semaphore_wait_base_storage {
       return true;
     }
 };
+
+template <class Func>
+class event_mutex_lock_storage : public event_semaphore_wait_base_storage {
+    Func func_;
+
+ public:
+    using func_type = Func;
+    using return_type = decltype(std::declval<Func>()());
+
+    static return_type execute(event_mutex_lock_storage* self, internal::event_type type,bool) {
+        return self->func_();
+    }
+
+    event_mutex_lock_storage (mutex& mut, Func&& cb)
+        : event_semaphore_wait_base_storage{mut.impl_},
+          func_{std::move(cb)} {
+    }
+
+    event_mutex_lock_storage (mutex& mut, Func const& cb)
+        : event_semaphore_wait_base_storage{mut.impl_},
+          func_{cb} {
+    }
+};
+
+template <class Func>
+event_mutex_lock_storage<Func> 
+event_lock(mutex& mut, Func&& cb) {
+  return {mut, std::forward<Func>(cb)};
+}
 
 template <class ContentType, std::size_t Size, class Func>
 class event_channel_read_storage : public event_semaphore_wait_base_storage {
