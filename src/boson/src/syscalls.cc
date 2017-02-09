@@ -9,50 +9,53 @@ namespace boson {
 using namespace internal;
 
 namespace {
+
 /**
  * Bind a syscall to a type
+ *
+ * This structs represents a kernel syscall within a type
  */
-template <int SyscallId> struct SyscallCallable {
+template <int SyscallId> struct syscall_callable {
   template <class ... Args> static inline decltype(auto) call(Args&& ... args) {
     return ::syscall(SyscallId, std::forward<Args>(args)...);
   }
 };
 
-template <bool IsRead> struct AddEvent;
-template <> struct AddEvent<true> {
-  static inline void add_event(routine* current, int fd) {
+template <bool IsRead> struct add_event;
+template <> struct add_event<true> {
+  static inline void apply(routine* current, int fd) {
     current->add_read(fd);
   }
 };
-template <> struct AddEvent<false> {
-  static inline void add_event(routine* current, int fd) {
+template <> struct add_event<false> {
+  static inline void apply(routine* current, int fd) {
     current->add_write(fd);
   }
 };
 
-template <int SyscallId> struct SyscallTrait;
+template <int SyscallId> struct syscall_traits;
 
-template <> struct SyscallTrait<SYS_read> {
+template <> struct syscall_traits<SYS_read> {
   static constexpr bool is_read = true;
 };
 
-template <> struct SyscallTrait<SYS_write> {
+template <> struct syscall_traits<SYS_write> {
   static constexpr bool is_read = false;
 };
 
-template <> struct SyscallTrait<SYS_recvfrom> {
+template <> struct syscall_traits<SYS_recvfrom> {
   static constexpr bool is_read = true;
 };
 
-template <> struct SyscallTrait<SYS_sendto> {
+template <> struct syscall_traits<SYS_sendto> {
   static constexpr bool is_read = false;
 };
 
-template <> struct SyscallTrait<SYS_accept> {
+template <> struct syscall_traits<SYS_accept> {
   static constexpr bool is_read = true;
 };
 
-template <> struct SyscallTrait<SYS_connect> {
+template <> struct syscall_traits<SYS_connect> {
   static constexpr bool is_read = false;
 };
 }
@@ -85,7 +88,7 @@ int wait_readiness(fd_t fd, int timeout_ms) {
   thread* this_thread = current_thread();
   routine* current_routine = this_thread->running_routine();
   current_routine->start_event_round();
-  AddEvent<IsARead>::add_event(current_routine, fd);
+  add_event<IsARead>::apply(current_routine, fd);
   if (0 <= timeout_ms) {
     current_routine->add_timer(time_point_cast<milliseconds>(high_resolution_clock::now() + milliseconds(timeout_ms)));
   }
@@ -101,11 +104,11 @@ int wait_readiness(fd_t fd, int timeout_ms) {
 template <int SyscallId> struct boson_classic_syscall {
   template <class... Args>
   static inline decltype(auto) call(int fd, int timeout_ms, Args&&... args) {
-    auto return_code = SyscallCallable<SyscallId>::call(fd, std::forward<Args>(args)...);
+    auto return_code = syscall_callable<SyscallId>::call(fd, std::forward<Args>(args)...);
     if (return_code < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
-      return_code = wait_readiness<SyscallTrait<SyscallId>::is_read>(fd, timeout_ms);
+      return_code = wait_readiness<syscall_traits<SyscallId>::is_read>(fd, timeout_ms);
       if (0 == return_code) {
-        return_code = SyscallCallable<SyscallId>::call(fd, std::forward<Args>(args)...);
+        return_code = syscall_callable<SyscallId>::call(fd, std::forward<Args>(args)...);
       }
     }
     return return_code;
@@ -140,9 +143,9 @@ ssize_t recv(socket_t socket, void* buffer, size_t length, int flags, int timeou
  * is not EAGAIN
  */
 int connect(socket_t sockfd, const sockaddr *addr, socklen_t addrlen, int timeout_ms) {
-  int return_code = SyscallCallable<SYS_connect>::call(sockfd, addr, addrlen);
+  int return_code = syscall_callable<SYS_connect>::call(sockfd, addr, addrlen);
   if (return_code < 0 && errno == EINPROGRESS) {
-    return_code = wait_readiness<SyscallTrait<SYS_connect>::is_read>(sockfd, timeout_ms);
+    return_code = wait_readiness<syscall_traits<SYS_connect>::is_read>(sockfd, timeout_ms);
     if (0 == return_code) {
       socklen_t optlen = 0;
       ::getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &return_code, &optlen);
