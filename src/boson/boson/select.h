@@ -71,6 +71,42 @@ struct event_syscall_storage : protected event_storage<Func, std::tuple<Args...>
     return true;
   }
 };
+
+// Specialization for the connect syscall
+template <class Func, class... Args>
+struct event_syscall_storage<Func, SYS_connect, Args...> : protected event_storage<Func, std::tuple<Args...>, std::tuple<int>> {
+  // Reference parent type
+  using parent_storage = event_storage<Func, std::tuple<Args...>, std::tuple<int>>;
+  // Inherit ctors
+  using parent_storage::parent_storage;
+  using return_type = decltype(std::declval<Func>()(std::declval<int>()));
+
+  static return_type execute(event_syscall_storage* self, internal::event_type,
+                                      bool event_round_cancelled) {
+    int& return_code{std::get<0>(self->data_)};
+    if (!event_round_cancelled) {
+      return_code = syscall_callable<SYS_connect>::apply_call(self->args_);
+      if (0 == return_code) {
+        socklen_t optlen = 0;
+        ::getsockopt(std::get<0>(self->args_), SOL_SOCKET, SO_ERROR, &return_code, &optlen);
+        if (0 != return_code) {
+          errno = return_code;
+          return_code = -1;
+        }
+      }
+    }
+    return self->func_(return_code);
+  }
+
+  bool subscribe(internal::routine* current) {
+    std::get<0>(this->data_) = syscall_callable<SYS_connect>::apply_call(this->args_);
+    if (std::get<0>(this->data_) < 0 && EINPROGRESS == errno) {
+      add_event<syscall_traits<SYS_connect>::is_read>::apply(current, std::get<0>(this->args_));
+      return false;
+    }
+    return true;
+  }
+};
 }
 }
 
@@ -117,6 +153,11 @@ event_send(fd_t fd, void* buf, size_t count, int flags, Func&& cb) {
     return {std::forward<Func>(cb),fd,buf,count,flags,nullptr,nullptr,0};
 }
 
+template <class Func> 
+internal::select_impl::event_syscall_storage<Func, SYS_sendto, socket_t, const sockaddr*, socklen_t>
+event_connect(socket_t sockfd, const sockaddr *addr, socklen_t addrlen, Func&& cb) {
+    return {std::forward<Func>(cb),sockfd,addr,addrlen,0};
+}
 
 template <class ContentType, std::size_t Size, class Func>
 class event_channel_read_storage {
