@@ -418,40 +418,42 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
       int listening_socket = boson::net::create_listening_socket(10101);
       struct sockaddr_in cli_addr;
       socklen_t clilen = sizeof(cli_addr);
-      //int new_connection = boson::accept(listening_socket, (struct sockaddr*)&cli_addr, &clilen);
 
       // Connecting socket
       struct sockaddr_in cli_addr2;
-      cli_addr.sin_addr.s_addr = ::inet_addr("127.0.0.1");
-      cli_addr.sin_family = AF_INET;
-      cli_addr.sin_port = htons(10101);
-      socklen_t clilen2 = sizeof(cli_addr);
+      cli_addr2.sin_addr.s_addr = ::inet_addr("127.0.0.1");
+      cli_addr2.sin_family = AF_INET;
+      cli_addr2.sin_port = htons(10101);
+      socklen_t clilen2 = sizeof(socklen_t);
       int sockfd = ::socket(AF_INET, SOCK_STREAM, 0);
       ::fcntl(sockfd, F_SETFL, O_NONBLOCK);
-      //int new_connection = boson::connect(sockfd, (struct sockaddr*)&cli_addr, clilen);
       
-      // TODO: to_fix by checking errno
+      // Accept/connect at the same time
       int result = select_any( //
-        event_accept(listening_socket, (struct sockaddr*)&cli_addr, &clilen,[](int) {
+        event_accept(listening_socket, (struct sockaddr*)&cli_addr, &clilen,[](int rc) {
+          CHECK(0 < rc);
           return 0;
           }), //
-        event_connect(sockfd, (struct sockaddr*)&cli_addr2, clilen2, [](int) {
+        event_connect(sockfd, (struct sockaddr*)&cli_addr2, sizeof(struct sockaddr), [](int rc) {
             return 1;
           }) //
         ); 
-      CHECK(result == 1);
+      CHECK(result == 0);
 
       result = select_any( //
         event_accept(listening_socket, (struct sockaddr*)&cli_addr, &clilen,[](int) {
           return 0;
           }), //
-        event_connect(sockfd, (struct sockaddr*)&cli_addr2, clilen2, [&sockfd](int) {
+        event_connect(sockfd, (struct sockaddr*)&cli_addr2, clilen2, [&sockfd](int rc) {
+            CHECK(rc == 0);
             ::shutdown(sockfd, SHUT_WR);
             ::close(sockfd);
             return 1;
           }) //
         ); 
       CHECK(result == 1);
+
+      ::close(listening_socket);
     });
   }
 }

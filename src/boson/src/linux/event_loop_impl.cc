@@ -26,6 +26,7 @@ void event_loop::epoll_update(int fd, fd_data& fddata, bool del_if_no_event) {
     return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_MOD, fd, &new_event);
     if (return_code < 0) {
       if (ENOENT == errno) {
+        errno = 0;
         return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, fd, &new_event);
       } else if (EBADF == errno) {
         // Dispatch panic

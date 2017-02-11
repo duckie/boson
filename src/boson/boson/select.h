@@ -3,6 +3,7 @@
 #include "syscalls.h"
 #include "channel.h"
 #include "mutex.h"
+#include "exception.h"
 #include "syscall_traits.h"
 #include "std/experimental/apply.h"
 
@@ -82,18 +83,22 @@ struct event_syscall_storage<Func, SYS_connect, Args...> : protected event_stora
   using parent_storage::parent_storage;
   using return_type = decltype(std::declval<Func>()(std::declval<int>()));
 
-  static return_type execute(event_syscall_storage* self, internal::event_type,
-                                      bool event_round_cancelled) {
+  static return_type execute(event_syscall_storage* self, internal::event_type type,
+                             bool event_round_cancelled) {
     int& return_code{std::get<0>(self->data_)};
     if (!event_round_cancelled) {
-      return_code = syscall_callable<SYS_connect>::apply_call(self->args_);
-      if (0 == return_code) {
-        socklen_t optlen = 0;
-        ::getsockopt(std::get<0>(self->args_), SOL_SOCKET, SO_ERROR, &return_code, &optlen);
+      if (internal::event_type::io_write == type) {
+        socklen_t optlen = sizeof(return_code);
+        if (::getsockopt(std::get<0>(self->args_), SOL_SOCKET, SO_ERROR, &return_code, &optlen) < 0)
+          throw boson::exception(std::string("boson::select_any(event_connect) getsockopt failed (") + ::strerror(errno) + ")");
+        errno = 0;
         if (0 != return_code) {
           errno = return_code;
           return_code = -1;
         }
+        return return_code;
+      } else {
+        return_code = -1;
       }
     }
     return self->func_(return_code);
@@ -155,7 +160,7 @@ event_send(fd_t fd, void* buf, size_t count, int flags, Func&& cb) {
 }
 
 template <class Func> 
-internal::select_impl::event_syscall_storage<Func, SYS_sendto, socket_t, const sockaddr*, socklen_t>
+internal::select_impl::event_syscall_storage<Func, SYS_connect, socket_t, const sockaddr*, socklen_t>
 event_connect(socket_t sockfd, const sockaddr *addr, socklen_t addrlen, Func&& cb) {
     return {std::forward<Func>(cb),sockfd,addr,addrlen,0};
 }

@@ -1,4 +1,5 @@
 #include "boson/syscalls.h"
+#include "boson/exception.h"
 #include "boson/internal/routine.h"
 #include "boson/internal/thread.h"
 #include "boson/syscall_traits.h"
@@ -35,7 +36,12 @@ int wait_readiness(fd_t fd, int timeout_ms) {
   thread* this_thread = current_thread();
   routine* current_routine = this_thread->running_routine();
   current_routine->start_event_round();
-  add_event<IsARead>::apply(current_routine, fd);
+  //add_event<IsARead>::apply(current_routine, fd);
+  if (IsARead)
+    current_routine->add_read(fd);
+  else
+    current_routine->add_write(fd);
+  //add_event<IsARead>::apply(current_routine, fd);
   if (0 <= timeout_ms) {
     current_routine->add_timer(time_point_cast<milliseconds>(high_resolution_clock::now() + milliseconds(timeout_ms)));
   }
@@ -89,13 +95,14 @@ ssize_t recv(socket_t socket, void* buffer, size_t length, int flags, int timeou
  * the connect call does not have to be made again, and the retured error
  * is not EAGAIN
  */
-int connect(socket_t sockfd, const sockaddr *addr, socklen_t addrlen, int timeout_ms) {
+int connect(socket_t sockfd, const sockaddr* addr, socklen_t addrlen, int timeout_ms) {
   int return_code = syscall_callable<SYS_connect>::call(sockfd, addr, addrlen);
   if (return_code < 0 && errno == EINPROGRESS) {
     return_code = wait_readiness<syscall_traits<SYS_connect>::is_read>(sockfd, timeout_ms);
     if (0 == return_code) {
-      socklen_t optlen = 0;
-      ::getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &return_code, &optlen);
+      socklen_t optlen = sizeof(return_code);
+      if (::getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &return_code, &optlen) < 0)
+        throw boson::exception(std::string("boson::connect getsockopt failed (") + ::strerror(errno) + ")");
       if (return_code != 0) {
         errno = return_code;
         return_code = -1;
