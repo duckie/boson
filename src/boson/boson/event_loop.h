@@ -8,7 +8,7 @@
 
 namespace boson {
 
-enum class event_status { ok, panic };
+enum class event_status { ok, panic, hang_up };
 
 struct event_handler {
   virtual void event(int event_id, void* data, event_status status) = 0;

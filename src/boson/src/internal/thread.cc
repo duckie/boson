@@ -172,12 +172,14 @@ void thread::event(int event_id, void* data, event_status status) {
 
 void thread::read(int fd, void* data, event_status status) {
   auto& slot = suspended_slots_[reinterpret_cast<std::size_t>(data)];
-  if (slot.ptr) {
+  bool pointer_is_valid = slot.ptr;
+  bool unregister = !pointer_is_valid || (event_status::ok != status);
+  if (pointer_is_valid) {
     slot.ptr->get()->event_happened(slot.event_index, status);
+    if (status != event_status::ok)
+      suspended_slots_.free(reinterpret_cast<std::size_t>(data));
   }
-  else {
-    // Dry run, just disable the event
-    //suspended_slots_.free(reinterpret_cast<std::size_t>(data));
+  if (unregister) {
     int existing_read = -1;
     tie(existing_read, std::ignore) = loop_->get_events(fd);
     if (0 <= existing_read)
@@ -188,10 +190,14 @@ void thread::read(int fd, void* data, event_status status) {
 
 void thread::write(int fd, void* data, event_status status) {
   auto& slot = suspended_slots_[reinterpret_cast<std::size_t>(data)];
-  if (slot.ptr) {
+  bool pointer_is_valid = slot.ptr;
+  bool unregister = !pointer_is_valid || (event_status::ok != status);
+  if (pointer_is_valid) {
     slot.ptr->get()->event_happened(slot.event_index, status);
+    if (status != event_status::ok)
+      suspended_slots_.free(reinterpret_cast<std::size_t>(data));
   }
-  else {
+  if (unregister) {
     int existing_write= -1;
     tie(std::ignore, existing_write) = loop_->get_events(fd);
     if (0 <= existing_write)

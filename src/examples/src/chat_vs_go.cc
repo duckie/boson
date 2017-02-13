@@ -11,6 +11,7 @@
 #include "fmt/format.h"
 #include "iostream"
 #include <fcntl.h>
+#include <signal.h>
 
 // sudo perf stat -e 'syscalls:sys_enter_epoll*'
 
@@ -20,7 +21,7 @@ using namespace std::chrono_literals;
 void listen_client(int fd, channel<std::string, 5> msg_chan, channel<int, 5> close_chan) {
   std::array<char, 2048> buffer;
   for (;;) {
-    ssize_t nread = boson::recv(fd, buffer.data(), buffer.size(), 0);
+    ssize_t nread = boson::read(fd, buffer.data(), buffer.size());
     if (nread <= 1) {
       close_chan << fd;
       return;
@@ -60,6 +61,7 @@ void displayCounter(std::atomic<uint64_t>* counter) {
 }
 
 int main(int argc, char *argv[]) {
+  signal(SIGPIPE, SIG_IGN);
   boson::run(1, []() {
     channel<int, 5> new_connection;
     channel<std::string, 5> messages;

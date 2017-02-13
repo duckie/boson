@@ -5,6 +5,7 @@
 #include <cstring>
 #include "exception.h"
 #include "system.h"
+#include "logger.h"
 
 template class std::unique_ptr<boson::event_loop>;
 
@@ -19,7 +20,9 @@ event_loop::fd_data& event_loop::get_fd_data(int fd) {
 
 void event_loop::epoll_update(int fd, fd_data& fddata, bool del_if_no_event) {
   if (events_.size() < events_data_.data().size()) events_.resize(events_data_.data().size());
-  epoll_event_t new_event{(0 <= fddata.idx_read ? (EPOLLIN | EPOLLET) : 0) | (0 <= fddata.idx_write ? (EPOLLOUT | EPOLLET): 0), {}};
+  epoll_event_t new_event{(0 <= fddata.idx_read ? EPOLLIN : 0) |
+                              (0 <= fddata.idx_write ? EPOLLOUT : 0) | EPOLLET | EPOLLRDHUP,
+                          {}};
   new_event.data.fd = fd;
   int return_code = -1;
   if (0 != new_event.events) {
@@ -257,11 +260,12 @@ loop_end_reason event_loop::loop(int max_iter, int timeout_ms) {
       for (int index = 0; index < return_code; ++index) {
         auto& epoll_event = events_[index];
         auto& fddata = get_fd_data(epoll_event.data.fd);
-        if (epoll_event.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
+        if (epoll_event.events & (EPOLLERR | EPOLLRDHUP)) {
+          boson::debug::log("Yeah HANG UP {}", epoll_event.data.fd);
           if (0 < fddata.idx_read)
-            dispatch_event(fddata.idx_read, event_status::panic);
+            dispatch_event(fddata.idx_read, event_status::hang_up);
           if (0 < fddata.idx_write)
-            dispatch_event(fddata.idx_write, event_status::panic);
+            dispatch_event(fddata.idx_write, event_status::hang_up);
         }
         else {
           if (epoll_event.events & EPOLLIN)
