@@ -54,7 +54,7 @@ TEST_CASE("Sockets - Simple accept/connect", "[syscalls][sockets][accept][connec
             CHECK(0 == new_connection);
             tickets << nullptr;
             ::shutdown(new_connection, SHUT_WR);
-            ::close(new_connection);
+            boson::close(new_connection);
           },tickets);
 
           std::nullptr_t dummy;

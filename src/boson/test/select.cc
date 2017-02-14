@@ -454,7 +454,7 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
         ); 
       CHECK(result == 1);
 
-      ::close(listening_socket);
+      boson::close(listening_socket);
     });
   }
 }

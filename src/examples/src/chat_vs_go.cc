@@ -61,7 +61,8 @@ void displayCounter(std::atomic<uint64_t>* counter) {
 }
 
 int main(int argc, char *argv[]) {
-  signal(SIGPIPE, SIG_IGN);
+  struct sigaction action {SIG_IGN,0,0};
+  ::sigaction(SIGPIPE, &action, nullptr);
   boson::run(1, []() {
     channel<int, 5> new_connection;
     channel<std::string, 5> messages;
@@ -98,7 +99,7 @@ int main(int argc, char *argv[]) {
                      [&](bool) {  //
                        conns.erase(conn);
                        ::shutdown(conn, SHUT_WR);
-                       ::close(conn);
+                       boson::close(conn);
                      }));
     };
   });

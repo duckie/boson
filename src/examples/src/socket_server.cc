@@ -14,7 +14,7 @@ void listen_client(int fd) {
     if (data == "quit") break;
   }
   ::shutdown(fd, SHUT_WR);
-  ::close(fd);
+  boson::close(fd);
 }
 
 int main(int argc, char *argv[]) {
