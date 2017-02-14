@@ -14,7 +14,7 @@ struct handler01 : public event_handler {
   int last_read_fd{-1};
   int last_write_fd{-1};
   void* last_data{nullptr};
-  event_status last_status {event_status::ok};
+  event_status last_status {};
 
   void event(int event_id, void* data, event_status status) override {
     last_id = event_id;
@@ -47,7 +47,7 @@ TEST_CASE("Event Loop - Event notification", "[eventloop][notif]") {
 
   CHECK(handler_instance.last_id == event_id);
   CHECK(handler_instance.last_data == nullptr);
-  CHECK(handler_instance.last_status == event_status::ok);
+  CHECK(handler_instance.last_status == 0);
 }
 
 TEST_CASE("Event Loop - FD Read/Write", "[eventloop][read/write]") {
@@ -64,7 +64,7 @@ TEST_CASE("Event Loop - FD Read/Write", "[eventloop][read/write]") {
   loop.loop(1);
   CHECK(handler_instance.last_write_fd == pipe_fds[1]);
   CHECK(handler_instance.last_data == nullptr);
-  CHECK(handler_instance.last_status == event_status::ok);
+  CHECK(handler_instance.last_status == 0);
 
   size_t data{1};
   ::write(pipe_fds[1], &data, sizeof(size_t));
@@ -90,7 +90,7 @@ TEST_CASE("Event Loop - FD Read/Write same FD", "[eventloop][read/write]") {
   loop.loop(1);
   CHECK(handler_instance.last_read_fd == -1);
   CHECK(handler_instance.last_write_fd == sv[0]);
-  CHECK(handler_instance.last_status == event_status::ok);
+  CHECK(handler_instance.last_status == 0);
 
   loop.unregister(event_write);
   // Write at the other end, it should work even though we suppressed the other event
@@ -100,7 +100,7 @@ TEST_CASE("Event Loop - FD Read/Write same FD", "[eventloop][read/write]") {
   loop.loop(1);
   CHECK(handler_instance.last_read_fd == sv[0]);
   CHECK(handler_instance.last_write_fd == -1);
-  CHECK(handler_instance.last_status == event_status::ok);
+  CHECK(handler_instance.last_status == 0);
   
   ::shutdown(sv[0], SHUT_WR);
   ::shutdown(sv[1], SHUT_WR);
@@ -125,5 +125,5 @@ TEST_CASE("Event Loop - FD Panic Read/Write", "[eventloop][panic]") {
   loop.send_fd_panic(0,pipe_fds[0]);
   loop.loop(1);
   CHECK(handler_instance.last_read_fd == pipe_fds[0]);
-  CHECK(handler_instance.last_status == event_status::panic);
+  CHECK(handler_instance.last_status < 0);
 }

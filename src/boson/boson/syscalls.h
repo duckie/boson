@@ -8,11 +8,6 @@
 #include "system.h"
 
 namespace boson {
-
-static constexpr int code_ok = -100;
-static constexpr int code_timeout = -102;
-static constexpr int code_panic = -101;
-
 /**
  * Gives back control to the scheduler
  *
@@ -67,6 +62,7 @@ inline ssize_t recv(socket_t socket, void *buffer, size_t length, int flags, std
   return recv(socket, buffer, length, flags, timeout.count());
 }
 
+int close(int fd);
 void fd_panic(int fd);
 
 }  // namespace boson

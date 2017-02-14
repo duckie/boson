@@ -34,6 +34,8 @@ TEST_CASE("Routines - Panic", "[routines][panic]") {
     start([&]() {
       char buf[1];
       return_code = boson::read(pipe_fds[0], buf, 1);
+      CHECK(return_code == -1);
+      CHECK(errno == EINTR);
     });
 
     start([&]() {
@@ -41,5 +43,4 @@ TEST_CASE("Routines - Panic", "[routines][panic]") {
     });
   });
 
-  CHECK(return_code == boson::code_panic);
 }

@@ -98,8 +98,6 @@ void routine::cancel_event_round() {
         }
       } break;
       case event_type::sema_closed:
-      case event_type::io_read_panic:
-      case event_type::io_write_panic:
         assert(false);
         break;
     }
@@ -117,18 +115,18 @@ void routine::set_as_semaphore_event_candidate(std::size_t index) {
 
 bool routine::event_happened(std::size_t index, event_status status) {
   auto& event =  events_[index];
+  happened_rc_ = 0;
   switch (event.type) {
     case event_type::none:
       break;
     case event_type::timer:
       happened_type_ = event_type::timer;
+      happened_rc_ = -ETIMEDOUT;
       break;
     case event_type::io_read:
-      happened_type_ = event_status::ok == status ? event_type::io_read : event_type::io_read_panic;
-      --thread_->nb_suspended_routines_;
-      break;
     case event_type::io_write:
-      happened_type_ = event_status::ok == status ? event_type::io_write : event_type::io_write_panic;
+      happened_type_ = event.type;
+      happened_rc_ = status;
       --thread_->nb_suspended_routines_;
       break;
     case event_type::sema_wait: {
@@ -158,8 +156,6 @@ bool routine::event_happened(std::size_t index, event_status status) {
       }
     } break;
     case event_type::sema_closed:
-    case event_type::io_read_panic:
-    case event_type::io_write_panic:
       assert(false);
       break;
   }
@@ -191,8 +187,6 @@ bool routine::event_happened(std::size_t index, event_status status) {
           }
         } break;
         case event_type::sema_closed:
-        case event_type::io_read_panic:
-        case event_type::io_write_panic:
           assert(false);
           break;
       }
@@ -218,6 +212,10 @@ bool routine::event_happened(std::size_t index, event_status status) {
   }
 
   return false;
+}
+
+void routine::close_fd(int fd) {
+  thread_->unregister_fd(fd);
 }
 
 void routine::resume(thread* managing_thread) {

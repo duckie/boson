@@ -34,9 +34,9 @@ void event_loop::epoll_update(int fd, fd_data& fddata, bool del_if_no_event) {
       } else if (EBADF == errno) {
         // Dispatch panic
         if (0 <= fddata.idx_read)
-          dispatch_event(fddata.idx_read, event_status::panic);
+          dispatch_event(fddata.idx_read, -EBADF);
         if (0 <= fddata.idx_write)
-          dispatch_event(fddata.idx_write, event_status::panic);
+          dispatch_event(fddata.idx_write, -EBADF);
       }
       else {
         throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
@@ -66,9 +66,9 @@ void event_loop::dispatch_event(int event_id, event_status status) {
           if (static_cast<size_t>(data->fd) < fd_data_.size()) {
             auto& fddata = get_fd_data(data->fd);
             if (0 <= fddata.idx_read)
-              dispatch_event(fddata.idx_read, event_status::panic);
+              dispatch_event(fddata.idx_read, -EINTR);
             if (0 <= fddata.idx_write)
-              dispatch_event(fddata.idx_write, event_status::panic);
+              dispatch_event(fddata.idx_write, -EINTR);
           }
           delete data;
         }
@@ -261,18 +261,17 @@ loop_end_reason event_loop::loop(int max_iter, int timeout_ms) {
         auto& epoll_event = events_[index];
         auto& fddata = get_fd_data(epoll_event.data.fd);
         if (epoll_event.events & (EPOLLERR | EPOLLRDHUP)) {
-          boson::debug::log("Yeah HANG UP {}", epoll_event.data.fd);
-          if (0 < fddata.idx_read)
-            dispatch_event(fddata.idx_read, event_status::hang_up);
+          //boson::debug::log("Yeah HANG UP {}", epoll_event.data.fd);
+          if (0 < fddata.idx_read && !(epoll_event.events & EPOLLIN))
+            dispatch_event(fddata.idx_read, -EINTR);
           if (0 < fddata.idx_write)
-            dispatch_event(fddata.idx_write, event_status::hang_up);
+            dispatch_event(fddata.idx_write, -EINTR);
         }
-        else {
-          if (epoll_event.events & EPOLLIN)
-            dispatch_event(fddata.idx_read, event_status::ok);
-          if (epoll_event.events & EPOLLOUT)
-            dispatch_event(fddata.idx_write, event_status::ok);
+        else if (epoll_event.events & EPOLLOUT) {
+          dispatch_event(fddata.idx_write, 0);
         }
+        if (epoll_event.events & EPOLLIN)
+          dispatch_event(fddata.idx_read, 0);
       }
     }
   }

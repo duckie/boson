@@ -48,10 +48,13 @@ int wait_readiness(fd_t fd, int timeout_ms) {
   current_routine->commit_event_round();
   current_routine->previous_status_ = routine_status::wait_events;
   current_routine->status_ = routine_status::running;
-  return current_routine->happened_type_ == event_type::io_write_panic ||
-                 current_routine->happened_type_ == event_type::io_read_panic
-             ? code_panic
-             : (current_routine->happened_type_ == event_type::timer ? code_timeout : 0);
+
+  int return_code = 0;
+  if (current_routine->happened_rc_  < 0) {
+    errno = -current_routine->happened_rc_;
+    return_code = -1;
+  }
+  return return_code;
 }
 
 template <int SyscallId> struct boson_classic_syscall {
@@ -110,6 +113,14 @@ int connect(socket_t sockfd, const sockaddr* addr, socklen_t addrlen, int timeou
     }
   }
   return return_code;
+}
+
+int close(fd_t fd) {
+  int rc = syscall_callable<SYS_close>::call(fd);
+  auto current_errno = errno;
+  current_thread()->unregister_fd(fd);
+  errno = current_errno;
+  return rc;
 }
 
 void fd_panic(int fd) {

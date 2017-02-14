@@ -105,6 +105,7 @@ class thread : public event_handler {
   friend void boson::sleep(std::chrono::milliseconds);
   template <bool> friend int boson::wait_readiness(fd_t,int);
   friend void boson::fd_panic(int fd);
+  friend int boson::close(int);
   template <class ContentType>
   friend class channel;
   friend class routine;
@@ -216,6 +217,14 @@ class thread : public event_handler {
    * This is used when cancelling semaphore events directly into their queue
    */
   void unregister_expired_slot(std::size_t slot_index);
+
+  /**
+   * Signals the event_loop that a fd has been closed
+   *
+   * This is useful to make sure new events are created
+   * when the fd is reused
+   */
+  void unregister_fd(int fd);
 
   /**
    * Sets a routine for execution at the next round

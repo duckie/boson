@@ -60,9 +60,9 @@ enum class event_type {
   io_read,
   io_write,
   sema_wait,
-  sema_closed,
-  io_read_panic,
-  io_write_panic
+  sema_closed
+  //io_read_panic,
+  //io_write_panic
 };
 
 enum class fd_status {
@@ -200,6 +200,7 @@ class routine {
   std::vector<waited_event> events_;
   routine_local_ptr_t current_ptr_;
   event_type happened_type_ = event_type::none;
+  event_status happened_rc_ = 0;
   size_t happened_index_ = 0;
 
  public:
@@ -248,7 +249,9 @@ class routine {
   void set_as_semaphore_event_candidate(std::size_t index);
 
   // Called by the thread to tell an event happened
-  bool event_happened(std::size_t index, event_status status = event_status::ok);
+  bool event_happened(std::size_t index, event_status status = 0);
+
+  void close_fd(int fd);
 
   /**
    * Starts or resume the routine

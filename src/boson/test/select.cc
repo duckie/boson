@@ -38,7 +38,8 @@ TEST_CASE("Routines - I/O", "[routines][i/o]") {
           [](int in) -> void {
             size_t data;
             int result = boson::read(in, &data, sizeof(size_t), time_factor()*5ms);
-            CHECK(result == boson::code_timeout);
+            CHECK(result == -1);
+            CHECK(errno == ETIMEDOUT);
             result = boson::read(in, &data, sizeof(size_t));
             CHECK(0 < result);
           },
@@ -424,7 +425,7 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
       cli_addr2.sin_addr.s_addr = ::inet_addr("127.0.0.1");
       cli_addr2.sin_family = AF_INET;
       cli_addr2.sin_port = htons(10101);
-      socklen_t clilen2 = sizeof(socklen_t);
+      socklen_t clilen2 = sizeof(sockaddr);
       int sockfd = ::socket(AF_INET, SOCK_STREAM, 0);
       ::fcntl(sockfd, F_SETFL, O_NONBLOCK);
       

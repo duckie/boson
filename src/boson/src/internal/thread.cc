@@ -153,6 +153,16 @@ void thread::unregister_expired_slot(std::size_t slot_index) {
   suspended_slots_.free(slot_index);
 }
 
+void thread::unregister_fd(int fd) {
+  //loop_->send_fd_panic(engine_proxy_.get_id(), fd);
+  int existing_read, existing_write;
+  std::tie(existing_read, existing_write) = loop_->get_events(fd);
+  if (0 <= existing_read)
+    read(fd, loop_->get_data(existing_read), -EINTR);
+  if (0 <= existing_write)
+    write(fd, loop_->get_data(existing_write), -EINTR);
+}
+
 thread::thread(engine& parent_engine)
     : engine_proxy_(parent_engine),
       loop_(new event_loop{*this, static_cast<int>(parent_engine.max_nb_cores() + 1)}),
@@ -173,10 +183,10 @@ void thread::event(int event_id, void* data, event_status status) {
 void thread::read(int fd, void* data, event_status status) {
   auto& slot = suspended_slots_[reinterpret_cast<std::size_t>(data)];
   bool pointer_is_valid = slot.ptr;
-  bool unregister = !pointer_is_valid || (event_status::ok != status);
+  bool unregister = !pointer_is_valid || status < 0;
   if (pointer_is_valid) {
     slot.ptr->get()->event_happened(slot.event_index, status);
-    if (status != event_status::ok)
+    if (status < 0)
       suspended_slots_.free(reinterpret_cast<std::size_t>(data));
   }
   if (unregister) {
@@ -191,10 +201,10 @@ void thread::read(int fd, void* data, event_status status) {
 void thread::write(int fd, void* data, event_status status) {
   auto& slot = suspended_slots_[reinterpret_cast<std::size_t>(data)];
   bool pointer_is_valid = slot.ptr;
-  bool unregister = !pointer_is_valid || (event_status::ok != status);
+  bool unregister = !pointer_is_valid || status < 0;
   if (pointer_is_valid) {
     slot.ptr->get()->event_happened(slot.event_index, status);
-    if (status != event_status::ok)
+    if (status < 0)
       suspended_slots_.free(reinterpret_cast<std::size_t>(data));
   }
   if (unregister) {
