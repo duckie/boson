@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
               chan << nb_iter;
               // queue.write(boson::internal::current_thread()->id(), static_cast<void*>(&nnb_iter));
             },
-            dup(chan));
+            chan);
       }
       for (size_t index = 0; index < nb_cons; ++index) {
         start(
@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
                 }
               } while (val != nb_iter);
             },
-            dup(chan));
+            chan);
       }
     });
   }

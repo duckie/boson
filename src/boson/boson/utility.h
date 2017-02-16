@@ -7,16 +7,6 @@
 
 namespace boson {
 
-/**
- * Copies the argument
- *
- * This is usefull for force copying arguments passed to channels
- */
-template <class T>
-std::decay_t<T> dup(T arg) {
-  return arg;
-}
-
 template <class T>
 struct value_arg {
   value_arg(value_arg const&) = delete;
