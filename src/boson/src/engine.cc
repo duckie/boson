@@ -13,6 +13,7 @@ void engine::push_command(thread_id from, std::unique_ptr<command> new_command) 
 void engine::execute_commands() {
   std::unique_ptr<command> new_command;
   do {
+    //new_command.release();
     new_command.reset(nullptr);
     if (command_queue_.read(new_command)) {
       switch (new_command->type) {

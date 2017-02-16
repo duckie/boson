@@ -38,6 +38,17 @@
 namespace boson {
 namespace queues {
 
+template <class T> struct mpsc_moved_deleter {
+  static inline void del(T& data) {
+    data.~T();
+  };
+};
+
+template <class T> struct mpsc_moved_deleter<std::unique_ptr<T>> {
+  static inline void del(std::unique_ptr<T>&) {
+  };
+};
+
 template <typename T>
 class mpsc {
  public:
@@ -73,7 +84,7 @@ class mpsc {
       return false;
     }
     output = std::move(next->data);
-    next->data.~T();
+    mpsc_moved_deleter<T>::del(next->data);
     _tail.store(next, std::memory_order_release);
     delete tail;
     return true;
