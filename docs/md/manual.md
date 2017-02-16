@@ -27,7 +27,7 @@ make -j
 
 ## Quick tutorial
 
-We'll start with a very simple program and explain each part of it. Dump this content in a file, say `main.cc`:
+We will start with a very simple program and explain each part of it. Dump this content in a file, say `main.cc`:
 
 ```c++
 #include "boson/boson.h"
@@ -74,4 +74,4 @@ This line starts a boson engine with one thread and a routine in it. It is not m
 
 *Tip*: The engine does not use any global variable. That means you can launch as many instances of the engine that you want in the same executable.
 
-
+_To be continued soon_
