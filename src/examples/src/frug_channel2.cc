@@ -18,9 +18,10 @@ void operator() (Duration wait, Channel pipe, int data) const {
 
 int main(int argc, char *argv[]) {
   boson::run(1, []() {
-    boson::channel<int, 1> pipe1, pipe2;
+    using namespace boson;
+    channel<int, 1> pipe1, pipe2;
 
-    boson::start(
+    start(
         [](auto in1, auto in2) -> void {
           int result;
           for (int i = 0; i < 2; ++i)
@@ -30,7 +31,7 @@ int main(int argc, char *argv[]) {
         },
         pipe1, pipe2);
 
-    boson::start(producer{}, 500ms, pipe1, 1);
-    boson::start(producer{}, 0ms, pipe2, 2);
+    start(producer{}, 500ms, pipe1, 1);
+    start(producer{}, 0ms, pipe2, 2);
   });
 }

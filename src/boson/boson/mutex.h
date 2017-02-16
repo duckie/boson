@@ -8,8 +8,9 @@ namespace boson {
  * mutex is a wrapper for shared_ptr of a mutex_impl
  */
 class mutex {
-  template <class Func>
-  friend class event_mutex_lock_storage;
+  friend class internal::select_impl::event_semaphore_wait_base_storage;
+  template <class>
+  friend class internal::select_impl::event_mutex_lock_storage;
   shared_semaphore impl_;
 
  public:

@@ -29,9 +29,9 @@ template <class ContentType, std::size_t Size>
 class channel_impl {
   static_assert(0 < Size, "Boson channels do not support zero size.");
   template <class Content, std::size_t InSize, class Func>
-  friend class event_channel_read_storage;
+  friend class internal::select_impl::event_channel_read_storage;
   template <class Content, std::size_t InSize, class Func>
-  friend class event_channel_write_storage;
+  friend class internal::select_impl::event_channel_write_storage;
 
   std::array<ContentType, Size> buffer_;
   std::atomic<size_t> head_;
@@ -104,9 +104,9 @@ template <std::size_t Size>
 class channel_impl<std::nullptr_t,Size> {
   static_assert(0 < Size, "Boson channels do not support zero size.");
   template <class Content, std::size_t InSize, class Func>
-  friend class event_channel_read_storage;
+  friend class internal::select_impl::event_channel_read_storage;
   template <class Content, std::size_t InSize, class Func>
-  friend class event_channel_write_storage;
+  friend class internal::select_impl::event_channel_write_storage;
 
   using ContentType = std::nullptr_t;
 
@@ -170,9 +170,9 @@ class channel_impl<std::nullptr_t,Size> {
 template <class ContentType, std::size_t Size>
 class channel {
   template <class Content, std::size_t InSize, class Func>
-  friend class event_channel_read_storage;
+  friend class internal::select_impl::event_channel_read_storage;
   template <class Content, std::size_t InSize, class Func>
-  friend class event_channel_write_storage;
+  friend class internal::select_impl::event_channel_write_storage;
   using value_t = ContentType;
   using impl_t = channel_impl<value_t, Size>;
 

@@ -11,10 +11,17 @@
 
 namespace boson {
 
-template <class ContentType, std::size_t Size, class Func>
+namespace internal {
+namespace select_impl {
+class event_semaphore_wait_base_storage;
+template <class>
+class event_mutex_lock_storage;
+template <class, std::size_t, class>
 class event_channel_read_storage;
-template <class ContentType, std::size_t Size, class Func>
+template <class, std::size_t, class>
 class event_channel_write_storage;
+}
+}
 
 enum class semaphore_return_value { ok, timedout, disabled };
 
@@ -38,11 +45,13 @@ struct semaphore_result {
 class semaphore : public std::enable_shared_from_this<semaphore> {
   friend class internal::thread;
   friend class internal::routine;
+  friend class internal::select_impl::event_semaphore_wait_base_storage;
+  template <class>
+  friend class internal::select_impl::event_mutex_lock_storage;
   template <class Content, std::size_t Size, class Func>
-  friend class event_channel_read_storage;
+  friend class internal::select_impl::event_channel_read_storage;
   template <class Content, std::size_t Size, class Func>
-  friend class event_channel_write_storage;
-  friend class event_semaphore_wait_base_storage;
+  friend class internal::select_impl::event_channel_write_storage;
 
   static constexpr int disabling_threshold = 0x40000000;
   static constexpr int disabled_standpoint = 0x60000000;
@@ -106,12 +115,14 @@ semaphore_result semaphore::wait(std::chrono::milliseconds timeout) {
 class shared_semaphore {
   friend class internal::thread;
   friend class internal::routine;
+  friend class internal::select_impl::event_semaphore_wait_base_storage;
+  template <class>
+  friend class internal::select_impl::event_mutex_lock_storage;
   template <class Content, std::size_t Size, class Func>
-  friend class event_channel_read_storage;
+  friend class internal::select_impl::event_channel_read_storage;
   template <class Content, std::size_t Size, class Func>
-  friend class event_channel_write_storage;
+  friend class internal::select_impl::event_channel_write_storage;
   std::shared_ptr<semaphore> impl_;
-  friend class event_semaphore_wait_base_storage;
 
  public:
   inline shared_semaphore(int capacity);

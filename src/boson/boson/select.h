@@ -113,6 +113,117 @@ struct event_syscall_storage<Func, SYS_connect, Args...> : protected event_stora
     return true;
   }
 };
+
+class event_semaphore_wait_base_storage {
+    shared_semaphore& sema_;
+
+ public:
+    inline event_semaphore_wait_base_storage(shared_semaphore& sema) : sema_{sema} {
+    }
+
+    inline bool subscribe(internal::routine* current) {
+      int result = sema_.impl_->counter_.fetch_sub(1, std::memory_order_acquire);
+      if (result <= 0) {
+        current->add_semaphore_wait(sema_.impl_.get());
+        return false;
+      }
+      return true;
+    }
+};
+
+template <class Func>
+class event_mutex_lock_storage : public event_semaphore_wait_base_storage {
+    Func func_;
+
+ public:
+    using func_type = Func;
+    using return_type = decltype(std::declval<Func>()());
+
+    static return_type execute(event_mutex_lock_storage* self, internal::event_type type,bool) {
+        return self->func_();
+    }
+
+    event_mutex_lock_storage (mutex& mut, Func&& cb)
+        : event_semaphore_wait_base_storage{mut.impl_},
+          func_{std::move(cb)} {
+    }
+
+    event_mutex_lock_storage (mutex& mut, Func const& cb)
+        : event_semaphore_wait_base_storage{mut.impl_},
+          func_{cb} {
+    }
+};
+
+template <class ContentType, std::size_t Size, class Func>
+class event_channel_read_storage : public event_semaphore_wait_base_storage {
+    channel<ContentType,Size>& channel_;
+    ContentType& value_;
+    Func func_;
+
+ public:
+    using channel_type = channel<ContentType,Size>;
+    using func_type = Func;
+    using return_type = decltype(std::declval<Func>()(bool{}));
+
+    static return_type execute(event_channel_read_storage* self, internal::event_type type,bool) {
+        self->channel_.consume_read(self->value_);
+        return self->func_(type == internal::event_type::sema_wait);
+    }
+
+    event_channel_read_storage(channel_type& channel, ContentType& value, Func&& cb)
+        : event_semaphore_wait_base_storage{channel.channel_->readers_slots_},
+          channel_{channel},
+          value_{value},
+          func_{std::move(cb)} {
+    }
+
+    event_channel_read_storage(channel_type& channel, ContentType& value, Func const& cb)
+        : event_semaphore_wait_base_storage{channel.channel_->readers_slots_},
+          channel_{channel},
+          value_{value},
+          func_{cb} {
+    }
+};
+
+template <class ContentType, std::size_t Size, class Func>
+class event_channel_write_storage : public event_semaphore_wait_base_storage {
+    channel<ContentType,Size>& channel_;
+    ContentType value_;
+    Func func_;
+
+ public:
+    using channel_type = channel<ContentType,Size>;
+    using func_type = Func;
+    using return_type = decltype(std::declval<Func>()(bool{}));
+
+    static return_type execute(event_channel_write_storage* self, internal::event_type type,bool) {
+        self->channel_.consume_write(std::move(self->value_));
+        return self->func_(type == internal::event_type::sema_wait);
+    }
+
+    event_channel_write_storage(channel_type& channel, ContentType value, Func&& cb)
+        : event_semaphore_wait_base_storage{channel.channel_->writer_slots_}, channel_{channel}, value_{value}, func_{std::move(cb)} {
+    }
+
+    event_channel_write_storage(channel_type& channel, ContentType value, Func const& cb)
+        : event_semaphore_wait_base_storage{channel.channel_->writer_slots_}, channel_{channel}, value_{value}, func_{cb} {
+    }
+};
+
+template <class Selector, class ReturnType> 
+auto make_selector_execute() -> decltype(auto) {
+  return [](void* data, internal::event_type type, bool event_round_cancelled) -> ReturnType {
+    return Selector::execute(static_cast<Selector*>(data), type, event_round_cancelled);
+  };
+}
+
+template <class Selector> 
+auto make_selector_subscribe() -> decltype(auto) {
+  return [](void* data, internal::routine* current) -> bool {
+    return static_cast<Selector*>(data)->subscribe(current);
+  };
+}
+
 }
 }
 
@@ -165,143 +276,34 @@ event_connect(socket_t sockfd, const sockaddr *addr, socklen_t addrlen, Func&& c
     return {std::forward<Func>(cb),sockfd,addr,addrlen,0};
 }
 
-class event_semaphore_wait_base_storage {
-    shared_semaphore& sema_;
-
- public:
-    inline event_semaphore_wait_base_storage(shared_semaphore& sema) : sema_{sema} {
-    }
-
-    inline bool subscribe(internal::routine* current) {
-      int result = sema_.impl_->counter_.fetch_sub(1, std::memory_order_acquire);
-      if (result <= 0) {
-        current->add_semaphore_wait(sema_.impl_.get());
-        return false;
-      }
-      return true;
-    }
-};
-
 template <class Func>
-class event_mutex_lock_storage : public event_semaphore_wait_base_storage {
-    Func func_;
-
- public:
-    using func_type = Func;
-    using return_type = decltype(std::declval<Func>()());
-
-    static return_type execute(event_mutex_lock_storage* self, internal::event_type type,bool) {
-        return self->func_();
-    }
-
-    event_mutex_lock_storage (mutex& mut, Func&& cb)
-        : event_semaphore_wait_base_storage{mut.impl_},
-          func_{std::move(cb)} {
-    }
-
-    event_mutex_lock_storage (mutex& mut, Func const& cb)
-        : event_semaphore_wait_base_storage{mut.impl_},
-          func_{cb} {
-    }
-};
-
-template <class Func>
-event_mutex_lock_storage<Func> 
+internal::select_impl::event_mutex_lock_storage<Func> 
 event_lock(mutex& mut, Func&& cb) {
   return {mut, std::forward<Func>(cb)};
 }
 
 template <class ContentType, std::size_t Size, class Func>
-class event_channel_read_storage : public event_semaphore_wait_base_storage {
-    channel<ContentType,Size>& channel_;
-    ContentType& value_;
-    Func func_;
-
- public:
-    using channel_type = channel<ContentType,Size>;
-    using func_type = Func;
-    using return_type = decltype(std::declval<Func>()(bool{}));
-
-    static return_type execute(event_channel_read_storage* self, internal::event_type type,bool) {
-        self->channel_.consume_read(self->value_);
-        return self->func_(type == internal::event_type::sema_wait);
-    }
-
-    event_channel_read_storage(channel_type& channel, ContentType& value, Func&& cb)
-        : event_semaphore_wait_base_storage{channel.channel_->readers_slots_},
-          channel_{channel},
-          value_{value},
-          func_{std::move(cb)} {
-    }
-
-    event_channel_read_storage(channel_type& channel, ContentType& value, Func const& cb)
-        : event_semaphore_wait_base_storage{channel.channel_->readers_slots_},
-          channel_{channel},
-          value_{value},
-          func_{cb} {
-    }
-};
-
-template <class ContentType, std::size_t Size, class Func>
-event_channel_read_storage<ContentType, Size, Func>
+internal::select_impl::event_channel_read_storage<ContentType, Size, Func>
 event_read(channel<ContentType,Size>& chan, ContentType& value, Func&& cb) {
     return {chan, value, std::forward<Func>(cb)};
 }
 
 template <class ContentType, std::size_t Size, class Func>
-class event_channel_write_storage : public event_semaphore_wait_base_storage {
-    channel<ContentType,Size>& channel_;
-    ContentType value_;
-    Func func_;
-
- public:
-    using channel_type = channel<ContentType,Size>;
-    using func_type = Func;
-    using return_type = decltype(std::declval<Func>()(bool{}));
-
-    static return_type execute(event_channel_write_storage* self, internal::event_type type,bool) {
-        self->channel_.consume_write(std::move(self->value_));
-        return self->func_(type == internal::event_type::sema_wait);
-    }
-
-    event_channel_write_storage(channel_type& channel, ContentType value, Func&& cb)
-        : event_semaphore_wait_base_storage{channel.channel_->writer_slots_}, channel_{channel}, value_{value}, func_{std::move(cb)} {
-    }
-
-    event_channel_write_storage(channel_type& channel, ContentType value, Func const& cb)
-        : event_semaphore_wait_base_storage{channel.channel_->writer_slots_}, channel_{channel}, value_{value}, func_{cb} {
-    }
-};
-
-template <class ContentType, std::size_t Size, class Func>
-event_channel_write_storage<ContentType, Size, Func>
+internal::select_impl::event_channel_write_storage<ContentType, Size, Func>
 event_write(channel<ContentType,Size>& chan, ContentType value, Func&& cb) {
     return {chan, std::move(value), std::forward<Func>(cb)};
 }
 
-template <class Selector, class ReturnType> 
-auto make_selector_execute() -> decltype(auto) {
-  return [](void* data, internal::event_type type, bool event_round_cancelled) -> ReturnType {
-    return Selector::execute(static_cast<Selector*>(data), type, event_round_cancelled);
-  };
-}
-
-template <class Selector> 
-auto make_selector_subscribe() -> decltype(auto) {
-  return [](void* data, internal::routine* current) -> bool {
-    return static_cast<Selector*>(data)->subscribe(current);
-  };
-}
 
 template <class ... Selectors> 
 auto select_any(Selectors&& ... selectors) 
     -> std::common_type_t<typename Selectors::return_type ...>
 {
   using return_type = std::common_type_t<typename Selectors::return_type...>;
-  static std::array<bool(*)(void*, internal::routine*), sizeof...(Selectors)> subscribers{
-      make_selector_subscribe<Selectors>()...};
-  static std::array<return_type (*)(void*,internal::event_type,bool), sizeof...(Selectors)> callers{
-      make_selector_execute<Selectors, return_type>()...};
+  static std::array<bool (*)(void*, internal::routine*), sizeof...(Selectors)> subscribers{
+      internal::select_impl::make_selector_subscribe<Selectors>()...};
+  static std::array<return_type (*)(void*, internal::event_type, bool), sizeof...(Selectors)>
+      callers{internal::select_impl::make_selector_execute<Selectors, return_type>()...};
   std::array<void*, sizeof...(Selectors)> selector_ptrs{(&selectors)...};
 
   internal::thread* this_thread = internal::current_thread();
