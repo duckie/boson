@@ -1,7 +1,7 @@
 The Boson framework
 ====================
 
-[![Travis CI Build Status](https://api.travis-ci.org/duckie/boson.svg?branch=dev)](https://travis-ci.org/duckie/boson)
+[![Travis CI Build Status](https://api.travis-ci.org/duckie/boson.svg?branch=master)](https://travis-ci.org/duckie/boson)
 
 The Boson Framework is a C++ library to write concurrent software in C++. The framework inspires freely from what the Go language did to address complexity in concurrent programming. The Boson Framework implements its own versions of three main Go features:
 

@@ -1,6 +1,8 @@
 coverage:
   ignore:
     - "3rdparty/**/*"
+    - "src/boson/src/queues/lcrq.cc"
+    - "src/examples/src/*"
 codecov:
   ci:
     - "!circleci.com"
