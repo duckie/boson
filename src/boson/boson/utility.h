@@ -63,6 +63,11 @@ struct extract_tuple_arguments {
                                             std::make_index_sequence<sizeof...(Args)>>::type;
 };
 
+template <class T>
+struct is_unique_ptr : public std::false_type {};
+template <class T>
+struct is_unique_ptr<std::unique_ptr<T>> : public std::true_type {};
+
 }  // namespace boson
 
 #endif  // BOSON_SYSCALLS_H_

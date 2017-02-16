@@ -33,24 +33,22 @@
 #include <cstring>
 #include <type_traits>
 #include <utility>
-
+#include "../utility.h"
 
 namespace boson {
 namespace queues {
 
-template <class T> struct mpsc_moved_deleter {
-  static inline void del(T& data) {
-    data.~T();
-  };
-};
-
-template <class T> struct mpsc_moved_deleter<std::unique_ptr<T>> {
-  static inline void del(std::unique_ptr<T>&) {
-  };
-};
-
 template <typename T>
 class mpsc {
+  template <class U, std::enable_if_t<!is_unique_ptr<U>{}, int> = 0>
+  inline static void del(U& data) {
+    data.~U();
+  }
+
+  template <class U, std::enable_if_t<is_unique_ptr<U>{}, int> = 0>
+  inline static void del(U&) {
+  }
+
  public:
   mpsc()
       : _head(reinterpret_cast<buffer_node_t*>(new buffer_node_aligned_t)),
@@ -84,7 +82,7 @@ class mpsc {
       return false;
     }
     output = std::move(next->data);
-    mpsc_moved_deleter<T>::del(next->data);
+    del(next->data);
     _tail.store(next, std::memory_order_release);
     delete tail;
     return true;
