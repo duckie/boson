@@ -87,6 +87,7 @@ struct event_syscall_storage<Func, SYS_connect, Args...> : protected event_stora
                              bool event_round_cancelled) {
     int& return_code{std::get<0>(self->data_)};
     if (!event_round_cancelled) {
+      return_code = -1;
       if (internal::event_type::io_write == type) {
         socklen_t optlen = sizeof(return_code);
         if (::getsockopt(std::get<0>(self->args_), SOL_SOCKET, SO_ERROR, &return_code, &optlen) < 0)
@@ -96,9 +97,6 @@ struct event_syscall_storage<Func, SYS_connect, Args...> : protected event_stora
           errno = return_code;
           return_code = -1;
         }
-        return return_code;
-      } else {
-        return_code = -1;
       }
     }
     return self->func_(return_code);

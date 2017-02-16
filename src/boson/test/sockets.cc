@@ -74,17 +74,12 @@ TEST_CASE("Sockets - Simple accept/connect", "[syscalls][sockets][accept][connec
             socklen_t clilen = sizeof(cli_addr);
 
             // Accept first
-            boson::debug::log("Accept 0");
             int new_connection = boson::accept(listening_socket, (struct sockaddr*)&cli_addr, &clilen);
             CHECK(new_connection > 0);
-            //CHECK(errno == 0);
 
             // Accept 2nd
-            boson::debug::log("Accept 1 {}", new_connection);
             new_connection = boson::accept(listening_socket, (struct sockaddr*)&cli_addr, &clilen);
             CHECK(new_connection > 0);
-            //CHECK(errno == 0);
-            boson::debug::log("Accept 2 {}", new_connection);
           });
 
       start(
@@ -101,14 +96,11 @@ TEST_CASE("Sockets - Simple accept/connect", "[syscalls][sockets][accept][connec
             // start First
             int sockfd = ::socket(AF_INET, SOCK_STREAM, 0);
             ::fcntl(sockfd, F_SETFL, O_NONBLOCK);
-            boson::debug::log("Connect 0");
             int rc = boson::connect(sockfd, (struct sockaddr*)&cli_addr, clilen);
             CHECK(rc == 0);
-            //CHECK(errno == 0);
             ::shutdown(sockfd, SHUT_WR);
             rc = boson::close(sockfd);
             CHECK(rc == 0);
-
 
             // start second
             sockfd = ::socket(AF_INET, SOCK_STREAM, 0);
@@ -116,12 +108,9 @@ TEST_CASE("Sockets - Simple accept/connect", "[syscalls][sockets][accept][connec
             cli_addr.sin_family = AF_INET;
             cli_addr.sin_port = htons(10101);
             ::fcntl(sockfd, F_SETFL, O_NONBLOCK);
-            boson::debug::log("Connect 1");
             rc = boson::connect(sockfd, (struct sockaddr*)&cli_addr, clilen);
-            boson::debug::log("Connect 2");
             boson::debug::log(strerror(errno));
             CHECK(rc == 0);
-            //CHECK(errno == 0);
             ::shutdown(sockfd, SHUT_WR);
             ::close(sockfd);
           });

@@ -38,12 +38,10 @@ TEST_CASE("Semaphore - Disabling", "[semaphore]") {
 
       start([](auto sema) -> void {
         bool result = sema.wait(time_factor()*5ms);
-        CHECK(result == false);
-        if (!result) {  // To avoid an infinite block if failure (ex valgrind)
-          result = sema.wait();
-          CHECK(result == true);
-          boson::sleep(time_factor()*5ms);
-        }
+        REQUIRE(result == false);
+        result = sema.wait();
+        CHECK(result == true);
+        boson::sleep(time_factor()*5ms);
         sema.post();
       },sema);
     });
@@ -65,12 +63,10 @@ TEST_CASE("Semaphore - Disabling", "[semaphore]") {
 
       start([](auto sema) -> void {
         bool result = sema.wait(time_factor()*5ms);
-        CHECK(result == false);
-        if (!result) {  // To avoid an infinite block if failure (ex valgrind)
-          result = sema.wait();
-          CHECK(result == true);
-          boson::sleep(time_factor()*5ms);
-        }
+        REQUIRE(result == false);
+        result = sema.wait();
+        CHECK(result == true);
+        boson::sleep(time_factor()*5ms);
         sema.post();
       },sema);
     });

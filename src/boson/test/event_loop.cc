@@ -1,11 +1,13 @@
-#include "event_loop_impl.h"
-#include "boson/system.h"
-#include <unistd.h>
-#include <thread>
-#include "catch.hpp"
-#include <cstdio>
-#include <sys/socket.h>
 #include <fcntl.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <cstdio>
+#include <thread>
+#include <cstring>
+#include "boson/exception.h"
+#include "boson/system.h"
+#include "catch.hpp"
+#include "event_loop_impl.h"
 
 using namespace boson;
 
@@ -126,4 +128,22 @@ TEST_CASE("Event Loop - FD Panic Read/Write", "[eventloop][panic]") {
   loop.loop(1);
   CHECK(handler_instance.last_read_fd == pipe_fds[0]);
   CHECK(handler_instance.last_status < 0);
+}
+
+TEST_CASE("Event Loop - Bas fds", "[eventloop]") {
+  handler01 handler_instance;
+  std::string temp1 = std::tmpnam(nullptr);
+  int disk_fd = ::open(temp1.c_str(), O_RDWR | O_CREAT | O_NONBLOCK);
+
+  boson::event_loop loop(handler_instance,1);
+  try {
+    loop.register_read(disk_fd, nullptr);
+  }
+  catch(boson::exception& e) {
+    CHECK(std::strncmp(e.what(),"Syscall error (epoll_ctl): Operation not permitted",26) == 0);
+    CHECK(true);
+  }
+
+  ::close(disk_fd);
+  ::unlink(temp1.c_str());
 }

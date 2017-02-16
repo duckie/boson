@@ -43,12 +43,6 @@ void event_loop::epoll_update(int fd, fd_data& fddata, bool del_if_no_event) {
       }
     }
   }
-  else {
-    return_code = ::epoll_ctl(loop_fd_, del_if_no_event ? EPOLL_CTL_DEL : EPOLL_CTL_MOD, fd, &new_event);
-    if (return_code < 0 && errno != EBADF) {
-      throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
-    }
-  }
 }
 
 void event_loop::dispatch_event(int event_id, event_status status) {
@@ -175,29 +169,6 @@ int event_loop::register_write(int fd, void* data) {
 
   ++nb_io_registered_;
   return event_id;
-}
-
-void event_loop::disable(int event_id) {
-  auto& event_data = events_data_[event_id];
-  auto& fddata = get_fd_data(event_data.fd);
-  if (event_data.type == event_type::read || event_data.type == event_type::event_fd)
-    fddata.idx_read = -1;
-  else if (event_data.type == event_type::write)
-    fddata.idx_write = -1;
-
-  epoll_update(event_data.fd,fddata,false);
-  if (event_data.type != event_type::event_fd) --nb_io_registered_;
-}
-
-void event_loop::enable(int event_id) {
-  auto& event_data = events_data_[event_id];
-  auto& fddata = get_fd_data(event_data.fd);
-  if (event_data.type == event_type::read || event_data.type == event_type::event_fd)
-    fddata.idx_read = event_id;
-  else if (event_data.type == event_type::write)
-    fddata.idx_write = event_id;
-  epoll_update(event_data.fd,fddata,false);
-  if (event_data.type != event_type::event_fd) ++nb_io_registered_;
 }
 
 void* event_loop::unregister(int event_id) {

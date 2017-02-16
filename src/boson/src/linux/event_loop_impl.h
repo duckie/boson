@@ -112,8 +112,6 @@ class event_loop {
   void send_event(int event);
   int register_read(int fd, void* data);
   int register_write(int fd, void* data);
-  void disable(int event_id);
-  void enable(int event_it);
   void* unregister(int event_id);
   void send_fd_panic(int proc_from, int fd);
   loop_end_reason loop(int max_iter = -1, int timeout_ms = -1);

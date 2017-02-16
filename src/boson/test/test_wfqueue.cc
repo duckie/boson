@@ -43,7 +43,6 @@ TEST_CASE("Queues - WfQueue - sums", "[queues][lcrq]") {
   for (size_t j = 0; j < nb_main_threads; ++j) {
     main_threads[j] = std::thread([&]() {
       size_t nnb_iter = nb_iter;
-      // boson::queues::base_wfqueue queue(nb_prod + nb_cons);
       boson::queues::lcrq queue(nb_prod + nb_cons);
 
       std::array<vector<size_t>, nb_prod> input{};
@@ -53,7 +52,7 @@ TEST_CASE("Queues - WfQueue - sums", "[queues][lcrq]") {
 
       size_t expected = 0;
       for (size_t index = 0; index < nb_iter; ++index) {
-        if (0 < index) input[index % nb_prod].push_back(index);
+        input[index % nb_prod].push_back(index);
         expected += index;
       }
       //

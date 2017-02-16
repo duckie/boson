@@ -15,7 +15,8 @@ TEST_CASE("Queues - WeakRB - serial random integers", "[queues][weakrb]") {
 
   std::vector<int> sample;
   sample.reserve(sample_size);
-  for (size_t index = 0; index < sample_size; ++index) sample.emplace_back(distribution(generator));
+  for (size_t index = 0; index < sample_size; ++index)
+    sample.emplace_back(distribution(generator));
 
   // Create the buffer
   std::vector<int> destination;

@@ -1,6 +1,7 @@
 coverage:
   ignore:
     - "3rdparty/**/*"
+    - "src/boson/boson/external/json_backbone.hpp"
     - "src/boson/src/queues/lcrq.cc"
     - "src/examples/src/*"
 codecov:

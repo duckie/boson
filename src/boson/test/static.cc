@@ -12,9 +12,9 @@ struct A {};
 struct B {};
 struct C {};
 
-int a1(int) { return 0; }
-int a2(int&) { return 0;}
-int a3(int const&) { return 0; }
+int a1(int);
+int a2(int&);
+int a3(int const&);
 
 int f1(A,B,C);
 int f2(A,B&,C);

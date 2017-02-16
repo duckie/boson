@@ -79,26 +79,21 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
           [](int in1, int in2, auto tickets) -> void {
             int result = 0;
             size_t data;
-            result = boson::select_any(                 //
-                event_read(in1, &data, sizeof(size_t),  //
-                           [](ssize_t) {
-                             return 1;  //
-                           }),
-                event_read(in2, &data, sizeof(size_t),  //
-                           [](ssize_t) {
-                             return 2;  //
-                           }));
+            auto select_call = [&]() {
+              return boson::select_any(                   //
+                  event_read(in1, &data, sizeof(size_t),  //
+                             [](ssize_t) {
+                               return 1;  //
+                             }),
+                  event_read(in2, &data, sizeof(size_t),  //
+                             [](ssize_t) {
+                               return 2;  //
+                             }));
+            };
+            result = select_call();
             CHECK(result == 2);
             tickets << nullptr;
-            result = boson::select_any(                 //
-                event_read(in1, &data, sizeof(size_t),  //
-                           [](ssize_t) {
-                             return 1;  //
-                           }),
-                event_read(in2, &data, sizeof(size_t),  //
-                           [](ssize_t) {
-                             return 2;  //
-                           }));
+            result = select_call();
             CHECK(result == 1);
           },
           pipe_fds1[0], pipe_fds2[0], tickets);
@@ -142,15 +137,18 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
       start(
           [](int in1, int int2, int out1, int out2) -> void {
             size_t data{0};
-            int result = boson::select_any(                 //
-                event_write(out1, &data, sizeof(size_t),  //
-                           [](ssize_t) {
-                             return 1;  //
-                           }),
-                event_write(out2, &data, sizeof(size_t),  //
-                           [](ssize_t) {
-                             return 2;  //
-                           }));
+            auto select_call = [&]() {
+              return boson::select_any(                     //
+                  event_write(out1, &data, sizeof(size_t),  //
+                              [](ssize_t) {
+                                return 1;  //
+                              }),
+                  event_write(out2, &data, sizeof(size_t),  //
+                              [](ssize_t) {
+                                return 2;  //
+                              }));
+            };
+            int result = select_call();
             CHECK(result == 1);
             
             // Fill up the pipe to make next try blocking
@@ -159,15 +157,7 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
               boson::write(out1,"",1);
             }
 
-            result = boson::select_any(                 //
-                event_write(out1, &data, sizeof(size_t),  //
-                           [](ssize_t rc) {
-                             return 1;  //
-                           }),
-                event_write(out2, &data, sizeof(size_t),  //
-                           [](ssize_t) {
-                             return 2;  //
-                           }));
+            result = select_call();
             CHECK(result == 2);
           },
           pipe_fds1[0], pipe_fds2[0], pipe_fds1[1], pipe_fds2[1]);
@@ -191,8 +181,9 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
           [](auto t1, auto t2, auto a2b, auto b2a) -> void {
             int sink;
             int result = 0;
-            int chandata;
-            result = boson::select_any(                //
+            int chandata = 0;
+            auto select_call = [&](int timeout) {
+              return boson::select_any(                //
                 event_read(t1, chandata, //
                            [](bool) {
                              return 1;  //
@@ -201,31 +192,22 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
                            [](bool) {
                              return 2;  //
                            }),
-                event_timer(0, //
+                event_timer(timeout, //
                            []() {
                              return 3;  //
                            }));
+            };
+            result = select_call(0);
             CHECK(result == 3);
+            CHECK(chandata == 0);
             a2b << 0;  // Allow producer to continue
 
-            result = boson::select_any(                //
-                event_read(t1, chandata, //
-                           [](bool) {
-                             return 1;  //
-                           }),
-                event_read(t2, chandata,  //
-                           [](bool) {
-                             return 2;  //
-                           }));
-            CHECK(result == 2);
-            a2b << 0;
-
-            // My turn to wait a ticket
-            b2a >> sink;
-
-            t1 >> chandata;
+            result = select_call(1e6);
+            CHECK(result == 1);
             CHECK(chandata == 2);
-            t2 >> chandata;
+
+            result = select_call(1e6);
+            CHECK(result == 2);
             CHECK(chandata == 3);
           },
           tickets1, tickets2, tickets_a2b, tickets_b2a);
@@ -237,32 +219,22 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
             a2b >> sink;
             int result = -1;
 
-            t2 << 1;
-            a2b >> sink; // Wait for other routine to consume
+            auto select_call = [&]() {
+              return boson::select_any(  //
+                  event_write(t1, 2,     //
+                              [](bool) {
+                                return 1;  //
+                              }),
+                  event_write(t2, 3,  //
+                              [](bool) {
+                                return 2;  //
+                              }));
+            };
 
-            result = boson::select_any(                //
-                event_write(t1, 2, //
-                           [](bool) {
-                             return 1;  //
-                           }),
-                event_write(t2, 3,  //
-                           [](bool) {
-                             return 2;  //
-                           }));
+            result = select_call();
             CHECK(result == 1);
-
-            result = boson::select_any(                //
-                event_write(t1, 2, //
-                           [](bool) {
-                             return 1;  //
-                           }),
-                event_write(t2, 3,  //
-                           [](bool) {
-                             return 2;  //
-                           }));
+            result = select_call();
             CHECK(result == 2);
-
-            b2a << 0;
           },
           tickets1, tickets2, tickets_a2b, tickets_b2a);
     });
@@ -283,36 +255,26 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
             int result = 0;
             size_t data;
             int chandata;
-            result = boson::select_any(                 //
-                event_read(in1, &data, sizeof(size_t),  //
-                           [](ssize_t) {
-                             return 1;  //
-                           }),
-                event_read(in2, chandata,  //
-                           [](bool) {
-                             return 2;  //
-                           }));
+            auto select_call = [&]() {
+              return boson::select_any(                   //
+                  event_read(in1, &data, sizeof(size_t),  //
+                             [](ssize_t) {
+                               return 1;  //
+                             }),
+                  event_read(in2, chandata,  //
+                             [](bool) {
+                               return 2;  //
+                             }));
+            };
+
+            result = select_call();
             CHECK(result == 2);
-            result = boson::select_any(                 //
-                event_read(in1, &data, sizeof(size_t),  //
-                           [](ssize_t) {
-                             return 1;  //
-                           }),
-                event_read(in2, chandata,  //
-                           [](bool) {
-                             return 2;  //
-                           }));
+
+            result = select_call();
             CHECK(result == 2);
             tickets << nullptr;
-            result = boson::select_any(                 //
-                event_read(in1, &data, sizeof(size_t),  //
-                           [](ssize_t) {
-                             return 1;  //
-                           }),
-                event_read(in2, chandata,  //
-                           [](bool) {
-                             return 2;  //
-                           }));
+
+            result = select_call();
             CHECK(result == 1);
           },
           pipe_fds1[0], pipe2, tickets);
@@ -340,28 +302,36 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
       start(
           [](auto c1, auto c2) -> void {
             std::nullptr_t value{};
-            // c2.read(value);
-            int result = boson::select_any(  //
-                event_read(c1, value,        //
-                           [](bool success) { return success ? 1 : 2; }),
-                event_read(c2, value,  //
-                           [](bool success) { return success ? 3 : 4; }));
-            CHECK(result == 4);
+            int result = 0;
+            bool success = false;
+            auto select_all = [&] {
+              return boson::select_any(  //
+                  event_read(c1, value,  //
+                             [](bool success) { return std::make_tuple(1,success); }),
+                  event_read(c2, value,  //
+                             [](bool success) { return std::make_tuple(2,success); }));
+            };
+
+            std::tie(result, success) = select_all();
+            CHECK(result == 2);
+            CHECK(success == false);
 
             // Re test, a closed channel should always drop an event immediately
-            result = boson::select_any(  //
-                event_read(c1, value,    //
-                           [](bool success) { return success ? 1 : 2; }),
-                event_read(c2, value,  //
-                           [](bool success) { return success ? 3 : 4; }));
-            CHECK(result == 4);
+            std::tie(result, success) = select_all();
+            CHECK(result == 2);
+            CHECK(success == false);
 
             // Test with write close
             c1 << nullptr;
-            result = boson::select_any(   //
-                event_write(c1, nullptr,  //
-                            [](bool success) { return success ? 1 : 2; }));
-            CHECK(result == 2);
+            std::tie(result, success) = boson::select_any(  //
+                event_write(c1, nullptr,                    //
+                            [](bool success) { return std::make_tuple(1, success); }));
+            CHECK(result == 1);
+            CHECK(success == false);
+            
+            std::tie(result, success) = select_all();
+            CHECK(result == 1);
+            CHECK(success == false);
           },
           chan1, chan2);
 
@@ -391,15 +361,15 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
 
       start([](auto m1, auto m2) -> void {
         using namespace boson;
-        int result = select_any(                 //
-            event_lock(m1, []() { return 1; }),  //
-            event_lock(m2, []() { return 2; })   //
-            );
+        auto select_call = [&]() {
+          return select_any(                       //
+              event_lock(m1, []() { return 1; }),  //
+              event_lock(m2, []() { return 2; })   //
+              );
+        };
+        int result = select_call();
         CHECK(result == 2);
-        result = select_any(                 //
-            event_lock(m1, []() { return 1; }),  //
-            event_lock(m2, []() { return 2; })   //
-            );
+        result = select_call();
         CHECK(result == 1);
       }, mut1, mut2);
 
@@ -411,7 +381,7 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
   }
 
   SECTION("Select on accept/connect") {
-    // A routine that connects to itself in a single thread
+    // A routine that connects to itself
     boson::run(1, [&]() {
       using namespace boson;
 
@@ -430,29 +400,25 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
       ::fcntl(sockfd, F_SETFL, O_NONBLOCK);
       
       // Accept/connect at the same time
-      int result = select_any( //
-        event_accept(listening_socket, (struct sockaddr*)&cli_addr, &clilen,[](int rc) {
-          CHECK(0 < rc);
-          return 0;
-          }), //
-        event_connect(sockfd, (struct sockaddr*)&cli_addr2, sizeof(struct sockaddr), [](int rc) {
-            return 1;
-          }) //
-        ); 
-      CHECK(result == 0);
+      int result = 0;
+      int rc = -1;
 
-      result = select_any( //
-        event_accept(listening_socket, (struct sockaddr*)&cli_addr, &clilen,[](int) {
-          return 0;
-          }), //
-        event_connect(sockfd, (struct sockaddr*)&cli_addr2, clilen2, [&sockfd](int rc) {
-            CHECK(rc == 0);
-            ::shutdown(sockfd, SHUT_WR);
-            ::close(sockfd);
-            return 1;
-          }) //
-        ); 
+      auto select_call = [&]() {
+        return select_any(  //
+            event_accept(listening_socket, (struct sockaddr*)&cli_addr, &clilen,
+                         [](int rc) { return std::make_tuple(0, rc); }),  //
+            event_connect(sockfd, (struct sockaddr*)&cli_addr2, sizeof(struct sockaddr),
+                          [](int rc) { return std::make_tuple(1, rc); })  //
+            );
+      };
+      std::tie(result, rc) = select_call();
+
+      CHECK(result == 0);
+      CHECK(rc > 0);
+
+      std::tie(result, rc) = select_call();
       CHECK(result == 1);
+      CHECK(rc == 0);
 
       boson::close(listening_socket);
     });
