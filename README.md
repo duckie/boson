@@ -26,7 +26,7 @@ The main point is to simplify writing concurrent applications by removing the as
 
 ## Quick overview
 
-The goal of the framework is to use light routines instead of threads. In Go, these are called Goroutines. In the C++ world, it is known as fibers. In the boson framework, we just call it routines.
+The goal of the framework is to use light routines instead of threads. In Go, these are called Goroutines. In the C++ world, it is known as fibers. In the boson framework, we just call them routines.
 
 ### Launch an instance
 
@@ -40,7 +40,7 @@ boson::run(1 /* number of thread */, []() {
 
 ### System calls
 
-The boson framework provides its versions of system calls that are scheduled away for efficiency with an event loop. Current available syscalls are `sleep`, `read`, `write`, `accept`, `connect`, `recv` and `send`. See [an example](./src/examples/src/socket_server.cc).
+The boson framework provides its versions of system calls that are scheduled away for efficiency with an event loop. Current available syscalls are `close`, `sleep`, `read`, `write`, `accept`, `connect`, `recv` and `send`. See [an example](./src/examples/src/socket_server.cc).
 
 This snippet launches two routines doing different jobs, in a single thread.
 
@@ -125,50 +125,62 @@ See [an example](./src/examples/src/channel_loop.cc).
 
 ## The select statement
 
-The select statement is similar to the Go one, but with a nice twist : it can be used with a mix of channels and syscalls. 
+The select statement is similar to the Go one, but with a nice twist : it can be used with any blocking facility. That means you can mix channels, i/o events, mutex locks and timers in a single `select_*` call.
 
 ```C++
 // Create a pipe
 int pipe_fds[2];
 ::pipe(pipe_fds);
-// Set NONBLOCK flags on pipe fds
 ::fcntl(pipe_fds[0], F_SETFL, ::fcntl(pipe_fds[0], F_GETFD) | O_NONBLOCK);
 ::fcntl(pipe_fds[1], F_SETFL, ::fcntl(pipe_fds[1], F_GETFD) | O_NONBLOCK);
 
 boson::run(1, [&]() {
-using namespace boson;
+  using namespace boson;
 
-// Create channel
-channel<int, 3> chan;
+  // Create channel
+  channel<int, 3> chan;
 
-// Start a producer
-start([](int out, auto chan) -> void {
-    int data = 1;
-    boson::write(out, &data, sizeof(data));
-    chan << data;
-}, pipe_fds[1], chan);
+  // Create mutex and lock it immediately
+  boson::mutex mut;
+  mut.lock();
 
-// Start a consumer
-start([](int in, auto chan) -> void {
-    int buffer = 0;
-    bool stop = false;
-    while (!stop) {
-      select_any(  //
-          event_read(in, &buffer, sizeof(buffer),
-                     [](ssize_t rc) {  //
-                       std::cout << "Got data from the pipe \n";
-                     }),
-          event_read(chan, buffer,
-                     [](bool) {  //
-                       std::cout << "Got data from the channel \n";
-                     }),
-          event_timer(100ms,
-                      [&stop]() {  //
-                        std::cout << "Nobody loves me anymore :(\n";
-                        stop = true;
-                      }));
-    }
-},  pipe_fds[0], chan);
+  // Start a producer
+  start([](int out, auto chan) -> void {
+      int data = 1;
+      boson::write(out, &data, sizeof(data));
+      chan << data;
+  }, pipe_fds[1], chan);
+
+  // Start a consumer
+  start([](int in, auto chan, auto mut) -> void {
+      int buffer = 0;
+      bool stop = false;
+      while (!stop) {
+        select_any(  //
+            event_read(in, &buffer, sizeof(buffer),
+                       [](ssize_t rc) {  //
+                         std::cout << "Got data from the pipe \n";
+                       }),
+            event_read(chan, buffer,
+                       [](bool) {  //
+                         std::cout << "Got data from the channel \n";
+                       }),
+            event_lock(mut,
+                       []() {  //
+                         std::cout << "Got lock on the mutex \n";
+                       }),
+            event_timer(100ms,
+                        [&stop]() {  //
+                          std::cout << "Nobody loves me anymore :(\n";
+                          stop = true;
+                        }));
+      }
+  },  pipe_fds[0], chan, mut);
+  
+  // Start an unlocker
+  start([](auto mut) -> void {
+    mut.unlock();
+  }, mut);
 });
 ```
 

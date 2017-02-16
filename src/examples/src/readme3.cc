@@ -21,6 +21,10 @@ int main(int argc, char *argv[]) {
     // Create channel
     channel<int, 3> chan;
 
+    // Create mutex and lock it immediately
+    boson::mutex mut;
+    mut.lock();
+
     // Start a producer
     start([](int out, auto chan) -> void {
         int data = 1;
@@ -29,7 +33,7 @@ int main(int argc, char *argv[]) {
     }, pipe_fds[1], chan);
 
     // Start a consumer
-    start([](int in, auto chan) -> void {
+    start([](int in, auto chan, auto mut) -> void {
         int buffer = 0;
         bool stop = false;
         while (!stop) {
@@ -42,13 +46,22 @@ int main(int argc, char *argv[]) {
                          [](bool) {  //
                            std::cout << "Got data from the channel \n";
                          }),
+              event_lock(mut,
+                         []() {  //
+                           std::cout << "Got lock on the mutex \n";
+                         }),
               event_timer(100ms,
                           [&stop]() {  //
                             std::cout << "Nobody loves me anymore :(\n";
                             stop = true;
                           }));
         }
-    },  pipe_fds[0], chan);
+    },  pipe_fds[0], chan, mut);
+    
+    // Start an unlocker
+    start([](auto mut) -> void {
+      mut.unlock();
+    }, mut);
   });
 
   boson::run(1, [&]() {
