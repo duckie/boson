@@ -133,7 +133,7 @@ TEST_CASE("Event Loop - FD Panic Read/Write", "[eventloop][panic]") {
 TEST_CASE("Event Loop - Bas fds", "[eventloop]") {
   handler01 handler_instance;
   std::string temp1 = std::tmpnam(nullptr);
-  int disk_fd = ::open(temp1.c_str(), O_RDWR | O_CREAT | O_NONBLOCK);
+  int disk_fd = ::open(temp1.c_str(), O_RDWR | O_CREAT | O_NONBLOCK, 0600);
 
   boson::event_loop loop(handler_instance,1);
   try {
