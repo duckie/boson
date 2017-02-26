@@ -26,14 +26,27 @@ void sleep(std::chrono::milliseconds duration);
  */
 template <bool IsARead> int wait_readiness(fd_t fd, int timeout_ms);
 
+// Versions with timeouts
+ssize_t read(fd_t fd, void *buf, size_t count, int timeout_ms);
+ssize_t write(fd_t fd, const void *buf, size_t count, int timeout_ms);
+socket_t accept(socket_t socket, sockaddr *address, socklen_t *address_len, int timeout_ms);
+int connect(socket_t sockfd, const sockaddr *addr, socklen_t addrlen, int timeout_ms);
+ssize_t send(socket_t socket, const void *buffer, size_t length, int flags, int timeout_ms);
+ssize_t recv(socket_t socket, void *buffer, size_t length, int flags, int timeout_ms);
+
 // Boson equivalents to POSIX systemcalls
 
-ssize_t read(fd_t fd, void *buf, size_t count, int timeout_ms = -1);
-ssize_t write(fd_t fd, const void *buf, size_t count, int timeout_ms = -1);
-socket_t accept(socket_t socket, sockaddr *address, socklen_t *address_len, int timeout_ms = -1);
-int connect(socket_t sockfd, const sockaddr *addr, socklen_t addrlen, int timeout_ms = -1);
-ssize_t send(socket_t socket, const void *buffer, size_t length, int flags, int timeout_ms = -1);
-ssize_t recv(socket_t socket, void *buffer, size_t length, int flags, int timeout_ms = -1);
+fd_t open(const char *pathname, int flags);
+fd_t open(const char *pathname, int flags, mode_t mode);
+fd_t creat(const char *pathname, mode_t mode);
+socket_t socket(int domain, int type, int protocol);
+
+ssize_t read(fd_t fd, void *buf, size_t count);
+ssize_t write(fd_t fd, const void *buf, size_t count);
+socket_t accept(socket_t socket, sockaddr *address, socklen_t *address_len);
+int connect(socket_t sockfd, const sockaddr *addr, socklen_t addrlen);
+ssize_t send(socket_t socket, const void *buffer, size_t length, int flags);
+ssize_t recv(socket_t socket, void *buffer, size_t length, int flags);
 
 // Versions with C++11 durations
 
