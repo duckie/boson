@@ -10,6 +10,7 @@
 #include "memory/sparse_vector.h"
 #include "memory/flat_unordered_set.h"
 #include "queues/simple.h"
+#include "queues/mpsc.h"
 
 namespace boson {
 using epoll_event_t = struct epoll_event;
@@ -21,7 +22,15 @@ using epoll_event_t = struct epoll_event;
  * meaning
  */
 class io_event_loop {
-  enum class event_type { event_fd, read, write };
+
+  enum class command_type {
+    close_fd
+  };
+
+  struct command {
+    command_type type;
+    int fd;
+  };
 
   struct event_data {
     int fd;
@@ -53,16 +62,17 @@ class io_event_loop {
    * are not considered as a read here, even if they are implemented as
    * such
    */
-  size_t nb_io_registered_;
+  //size_t nb_io_registered_;
 
   // A flag to avoid an epoll_wait if possible
-  std::atomic<bool> trigger_fd_events_;
+  //std::atomic<bool> trigger_fd_events_;
 
   // Private event to implement the fd panic feature
   int loop_breaker_event_;
 
   // Data used when loop is broken
-  queues::simple_void_queue loop_breaker_queue_;
+  //queues::simple_void_queue loop_breaker_queue_;
+  queues::mpsc<command> pending_commands_;
 
   /**
    * Signal the event to be dispatched to the handler
@@ -72,7 +82,8 @@ class io_event_loop {
  public:
   io_event_loop(io_event_handler& handler, int nb_procs);
   ~io_event_loop();
-  int register_event(void* data);
+
+  void interrupt();
   void register_fd(int fd, void* data);
   void* unregister(int fd);
   void* get_data(int event_id);

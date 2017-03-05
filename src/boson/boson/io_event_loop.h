@@ -12,7 +12,6 @@ namespace boson {
 using event_status = int;
 
 struct io_event_handler {
-  virtual void event(int event_id, void* data, event_status status) = 0;
   virtual void read(int fd, void* data, event_status status) = 0;
   virtual void write(int fd, void* data, event_status status) = 0;
 };

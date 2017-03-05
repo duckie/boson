@@ -6,6 +6,7 @@
 #include "exception.h"
 #include "system.h"
 #include "logger.h"
+#include <sys/resource.h>
 
 template class std::unique_ptr<boson::io_event_loop>;
 
@@ -14,37 +15,38 @@ namespace boson {
 io_event_loop::io_event_loop(io_event_handler& handler, int nprocs)
     : handler_{handler},
       loop_fd_{epoll_create1(0)},
-      nb_io_registered_(0),
-      trigger_fd_events_{false},
-      loop_breaker_event_{-1},
-      loop_breaker_queue_{nprocs+1} {
-  loop_breaker_event_ = register_event(nullptr);
+      //nb_io_registered_(0),
+      //trigger_fd_events_{false},
+      loop_breaker_event_{-1}
+      //loop_breaker_queue_{nprocs+1} 
+{
+  loop_breaker_event_ = ::eventfd(0,0);
+  epoll_event_t new_event{ EPOLLIN | EPOLLET | EPOLLRDHUP, {}};
+  new_event.data.fd = loop_breaker_event_;
+  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, loop_breaker_event_, &new_event);
+  if (return_code < 0) {
+    throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
+  }
+
+  // Prepare event array to max size
+  struct rlimit fd_limits {0,0};
+  return_code = ::getrlimit(RLIMIT_NOFILE, &fd_limits);
+  events_.resize(fd_limits.rlim_cur);
 }
 
 io_event_loop::~io_event_loop() {
   ::close(loop_fd_);
+  ::close(loop_breaker_event_);
 }
 
-int io_event_loop::register_event(void* data) {
-  // Creates an eventfd
-  int event_fd = ::eventfd(0, 0);
-  epoll_event_t new_event{ EPOLLIN | EPOLLET | EPOLLRDHUP, {}};
-  new_event.data.fd = event_fd;
-  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, event_fd, &new_event);
-  if (return_code < 0) {
-    throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
-  }
-  return event_fd;
-}
-
-void io_event_loop::send_event(int fd) {
+void  io_event_loop::interrupt() {
   size_t buffer{1};
   // TODO: replace with direct sycall
-  ssize_t nb_bytes = ::write(fd, &buffer, 8u);
+  ssize_t nb_bytes = ::write(loop_breaker_event_, &buffer, 8u);
   if (nb_bytes < 0) {
     throw exception(std::string("Syscall error (write): ") + strerror(errno));
   }
-  trigger_fd_events_.store(true, std::memory_order_release);
+  //trigger_fd_events_.store(true, std::memory_order_release);
 }
 
 void io_event_loop::register_fd(int fd, void* data) {
@@ -54,6 +56,7 @@ void io_event_loop::register_fd(int fd, void* data) {
   if (return_code < 0) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
+  //++nb_io_registered_;
 }
 
 void* io_event_loop::unregister(int fd) {
@@ -62,12 +65,14 @@ void* io_event_loop::unregister(int fd) {
   if (return_code < 0) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
+  pending_commands_.write({ command_type::close_fd, fd });
+  //--nb_io_registered_;
   return nullptr;
 }
 
 void io_event_loop::send_fd_panic(int proc_from,int fd) {
-  loop_breaker_queue_.write(proc_from+1, new broken_loop_event_data{fd});
-  send_event(loop_breaker_event_);
+  //loop_breaker_queue_.write(proc_from+1, new broken_loop_event_data{fd});
+  interrupt();
 }
 
 io_loop_end_reason io_event_loop::loop(int max_iter, int timeout_ms) {
@@ -76,9 +81,9 @@ io_loop_end_reason io_event_loop::loop(int max_iter, int timeout_ms) {
   for (size_t index = 0; index < static_cast<size_t>(max_iter) || forever || retry; ++index) {
     int return_code = 0;
     retry = false;
-    if (0 != timeout_ms || 0 < nb_io_registered_ ||
-        trigger_fd_events_.load(std::memory_order_acquire)) {
-      trigger_fd_events_.store(false, std::memory_order_relaxed);
+    //if (0 != timeout_ms || 0 < nb_io_registered_ ||
+        //trigger_fd_events_.load(std::memory_order_acquire)) {
+      //trigger_fd_events_.store(false, std::memory_order_relaxed);
       return_code = ::epoll_wait(loop_fd_, events_.data(), events_.size(), timeout_ms);
       switch (return_code) {
         case 0:
@@ -106,12 +111,21 @@ io_loop_end_reason io_event_loop::loop(int max_iter, int timeout_ms) {
       for (int index = 0; index < return_code; ++index) {
         auto& epoll_event = events_[index];
         bool interrupted = epoll_event.events & (EPOLLERR | EPOLLRDHUP);
-        if (epoll_event.events & EPOLLIN)
-          handler_.read(epoll_event.data.fd, nullptr, interrupted ? -EINTR : 0);
-        if (epoll_event.events & EPOLLOUT)
-          handler_.write(epoll_event.data.fd, nullptr, interrupted ? -EINTR : 0);
+        if (epoll_event.data.fd != loop_breaker_event_) {
+          if (epoll_event.events & EPOLLIN)
+            handler_.read(epoll_event.data.fd, nullptr, interrupted ? -EINTR : 0);
+          if (epoll_event.events & EPOLLOUT) {
+            handler_.write(epoll_event.data.fd, nullptr, interrupted ? -EINTR : 0);
+          }
+        }
+        else {
+          assert(epoll_event.events & EPOLLIN);
+          size_t buffer{1};
+          // TODO: replace with direct sycall
+          ::read(loop_breaker_event_, &buffer, 8u);
+        }
       }
-    }
+    //}
   }
   return io_loop_end_reason::max_iter_reached;
 }

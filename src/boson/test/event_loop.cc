@@ -11,6 +11,7 @@
 
 using namespace boson;
 
+namespace {
 struct handler01 : public event_handler {
   int last_id{0};
   int last_read_fd{-1};
@@ -35,6 +36,7 @@ struct handler01 : public event_handler {
     last_status = status;
   }
 };
+}
 
 TEST_CASE("Event Loop - Event notification", "[eventloop][notif]") {
   handler01 handler_instance;
