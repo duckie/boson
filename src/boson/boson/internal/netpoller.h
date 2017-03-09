@@ -21,6 +21,7 @@ namespace internal {
 class netpoller : public io_event_handler {
   std::unique_ptr<io_event_loop> loop_;
   event_handler& handler_;
+  std::atomic<size_t> nb_idle_threads;
 
   struct fd_data {
     thread_id thread_read;
