@@ -35,6 +35,7 @@ struct handler01 : public event_handler {
     last_data = data;
     last_status = status;
   }
+  void callback() override {};
 };
 }
 

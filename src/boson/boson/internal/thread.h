@@ -246,6 +246,7 @@ class thread : public event_handler {
   void event(int event_id, void* data, event_status status) override;
   void read(int fd, void* data, event_status status) override;
   void write(int fd, void* data, event_status status) override;
+  void callback() override;
 
   // called by engine
   void push_command(thread_id from, std::unique_ptr<thread_command> command);

@@ -15,6 +15,7 @@ struct event_handler {
   virtual void event(int event_id, void* data, event_status status) = 0;
   virtual void read(int fd, void* data, event_status status) = 0;
   virtual void write(int fd, void* data, event_status status) = 0;
+  virtual void callback() = 0;  // Called at each loop turn
 };
 
 enum class loop_end_reason { max_iter_reached, timed_out, error_occured };

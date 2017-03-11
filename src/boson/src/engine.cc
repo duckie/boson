@@ -105,6 +105,9 @@ void engine::read(int fd, void* data, event_status status) {
 void engine::write(int fd, void* data, event_status status) {
 }
 
+void engine::callback() {
+}
+
 thread_id engine::register_thread_id() {
   auto new_id = current_thread_id_++;
   return new_id;

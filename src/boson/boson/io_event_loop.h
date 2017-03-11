@@ -11,9 +11,16 @@ namespace boson {
 //enum class event_status { ok, panic, hang_up };
 using event_status = int;
 
+union event_data {
+  void* ptr;
+  int fd;
+  uint32_t u32;
+  uint64_t u64;
+};
+
 struct io_event_handler {
-  virtual void read(int fd, void* data, event_status status) = 0;
-  virtual void write(int fd, void* data, event_status status) = 0;
+  virtual void read(event_data data, event_status status) = 0;
+  virtual void write(event_data data, event_status status) = 0;
 };
 
 enum class io_loop_end_reason { max_iter_reached, timed_out, error_occured };

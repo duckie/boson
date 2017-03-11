@@ -32,11 +32,6 @@ class io_event_loop {
     int fd;
   };
 
-  struct event_data {
-    int fd;
-    void* data;
-  };
-
   struct broken_loop_event_data {
     int fd;
   };
@@ -46,12 +41,6 @@ class io_event_loop {
   // epoll fd
   int loop_fd_{-1};
 
- // Data attached to each event
-  //memory::sparse_vector<event_data> events_data_;
-
-  // List of event fd events
-  memory::flat_unordered_set<int> noio_events_;
-  
   // events_ is the array used in the epoll_wait call to store the result
   std::vector<epoll_event_t> events_;
 
@@ -84,7 +73,7 @@ class io_event_loop {
   ~io_event_loop();
 
   void interrupt();
-  void register_fd(int fd, void* data);
+  void register_fd(int fd, event_data data);
   void* unregister(int fd);
   void* get_data(int event_id);
   void send_event(int event);

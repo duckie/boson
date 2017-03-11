@@ -107,6 +107,7 @@ class engine : public event_handler {
   void event(int event_id, void* data, event_status status) override;
   void read(int fd, void* data, event_status status) override;
   void write(int fd, void* data, event_status status) override;
+  void callback() override;
 
   inline size_t max_nb_cores() const;
 

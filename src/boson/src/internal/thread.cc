@@ -217,6 +217,9 @@ void thread::write(int fd, void* data, event_status status) {
   }
 }
 
+void thread::callback() {
+}
+
 // called by engine
 void thread::push_command(thread_id from, std::unique_ptr<thread_command> command) {
   nb_pending_commands_.fetch_add(1);

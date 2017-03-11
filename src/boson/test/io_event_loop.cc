@@ -18,19 +18,18 @@ struct handler01 : public io_event_handler {
   int last_id{-1};
   int last_read_fd{-1};
   int last_write_fd{-1};
-  void* last_data{nullptr};
   event_status last_status {};
 
-  void read(int fd, void* data, event_status status) override {
+  void read(event_data data, event_status status) override {
+    int fd = data.fd;
     last_id = -1;
     last_read_fd = fd;
-    last_data = data;
     last_status = status;
   }
-  void write(int fd, void* data, event_status status) override {
+  void write(event_data data, event_status status) override {
+    int fd = data.fd;
     last_id = -1;
     last_write_fd = fd;
-    last_data = data;
     last_status = status;
   }
 };
@@ -51,7 +50,6 @@ TEST_CASE("IO Event Loop - Event notification", "[ioeventloop][notif]") {
     CHECK(handler_instance.last_id == -1);
     CHECK(handler_instance.last_read_fd == -1);
     CHECK(handler_instance.last_write_fd == -1);
-    CHECK(handler_instance.last_data == nullptr);
     CHECK(handler_instance.last_status == 0);
   }
 }
@@ -69,12 +67,11 @@ TEST_CASE("IO Event Loop - FD Read/Write", "[ioeventloop][read/write]") {
     loop.loop(1);
   }};
 
-  loop.register_fd(pipe_fds[0], nullptr);
-  loop.register_fd(pipe_fds[1], nullptr);
+  loop.register_fd(pipe_fds[0], {.fd = pipe_fds[0]});
+  loop.register_fd(pipe_fds[1], {.fd = pipe_fds[1]});
   t1.join();
 
   CHECK(handler_instance.last_write_fd == pipe_fds[1]);
-  CHECK(handler_instance.last_data == nullptr);
   CHECK(handler_instance.last_status == 0);
 
   std::thread t2{[&loop]() { 
@@ -85,7 +82,6 @@ TEST_CASE("IO Event Loop - FD Read/Write", "[ioeventloop][read/write]") {
   t2.join();
 
   CHECK(handler_instance.last_read_fd == pipe_fds[0]);
-  CHECK(handler_instance.last_data == nullptr);
 }
 
 TEST_CASE("IO Event Loop - FD Read/Write same FD", "[ioeventloop][read/write]") {
@@ -98,7 +94,7 @@ TEST_CASE("IO Event Loop - FD Read/Write same FD", "[ioeventloop][read/write]") 
 
   handler01 handler_instance;
   boson::io_event_loop loop(handler_instance,1);
-  loop.register_fd(sv[0], nullptr);
+  loop.register_fd(sv[0], {.fd = sv[0]});
 
   loop.loop(1);
   CHECK(handler_instance.last_read_fd == -1);
