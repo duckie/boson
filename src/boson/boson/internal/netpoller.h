@@ -22,8 +22,8 @@ struct netpoller_platform_impl {
 };
 
 template <class Data> struct net_event_handler {
-  virtual void read(Data data, event_status status) = 0;
-  virtual void write(Data data, event_status status) = 0;
+  virtual void read(fd_t fd, Data data, event_status status) = 0;
+  virtual void write(fd_t fd, Data data, event_status status) = 0;
   virtual void callback() = 0;
 };
 
@@ -232,13 +232,13 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
       // Dispatch the events
       for (auto const& read_event : read_events_) {
         if (waiters_[std::get<0>(read_event)].read_enabled)
-          handler_.read(waiters_[std::get<0>(read_event)].read_data, std::get<1>(read_event));
+          handler_.read(std::get<0>(read_event), waiters_[std::get<0>(read_event)].read_data, std::get<1>(read_event));
       }
       read_events_.clear();
 
       for (auto const& write_event : write_events_) {
         if (waiters_[std::get<0>(write_event)].write_enabled)
-          handler_.write(waiters_[std::get<0>(write_event)].write_data, std::get<1>(write_event));
+          handler_.write(std::get<0>(write_event), waiters_[std::get<0>(write_event)].write_data, std::get<1>(write_event));
       }
       write_events_.clear();
 

@@ -205,44 +205,48 @@ loop_end_reason event_loop::loop(int max_iter, int timeout_ms) {
         trigger_fd_events_.load(std::memory_order_acquire)) {
       trigger_fd_events_.store(false, std::memory_order_relaxed);
       return_code = ::epoll_wait(loop_fd_, events_.data(), events_.size(), timeout_ms);
-      switch (return_code) {
-        case 0:
-          if (timeout_ms != 0)
-            return loop_end_reason::timed_out;
-          else
-            break;
-        case EINTR:
-          //throw exception(std::string("Syscall error (epoll_wait) EINTR : ") + ::strerror(errno));
-          // TODO: real cause to be determined, happens under high contention
-          retry = true;
-          break;
-        case EBADF:
-          //throw exception(std::string("Syscall error (epoll_wait) EBADF : ") + std::to_string(loop_fd_) + ::strerror(errno));
-          retry = true;
-          break;
-        case EFAULT:
-          throw exception(std::string("Syscall error (epoll_wait) EFAULT : ") + ::strerror(errno));
-        case EINVAL:
-          throw exception(std::string("Syscall error (epoll_wait) EINVAL : ") + ::strerror(errno));
-        default:
-          break;
+      if (return_code == 0 && timeout_ms != 0) {
+        return loop_end_reason::timed_out;
       }
-      // Success, get on on with dispatching events
-      for (int index = 0; index < return_code; ++index) {
-        auto& epoll_event = events_[index];
-        auto& fddata = get_fd_data(epoll_event.data.fd);
-        if (epoll_event.events & (EPOLLERR | EPOLLRDHUP)) {
-          //boson::debug::log("Yeah HANG UP {}", epoll_event.data.fd);
-          if (0 < fddata.idx_read && !(epoll_event.events & EPOLLIN))
-            dispatch_event(fddata.idx_read, -EINTR);
-          if (0 < fddata.idx_write)
-            dispatch_event(fddata.idx_write, -EINTR);
+      else if (return_code < 0) {
+        switch (errno) {
+          case 0:
+            if (timeout_ms != 0)
+              return loop_end_reason::timed_out;
+            else
+              break;
+          case EINTR:
+            throw exception(std::string("Syscall error (epoll_wait) EINTR : ") + ::strerror(errno));
+            break;
+          case EBADF:
+            throw exception(std::string("Syscall error (epoll_wait) EBADF : ") + std::to_string(loop_fd_) + ::strerror(errno));
+            break;
+          case EFAULT:
+            throw exception(std::string("Syscall error (epoll_wait) EFAULT : ") + ::strerror(errno));
+          case EINVAL:
+            throw exception(std::string("Syscall error (epoll_wait) EINVAL : ") + ::strerror(errno));
+          default:
+            break;
         }
-        else if (epoll_event.events & EPOLLOUT) {
-          dispatch_event(fddata.idx_write, 0);
+      }
+      else {
+        // Success, get on on with dispatching events
+        for (int index = 0; index < return_code; ++index) {
+          auto& epoll_event = events_[index];
+          auto& fddata = get_fd_data(epoll_event.data.fd);
+          if (epoll_event.events & (EPOLLERR | EPOLLRDHUP)) {
+            //boson::debug::log("Yeah HANG UP {}", epoll_event.data.fd);
+            if (0 < fddata.idx_read && !(epoll_event.events & EPOLLIN))
+              dispatch_event(fddata.idx_read, -EINTR);
+            if (0 < fddata.idx_write)
+              dispatch_event(fddata.idx_write, -EINTR);
+          }
+          else if (epoll_event.events & EPOLLOUT) {
+            dispatch_event(fddata.idx_write, 0);
+          }
+          if (epoll_event.events & EPOLLIN)
+            dispatch_event(fddata.idx_read, 0);
         }
-        if (epoll_event.events & EPOLLIN)
-          dispatch_event(fddata.idx_read, 0);
       }
     }
   }

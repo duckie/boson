@@ -109,8 +109,16 @@ class thread : public event_handler {
   friend void detail::resume_routine(transfer_t);
   friend void boson::yield();
   friend void boson::sleep(std::chrono::milliseconds);
-  template <bool> friend int boson::wait_readiness(fd_t,int);
-  friend void boson::fd_panic(int fd);
+  template <bool>
+  friend int boson::wait_readiness(fd_t, int);
+  friend void boson::fd_panic(int);
+  friend fd_t boson::open(const char*, int);
+  friend fd_t boson::open(const char*, int, mode_t);
+  friend fd_t boson::creat(const char*, mode_t);
+  friend int boson::pipe(fd_t fds[2]);
+  friend int boson::pipe2(fd_t fds[2], int);
+  friend socket_t boson::socket(int, int, int);
+  friend socket_t boson::accept(socket_t, sockaddr*, socklen_t*, int);
   friend int boson::close(int);
   template <class ContentType>
   friend class channel;

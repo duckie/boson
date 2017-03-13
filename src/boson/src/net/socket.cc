@@ -1,11 +1,13 @@
 #include "boson/net/socket.h"
 #include "boson/exception.h"
+#include "boson/syscalls.h"
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/fcntl.h>
 #include <unistd.h>
 #include <netdb.h>
 #include <cstring>
+
 
 namespace boson {
 namespace net {
@@ -20,8 +22,8 @@ socket_t create_listening_socket(
     in_addr_t receive_from) {
 
   sockaddr_in serv_addr;
-  int sockfd = ::socket(domain, type, protocol);
-  if (non_block) ::fcntl(sockfd, F_SETFL, O_NONBLOCK);
+  int sockfd = boson::socket(domain, type, protocol);
+  //if (non_block) ::fcntl(sockfd, F_SETFL, O_NONBLOCK);
   if (sockfd < 0) throw boson::exception("ERROR opening socket");
 
   ::memset(&serv_addr, 0, sizeof(serv_addr));

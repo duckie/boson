@@ -47,26 +47,17 @@ int main(int argc, char* argv[]) {
 
   // Creates some pipes
   int a2b[2];
-  ::pipe(a2b);
   int b2a[2];
-  ::pipe(b2a);
   int b2c[2];
-  ::pipe(b2c);
   int c2b[2];
-  ::pipe(c2b);
-
-  // Make non block
-  ::set_no_block(a2b[1]);
-  ::set_no_block(b2a[0]);
-  ::set_no_block(a2b[0]);
-  ::set_no_block(b2a[1]);
-  ::set_no_block(b2c[1]);
-  ::set_no_block(c2b[0]);
-  ::set_no_block(b2c[0]);
-  ::set_no_block(c2b[1]);
 
   // Execute a routine communication through pipes
   boson::run(1, [&]() {
+    boson::pipe(a2b);
+    boson::pipe(b2a);
+    boson::pipe(b2c);
+    boson::pipe(c2b);
+
     using namespace boson;
     start(producer, b2a[0], a2b[1]);
     start(router, a2b[0], b2a[1], c2b[0], b2c[1]);

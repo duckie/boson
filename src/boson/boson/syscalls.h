@@ -39,6 +39,8 @@ ssize_t recv(socket_t socket, void *buffer, size_t length, int flags, int timeou
 fd_t open(const char *pathname, int flags);
 fd_t open(const char *pathname, int flags, mode_t mode);
 fd_t creat(const char *pathname, mode_t mode);
+int pipe(fd_t fds[2]);
+int pipe2(fd_t fds[2], int flags);
 socket_t socket(int domain, int type, int protocol);
 
 ssize_t read(fd_t fd, void *buf, size_t count);

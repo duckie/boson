@@ -86,8 +86,8 @@ class engine : public internal::net_event_handler<std::pair<thread_id,size_t>> {
   //using queue_t = queues::lcrq;
   using queue_t = queues::mpsc<std::unique_ptr<command>>;
   queue_t command_queue_;
-  //std::condition_variable command_waiter_;
-  internal::netpoller<std::pair<thread_id,size_t>> event_loop_;
+  std::condition_variable command_waiter_;
+  //internal::netpoller<std::pair<thread_id,size_t>> event_loop_;
   //int self_event_id_;
   std::atomic<size_t> command_pushers_;
 
@@ -105,11 +105,11 @@ class engine : public internal::net_event_handler<std::pair<thread_id,size_t>> {
   engine& operator=(engine&&) = default;
   ~engine();
 
-  void read(std::pair<thread_id,size_t>, event_status status) override;
-  void write(std::pair<thread_id, size_t>, event_status status) override;
+  void read(fd_t fd, std::pair<thread_id,size_t>, event_status status) override;
+  void write(fd_t fd, std::pair<thread_id, size_t>, event_status status) override;
   void callback() override;
 
-  inline internal::netpoller<std::pair<thread_id,size_t>>& event_loop();
+  //inline internal::netpoller<std::pair<thread_id,size_t>>& event_loop();
 
   inline size_t max_nb_cores() const;
 
@@ -127,9 +127,9 @@ class engine : public internal::net_event_handler<std::pair<thread_id,size_t>> {
 };
 
 // Inline/template implementations
-inline internal::netpoller<std::pair<thread_id,size_t>>& engine::event_loop() {
-  return event_loop_;
-}
+//inline internal::netpoller<std::pair<thread_id,size_t>>& engine::event_loop() {
+  //return event_loop_;
+//}
 
 inline size_t engine::max_nb_cores() const {
   return max_nb_cores_;

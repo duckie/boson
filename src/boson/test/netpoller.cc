@@ -18,11 +18,11 @@ struct handler01 : public internal::net_event_handler<int> {
   int last_write_fd{-1};
   event_status last_status {};
 
-  void read(int data, event_status status) override {
+  void read(int fd, int data, event_status status) override {
     last_read_fd = data;
     last_status = status;
   }
-  void write(int data, event_status status) override {
+  void write(int fd, int data, event_status status) override {
     last_write_fd = data;
     last_status = status;
   }

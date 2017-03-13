@@ -8,6 +8,7 @@
 #include "logger.h"
 #include <sys/resource.h>
 #include <sys/syscall.h>
+#include <iostream>
 
 template class std::unique_ptr<boson::io_event_loop>;
 
@@ -78,45 +79,47 @@ io_loop_end_reason io_event_loop::loop(int max_iter, int timeout_ms) {
     int return_code = 0;
     retry = false;
     return_code = ::epoll_wait(loop_fd_, events_.data(), events_.size(), timeout_ms);
-    switch (return_code) {
-      case 0:
-        if (timeout_ms != 0)
-          return io_loop_end_reason::timed_out;
-        else
-          break;
-      case EINTR:
-        //throw exception(std::string("Syscall error (epoll_wait) EINTR : ") + ::strerror(errno));
-        // TODO: real cause to be determined, happens under high contention
-        retry = true;
-        break;
-      case EBADF:
-        //throw exception(std::string("Syscall error (epoll_wait) EBADF : ") + std::to_string(loop_fd_) + ::strerror(errno));
-        retry = true;
-        break;
-      case EFAULT:
-        throw exception(std::string("Syscall error (epoll_wait) EFAULT : ") + ::strerror(errno));
-      case EINVAL:
-        throw exception(std::string("Syscall error (epoll_wait) EINVAL : ") + ::strerror(errno));
-      default:
-        break;
+
+    if (return_code == 0 && timeout_ms != 0) {
+      return io_loop_end_reason::timed_out;
     }
-    // Success, get on on with dispatching events
-    for (int index = 0; index < return_code; ++index) {
-      auto& epoll_event = events_[index];
-      bool interrupted = epoll_event.events & (EPOLLERR | EPOLLRDHUP);
-      if (epoll_event.data.fd != loop_breaker_event_) {
-        if (epoll_event.events & EPOLLIN)
-          handler_.read(epoll_event.data.fd, interrupted ? -EINTR : 0);
-        if (epoll_event.events & EPOLLOUT) {
-          handler_.write(epoll_event.data.fd, interrupted ? -EINTR : 0);
+    else if (return_code < 0) {
+      switch (errno) {
+        case EINTR:
+          throw exception(std::string("Syscall error (epoll_wait) EINTR : ") + ::strerror(errno));
+          break;
+        case EBADF:
+          throw exception(std::string("Syscall error (epoll_wait) EBADF : ") + std::to_string(loop_fd_) + ::strerror(errno));
+          break;
+        case EFAULT:
+          throw exception(std::string("Syscall error (epoll_wait) EFAULT : ") + ::strerror(errno));
+        case EINVAL:
+          throw exception(std::string("Syscall error (epoll_wait) EINVAL : ") + ::strerror(errno));
+        default:
+          break;
+      }
+    }
+    else {
+      // Success, get on on with dispatching events
+      for (int index = 0; index < return_code; ++index) {
+        auto& epoll_event = events_[index];
+        bool interrupted = epoll_event.events & (EPOLLERR | EPOLLRDHUP);
+        if (epoll_event.data.fd != loop_breaker_event_) {
+          if (epoll_event.events & EPOLLIN) {
+            handler_.read(epoll_event.data.fd, interrupted ? -EINTR : 0);
+          }
+          if (epoll_event.events & EPOLLOUT) {
+            handler_.write(epoll_event.data.fd, interrupted ? -EINTR : 0);
+          }
+        }
+        else {
+          assert(epoll_event.events & EPOLLIN);
+          size_t buffer{1};
+          ::syscall(SYS_read, loop_breaker_event_, &buffer, 8u);
         }
       }
-      else {
-        assert(epoll_event.events & EPOLLIN);
-        size_t buffer{1};
-        ::syscall(SYS_read, loop_breaker_event_, &buffer, 8u);
-      }
     }
+
     // Unqueue commands (on fd close)
     command current_command;
     while(pending_commands_.read(current_command)) {

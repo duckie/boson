@@ -1,4 +1,5 @@
 #include "engine.h"
+#include <iostream>
 
 namespace boson {
 
@@ -7,8 +8,8 @@ void engine::push_command(thread_id from, std::unique_ptr<command> new_command) 
   // command_waiter_.notify_one();
   //command_queue_.write(static_cast<int>(from), new_command.release());
   command_queue_.write(std::move(new_command));
-  //command_waiter_.notify_one();
-  event_loop_.interrupt();
+  command_waiter_.notify_one();
+  //event_loop_.interrupt();
 }
 
 void engine::execute_commands() {
@@ -74,12 +75,14 @@ void engine::wait_all_routines() {
         }
       }
     }
-    //command_waiter_.wait(lock, [this] {
-      while(0 != this->nb_active_threads_ &&
-             0 == this->command_pushers_.load(std::memory_order_acquire)) {
-        event_loop_.loop(1,-1);
-      }
-    //});
+    command_waiter_.wait(lock, [this] () {
+      return (0 == this->nb_active_threads_ ||
+             0 < this->command_pushers_.load(std::memory_order_acquire));
+    });
+    //while (0 != this->nb_active_threads_ &&
+           //0 == this->command_pushers_.load(std::memory_order_acquire)) {
+      //event_loop_.loop(1, -1);
+    //}
   }
 }
 
@@ -88,7 +91,7 @@ engine::engine(size_t max_nb_cores)
       max_nb_cores_{max_nb_cores},
       //command_loop_(*this, static_cast<int>(max_nb_cores + 1)),
       command_queue_{},
-      event_loop_(*this),
+      //event_loop_(*this),
       command_pushers_{0} {
   // Start threads
   threads_.reserve(max_nb_cores);
@@ -100,10 +103,20 @@ engine::engine(size_t max_nb_cores)
   }
 };
 
-void engine::read(std::pair<thread_id,size_t>, event_status status) {
+void engine::read(fd_t fd, std::pair<thread_id,size_t> data, event_status status) {
+  auto& view = *threads_.at(std::get<0>(data));
+  view.thread.push_command(
+      max_nb_cores_,
+      std::make_unique<command_t>(internal::thread_command_type::fd_ready,
+                                  std::make_tuple(std::get<1>(data), fd, status, true)));
 }
 
-void engine::write(std::pair<thread_id,size_t>, event_status status) {
+void engine::write(fd_t fd, std::pair<thread_id,size_t> data, event_status status) {
+  auto& view = *threads_.at(std::get<0>(data));
+  view.thread.push_command(
+      max_nb_cores_,
+      std::make_unique<command_t>(internal::thread_command_type::fd_ready,
+                                  std::make_tuple(std::get<1>(data), fd, status, false)));
 }
 
 void engine::callback() {
