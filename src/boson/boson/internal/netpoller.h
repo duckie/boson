@@ -13,6 +13,7 @@ struct netpoller_platform_impl {
   std::unique_ptr<io_event_loop> loop_;
   
   netpoller_platform_impl(io_event_handler& handler);
+  ~netpoller_platform_impl();
   void register_fd(fd_t fd, event_data data);
   void unregister(fd_t fd);
 };
@@ -60,7 +61,7 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   queues::mpsc<command> pending_updates_;
 
  public:
-  netpoller(net_event_handler<Data>& handler) : netpoller_platform_impl{*this} {}
+  netpoller(net_event_handler<Data>& handler) : netpoller_platform_impl{static_cast<io_event_handler&>(*this)}, handler_{handler} {}
 
   void read(event_data data, event_status status) override {
 

@@ -9,6 +9,9 @@ netpoller_platform_impl::netpoller_platform_impl(io_event_handler& handler)
 {
 }
 
+netpoller_platform_impl::~netpoller_platform_impl() {
+}
+
 void netpoller_platform_impl::register_fd(fd_t fd, event_data data)
 {
   loop_->register_fd(fd, data);
