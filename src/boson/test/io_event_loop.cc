@@ -20,17 +20,22 @@ struct handler01 : public io_event_handler {
   int last_write_fd{-1};
   event_status last_status {};
 
-  void read(event_data data, event_status status) override {
-    int fd = data.fd;
+  void read(fd_t fd, event_status status) override {
     last_id = -1;
     last_read_fd = fd;
     last_status = status;
   }
-  void write(event_data data, event_status status) override {
-    int fd = data.fd;
+  void write(fd_t fd, event_status status) override {
     last_id = -1;
     last_write_fd = fd;
     last_status = status;
+  }
+
+  void closed(fd_t fd) override {
+    last_id = -1;
+    last_read_fd = fd;
+    last_write_fd = fd;
+    last_status = EBADF;
   }
 };
 }
@@ -67,8 +72,8 @@ TEST_CASE("IO Event Loop - FD Read/Write", "[ioeventloop][read/write]") {
     loop.loop(1);
   }};
 
-  loop.register_fd(pipe_fds[0], {.fd = pipe_fds[0]});
-  loop.register_fd(pipe_fds[1], {.fd = pipe_fds[1]});
+  loop.register_fd(pipe_fds[0]);
+  loop.register_fd(pipe_fds[1]);
   t1.join();
 
   CHECK(handler_instance.last_write_fd == pipe_fds[1]);
@@ -94,7 +99,7 @@ TEST_CASE("IO Event Loop - FD Read/Write same FD", "[ioeventloop][read/write]") 
 
   handler01 handler_instance;
   boson::io_event_loop loop(handler_instance,1);
-  loop.register_fd(sv[0], {.fd = sv[0]});
+  loop.register_fd(sv[0]);
 
   loop.loop(1);
   CHECK(handler_instance.last_read_fd == -1);
@@ -119,22 +124,24 @@ TEST_CASE("IO Event Loop - FD Read/Write same FD", "[ioeventloop][read/write]") 
 }
 
 TEST_CASE("IO Event Loop - FD Panic Read/Write", "[ioeventloop][panic]") {
-  //handler01 handler_instance;
-  //int pipe_fds[2];
-  //::pipe(pipe_fds);
-  //::fcntl(pipe_fds[0], F_SETFL, ::fcntl(pipe_fds[0], F_GETFD) | O_NONBLOCK);
-  //::fcntl(pipe_fds[1], F_SETFL, ::fcntl(pipe_fds[1], F_GETFD) | O_NONBLOCK);
-//
-  //boson::event_loop loop(handler_instance,1);
-  //loop.register_read(pipe_fds[0], nullptr);
-//
-  //loop.loop(1,0);
-  //CHECK(handler_instance.last_read_fd == -1);
-//
-  //loop.send_fd_panic(0,pipe_fds[0]);
-  //loop.loop(1);
-  //CHECK(handler_instance.last_read_fd == pipe_fds[0]);
-  //CHECK(handler_instance.last_status < 0);
+  handler01 handler_instance;
+  int pipe_fds[2];
+  ::pipe(pipe_fds);
+  ::fcntl(pipe_fds[0], F_SETFL, ::fcntl(pipe_fds[0], F_GETFD) | O_NONBLOCK);
+  ::fcntl(pipe_fds[1], F_SETFL, ::fcntl(pipe_fds[1], F_GETFD) | O_NONBLOCK);
+
+  boson::io_event_loop loop(handler_instance,1);
+  loop.register_fd(pipe_fds[0]);
+
+  loop.loop(1,0);
+  CHECK(handler_instance.last_read_fd == -1);
+
+  loop.unregister(pipe_fds[0]);
+  loop.interrupt();  // Its is unregister caller responsibility to call "interrupt"
+  loop.loop(1);
+  CHECK(handler_instance.last_read_fd == pipe_fds[0]);
+  CHECK(handler_instance.last_write_fd == pipe_fds[0]);
+  CHECK(handler_instance.last_status == EBADF);
 }
 
 TEST_CASE("IO Event Loop - Bas fds", "[ioeventloop]") {

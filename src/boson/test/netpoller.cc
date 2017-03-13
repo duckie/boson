@@ -52,20 +52,29 @@ TEST_CASE("Netpoller - FD Read/Write", "[netpoller][read/write]") {
   ::fcntl(pipe_fds[1], F_SETFL, ::fcntl(pipe_fds[1], F_GETFD) | O_NONBLOCK);
 
   boson::internal::netpoller<int> loop(handler_instance);
+
+  // Test 1
+  std::thread t1{[&loop]() { 
+    loop.loop(1);
+  }};
+  loop.signal_new_fd(pipe_fds[0]);
+  loop.signal_new_fd(pipe_fds[1]);
   loop.register_read(pipe_fds[0], 1);
   loop.register_write(pipe_fds[1], 2);
-
-  loop.loop(1);
+  t1.join();
   CHECK(handler_instance.last_write_fd == 2);
   CHECK(handler_instance.last_status == 0);
 
+  // Test 2
+  std::thread t2{[&loop]() { 
+    loop.loop(1);
+  }};
   size_t data{1};
   ::write(pipe_fds[1], &data, sizeof(size_t));
-
-  loop.loop(1);
+  t2.join();
   CHECK(handler_instance.last_read_fd == 1);
 }
-/*
+
 TEST_CASE("Netpoller - FD Read/Write same FD", "[netpoller][read/write]") {
 #ifdef WINDOWS
 #else
@@ -75,22 +84,30 @@ TEST_CASE("Netpoller - FD Read/Write same FD", "[netpoller][read/write]") {
 
 
   handler01 handler_instance;
-  boson::event_loop loop(handler_instance,1);
-  int event_read = loop.register_read(sv[0], nullptr);
-  int event_write = loop.register_write(sv[0], nullptr);
+  boson::internal::netpoller<int> loop(handler_instance);
+  loop.signal_new_fd(sv[0]);
+  loop.register_read(sv[0], 1);
+  loop.register_write(sv[0], 2);
 
-  loop.loop(1);
+  loop.loop(1,0);
   CHECK(handler_instance.last_read_fd == -1);
-  CHECK(handler_instance.last_write_fd == sv[0]);
+  CHECK(handler_instance.last_write_fd == 2);
   CHECK(handler_instance.last_status == 0);
 
-  loop.unregister(event_write);
   // Write at the other end, it should work even though we suppressed the other event
   size_t data{1};
   ::send(sv[1],&data, sizeof(size_t),0);
   handler_instance.last_write_fd = -1;
+  loop.unregister_write(sv[0]);
   loop.loop(1);
-  CHECK(handler_instance.last_read_fd == sv[0]);
+  CHECK(handler_instance.last_read_fd == 1);
+  CHECK(handler_instance.last_write_fd == -1);  // This is unexpected but a write event happens here
+  CHECK(handler_instance.last_status == 0);
+
+  handler_instance.last_read_fd = -1;
+  handler_instance.last_write_fd = -1;
+  loop.loop(1,0);
+  CHECK(handler_instance.last_read_fd == -1);
   CHECK(handler_instance.last_write_fd == -1);
   CHECK(handler_instance.last_status == 0);
   
@@ -98,9 +115,16 @@ TEST_CASE("Netpoller - FD Read/Write same FD", "[netpoller][read/write]") {
   ::shutdown(sv[1], SHUT_WR);
   ::close(sv[0]);
   ::close(sv[1]);
+
+  loop.signal_fd_closed(sv[0]);
+  loop.loop(1,0);
+  CHECK(handler_instance.last_read_fd == 1);
+  CHECK(handler_instance.last_write_fd == -1);
+  CHECK(handler_instance.last_status == -EBADF);
 #endif
 }
 
+/*
 TEST_CASE("Netpoller - FD Panic Read/Write", "[netpoller][panic]") {
   handler01 handler_instance;
   int pipe_fds[2];

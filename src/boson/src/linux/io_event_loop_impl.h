@@ -73,7 +73,7 @@ class io_event_loop {
   ~io_event_loop();
 
   void interrupt();
-  void register_fd(int fd, event_data data);
+  void register_fd(int fd);
   void* unregister(int fd);
   void* get_data(int event_id);
   void send_event(int event);

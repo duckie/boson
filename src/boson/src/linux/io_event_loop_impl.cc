@@ -7,6 +7,7 @@
 #include "system.h"
 #include "logger.h"
 #include <sys/resource.h>
+#include <sys/syscall.h>
 
 template class std::unique_ptr<boson::io_event_loop>;
 
@@ -44,9 +45,9 @@ void  io_event_loop::interrupt() {
   }
 }
 
-void io_event_loop::register_fd(int fd, event_data data) {
+void io_event_loop::register_fd(int fd) {
   epoll_event_t new_event{ EPOLLIN | EPOLLOUT | EPOLLET | EPOLLRDHUP, {}};
-  new_event.data.ptr = data.ptr;  // Should hover evert type of the union
+  new_event.data.fd = fd;
   int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, fd, &new_event);
   if (return_code < 0) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
@@ -54,11 +55,14 @@ void io_event_loop::register_fd(int fd, event_data data) {
 }
 
 void* io_event_loop::unregister(int fd) {
-  epoll_event_t new_event{ 0, {}};
-  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_DEL, fd, &new_event);
-  if (return_code < 0) {
-    throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
-  }
+  // Since the FD is only supposed to be unregistered when closed, there is no 
+  // need to EPOLL_CTL_DEL it afterwars
+
+  //epoll_event_t new_event{ 0, {}};
+  //int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_DEL, fd, &new_event);
+  //if (return_code < 0) {
+    //throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
+  //}
   pending_commands_.write({ command_type::close_fd, fd });
   return nullptr;
 }
@@ -102,16 +106,23 @@ io_loop_end_reason io_event_loop::loop(int max_iter, int timeout_ms) {
       bool interrupted = epoll_event.events & (EPOLLERR | EPOLLRDHUP);
       if (epoll_event.data.fd != loop_breaker_event_) {
         if (epoll_event.events & EPOLLIN)
-          handler_.read(event_data{.ptr = epoll_event.data.ptr}, interrupted ? -EINTR : 0);
+          handler_.read(epoll_event.data.fd, interrupted ? -EINTR : 0);
         if (epoll_event.events & EPOLLOUT) {
-          handler_.write(event_data{.ptr = epoll_event.data.ptr}, interrupted ? -EINTR : 0);
+          handler_.write(epoll_event.data.fd, interrupted ? -EINTR : 0);
         }
       }
       else {
         assert(epoll_event.events & EPOLLIN);
         size_t buffer{1};
-        // TODO: replace with direct sycall
-        ::read(loop_breaker_event_, &buffer, 8u);
+        ::syscall(SYS_read, loop_breaker_event_, &buffer, 8u);
+      }
+    }
+    // Unqueue commands (on fd close)
+    command current_command;
+    while(pending_commands_.read(current_command)) {
+      switch(current_command.type) {
+        case command_type::close_fd:
+          handler_.closed(current_command.fd);
       }
     }
   }

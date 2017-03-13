@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <memory>
 #include <tuple>
+#include "system.h"
 
 namespace boson {
 
@@ -19,8 +20,9 @@ union event_data {
 };
 
 struct io_event_handler {
-  virtual void read(event_data data, event_status status) = 0;
-  virtual void write(event_data data, event_status status) = 0;
+  virtual void read(fd_t fd, event_status status) = 0;
+  virtual void write(fd_t fd, event_status status) = 0;
+  virtual void closed(fd_t fd) = 0;
 };
 
 enum class io_loop_end_reason { max_iter_reached, timed_out, error_occured };
