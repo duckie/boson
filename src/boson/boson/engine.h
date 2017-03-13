@@ -15,6 +15,7 @@
 #include "queues/lcrq.h"
 #include "queues/mpsc.h"
 #include "event_loop.h"
+#include "internal/netpoller.h"
 
 namespace boson {
 
@@ -26,7 +27,7 @@ class routine;
  * engine encapsulates an instance of the boson runtime
  *
  */
-class engine : public event_handler {
+class engine : public internal::net_event_handler<std::pair<thread_id,size_t>> {
   using thread_t = internal::thread;
   using command_t = internal::thread_command;
   using proxy_t = internal::engine_proxy;
@@ -85,8 +86,8 @@ class engine : public event_handler {
   //using queue_t = queues::lcrq;
   using queue_t = queues::mpsc<std::unique_ptr<command>>;
   queue_t command_queue_;
-  std::condition_variable command_waiter_;
-  //event_loop command_loop_;
+  //std::condition_variable command_waiter_;
+  internal::netpoller<std::pair<thread_id,size_t>> event_loop_;
   //int self_event_id_;
   std::atomic<size_t> command_pushers_;
 
@@ -104,9 +105,8 @@ class engine : public event_handler {
   engine& operator=(engine&&) = default;
   ~engine();
 
-  void event(int event_id, void* data, event_status status) override;
-  void read(int fd, void* data, event_status status) override;
-  void write(int fd, void* data, event_status status) override;
+  void read(std::pair<thread_id,size_t>, event_status status) override;
+  void write(std::pair<thread_id, size_t>, event_status status) override;
   void callback() override;
 
   inline size_t max_nb_cores() const;

@@ -7,7 +7,8 @@ void engine::push_command(thread_id from, std::unique_ptr<command> new_command) 
   // command_waiter_.notify_one();
   //command_queue_.write(static_cast<int>(from), new_command.release());
   command_queue_.write(std::move(new_command));
-  command_waiter_.notify_one();
+  //command_waiter_.notify_one();
+  event_loop_.interrupt();
 }
 
 void engine::execute_commands() {
@@ -73,10 +74,12 @@ void engine::wait_all_routines() {
         }
       }
     }
-    command_waiter_.wait(lock, [this] {
-      return 0 == this->nb_active_threads_ ||
-             0 < this->command_pushers_.load(std::memory_order_acquire);
-    });
+    //command_waiter_.wait(lock, [this] {
+      while(0 != this->nb_active_threads_ &&
+             0 == this->command_pushers_.load(std::memory_order_acquire)) {
+        event_loop_.loop(1,-1);
+      }
+    //});
   }
 }
 
@@ -85,6 +88,7 @@ engine::engine(size_t max_nb_cores)
       max_nb_cores_{max_nb_cores},
       //command_loop_(*this, static_cast<int>(max_nb_cores + 1)),
       command_queue_{},
+      event_loop_(*this),
       command_pushers_{0} {
   // Start threads
   threads_.reserve(max_nb_cores);
@@ -96,13 +100,10 @@ engine::engine(size_t max_nb_cores)
   }
 };
 
-void engine::event(int event_id, void* data, event_status status) {
+void engine::read(std::pair<thread_id,size_t>, event_status status) {
 }
 
-void engine::read(int fd, void* data, event_status status) {
-}
-
-void engine::write(int fd, void* data, event_status status) {
+void engine::write(std::pair<thread_id,size_t>, event_status status) {
 }
 
 void engine::callback() {

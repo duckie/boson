@@ -1,9 +1,9 @@
 #ifndef BOSON_NETPOLLER_H_
 #define BOSON_NETPOLLER_H_
 
-#include "io_event_loop.h"
-#include "event_loop.h"
-#include "queues/mpsc.h"
+#include "../io_event_loop.h"
+#include "../event_loop.h"
+#include "../queues/mpsc.h"
 #include "thread.h"
 #include <chrono>
 
@@ -88,6 +88,10 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   void closed(fd_t fd) override {
     read_events_.emplace_back(fd, -EBADF);
     write_events_.emplace_back(fd, -EBADF);
+  }
+
+  void interrupt() {
+    netpoller_platform_impl::interrupt();
   }
 
   /**
