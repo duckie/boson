@@ -17,6 +17,7 @@
 #include "boson/queues/simple.h"
 #include "boson/queues/lcrq.h"
 #include "boson/queues/vectorized_queue.h"
+#include "netpoller.h"
 #include "routine.h"
 #include "../external/json_backbone.hpp"
 
@@ -42,9 +43,13 @@ enum class thread_status {
   finished    // Thread no longer executes a routine and is not required to wait
 };
 
-enum class thread_command_type { add_routine, schedule_waiting_routine, finish, fd_panic };
+enum class thread_command_type { add_routine, schedule_waiting_routine, finish, fd_panic, fd_ready };
 
-using thread_command_data = json_backbone::variant<std::nullptr_t, int, routine_ptr_t, std::pair<std::weak_ptr<semaphore>, std::size_t>>;
+using thread_fd_event = std::tuple<std::size_t, int, event_status, bool>;
+
+using thread_command_data =
+    json_backbone::variant<std::nullptr_t, int, routine_ptr_t,
+                           std::pair<std::weak_ptr<semaphore>, std::size_t>, thread_fd_event>;
 //using thread_command_data = json_backbone::variant<std::nullptr_t, int, routine_ptr_t, std::pair<semaphore*, routine*>>;
 
 struct thread_command {
@@ -76,10 +81,11 @@ class engine_proxy final {
   void start_routine(std::unique_ptr<routine> new_routine);
   void start_routine(thread_id target_thread, std::unique_ptr<routine> new_routine);
   void fd_panic(int fd);
+  
   inline thread_id get_id() const {
     return current_thread_id_;
   }
-  inline engine const& get_engine() const {
+  inline engine& get_engine() const {
     return *engine_;
   }
 };

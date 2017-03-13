@@ -56,14 +56,12 @@ void routine::add_timer(routine_time_point date) {
 
 void routine::add_read(int fd) {
   events_.emplace_back(waited_event{event_type::io_read, routine_io_event{fd, -1, fd_status::unknown, fd_status::unknown}});
-  events_.back().data.get<routine_io_event>().event_id =
-      thread_->register_read(fd, routine_slot{current_ptr_, events_.size() - 1});
+  thread_->register_read(fd, routine_slot{current_ptr_, events_.size() - 1});
 }
 
 void routine::add_write(int fd) {
   events_.emplace_back(waited_event{event_type::io_write, routine_io_event{fd, -1, fd_status::unknown, fd_status::unknown}});
-  events_.back().data.get<routine_io_event>().event_id =
-      thread_->register_write(fd, routine_slot{current_ptr_, events_.size() - 1});
+  thread_->register_write(fd, routine_slot{current_ptr_, events_.size() - 1});
 }
 
 size_t routine::commit_event_round() {

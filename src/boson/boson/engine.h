@@ -109,6 +109,8 @@ class engine : public internal::net_event_handler<std::pair<thread_id,size_t>> {
   void write(std::pair<thread_id, size_t>, event_status status) override;
   void callback() override;
 
+  inline internal::netpoller<std::pair<thread_id,size_t>>& event_loop();
+
   inline size_t max_nb_cores() const;
 
   /***
@@ -125,6 +127,10 @@ class engine : public internal::net_event_handler<std::pair<thread_id,size_t>> {
 };
 
 // Inline/template implementations
+inline internal::netpoller<std::pair<thread_id,size_t>>& engine::event_loop() {
+  return event_loop_;
+}
+
 inline size_t engine::max_nb_cores() const {
   return max_nb_cores_;
 }
