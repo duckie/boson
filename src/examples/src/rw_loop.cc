@@ -21,9 +21,13 @@ void router(int source_in, int source_out, int dest_in, int dest_out) {
   int result = 0;
   while (result < nb_iter - 1) {
     boson::read(source_in, &result, sizeof(int));
+    printf("Router Step 1: %d next %d\n",source_in, dest_out);
     boson::write(dest_out, &result, sizeof(int));
+    printf("Router Step 2: %d next %d\n",dest_out, dest_in);
     boson::read(dest_in, &result, sizeof(int));
+    printf("Router Step 3: %d\n",dest_in);
     boson::write(source_out, &result, sizeof(int));
+    printf("Router Step 4: %d\n",source_out);
   }
 }
 
@@ -32,7 +36,8 @@ void consumer(int in, int out) {
   while (result < nb_iter - 1) {
     boson::read(in, &result, sizeof(int));
     boson::write(out, &result, sizeof(int));
-    boson::debug::log("C received: {}", result);
+    printf("C received: %d\n",result);
+    //boson::debug::log("C received: {}", result);
   }
 }
 

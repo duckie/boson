@@ -27,7 +27,7 @@ class routine;
  * engine encapsulates an instance of the boson runtime
  *
  */
-class engine : public internal::net_event_handler<std::pair<thread_id,size_t>> {
+class engine : public internal::net_event_handler<uint64_t> {
   using thread_t = internal::thread;
   using command_t = internal::thread_command;
   using proxy_t = internal::engine_proxy;
@@ -87,7 +87,7 @@ class engine : public internal::net_event_handler<std::pair<thread_id,size_t>> {
   using queue_t = queues::mpsc<std::unique_ptr<command>>;
   queue_t command_queue_;
   std::condition_variable command_waiter_;
-  //internal::netpoller<std::pair<thread_id,size_t>> event_loop_;
+  internal::netpoller<uint64_t> event_loop_;
   //int self_event_id_;
   std::atomic<size_t> command_pushers_;
 
@@ -105,11 +105,11 @@ class engine : public internal::net_event_handler<std::pair<thread_id,size_t>> {
   engine& operator=(engine&&) = default;
   ~engine();
 
-  void read(fd_t fd, std::pair<thread_id,size_t>, event_status status) override;
-  void write(fd_t fd, std::pair<thread_id, size_t>, event_status status) override;
+  void read(fd_t fd, uint64_t data, event_status status) override;
+  void write(fd_t fd, uint64_t data, event_status status) override;
   void callback() override;
 
-  //inline internal::netpoller<std::pair<thread_id,size_t>>& event_loop();
+  inline internal::netpoller<uint64_t>& event_loop();
 
   inline size_t max_nb_cores() const;
 
@@ -127,9 +127,9 @@ class engine : public internal::net_event_handler<std::pair<thread_id,size_t>> {
 };
 
 // Inline/template implementations
-//inline internal::netpoller<std::pair<thread_id,size_t>>& engine::event_loop() {
-  //return event_loop_;
-//}
+inline internal::netpoller<uint64_t>& engine::event_loop() {
+  return event_loop_;
+}
 
 inline size_t engine::max_nb_cores() const {
   return max_nb_cores_;

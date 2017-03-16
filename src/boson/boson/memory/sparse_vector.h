@@ -19,6 +19,9 @@ namespace memory {
  *
  * There is no way for the user to know wether an allocated
  * cell is valid or not
+ *
+ * This is very similar to a Simple Segregated Storage, but resizable
+ * at the cost of copying the content when extending
  */
 template <class ValueType>
 class sparse_vector {

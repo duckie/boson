@@ -14,6 +14,12 @@ template class std::unique_ptr<boson::io_event_loop>;
 
 namespace boson {
 
+size_t io_event_loop::get_max_fds() {
+  struct rlimit fd_limits {0,0};
+  ::getrlimit(RLIMIT_NOFILE, &fd_limits);
+  return fd_limits.rlim_cur;
+}
+
 io_event_loop::io_event_loop(io_event_handler& handler, int nprocs)
     : handler_{handler},
       loop_fd_{epoll_create1(0)},
@@ -28,9 +34,7 @@ io_event_loop::io_event_loop(io_event_handler& handler, int nprocs)
   }
 
   // Prepare event array to max size
-  struct rlimit fd_limits {0,0};
-  return_code = ::getrlimit(RLIMIT_NOFILE, &fd_limits);
-  events_.resize(fd_limits.rlim_cur);
+  events_.resize(get_max_fds());
 }
 
 io_event_loop::~io_event_loop() {
@@ -53,6 +57,7 @@ void io_event_loop::register_fd(int fd) {
   if (return_code < 0) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
+  printf("A%d\n",fd);
 }
 
 void* io_event_loop::unregister(int fd) {
@@ -106,9 +111,11 @@ io_loop_end_reason io_event_loop::loop(int max_iter, int timeout_ms) {
         bool interrupted = epoll_event.events & (EPOLLERR | EPOLLRDHUP);
         if (epoll_event.data.fd != loop_breaker_event_) {
           if (epoll_event.events & EPOLLIN) {
+            printf("SR %d\n", epoll_event.data.fd);
             handler_.read(epoll_event.data.fd, interrupted ? -EINTR : 0);
           }
           if (epoll_event.events & EPOLLOUT) {
+            printf("SW %d\n", epoll_event.data.fd);
             handler_.write(epoll_event.data.fd, interrupted ? -EINTR : 0);
           }
         }

@@ -41,9 +41,18 @@ int wait_readiness(fd_t fd, int timeout_ms) {
   if (0 <= timeout_ms) {
     current_routine->add_timer(time_point_cast<milliseconds>(high_resolution_clock::now() + milliseconds(timeout_ms)));
   }
+  if (IsARead) {
+    printf("WR%d\n", fd);
+  }
+  else {
+    printf("WW%d\n", fd);
+  }
   current_routine->commit_event_round();
   current_routine->previous_status_ = routine_status::wait_events;
   current_routine->status_ = routine_status::running;
+  if (IsARead) {
+    printf("G%d\n", fd);
+  }
 
   int return_code = 0;
   if (current_routine->happened_rc_  < 0) {
@@ -63,53 +72,54 @@ template <int SyscallId> struct boson_classic_syscall {
         return_code = syscall_callable<SyscallId>::call(fd, std::forward<Args>(args)...);
       }
     }
+    printf("Y%d\n", fd);
     return return_code;
   }
 };
 
 fd_t open(const char *pathname, int flags) {
   fd_t fd = ::syscall(SYS_open,pathname, flags | O_NONBLOCK, 0755);
-  //if (0 <= fd)
-    //current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(fd);
+  if (0 <= fd)
+    current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(fd);
   return fd;
 }
 
 fd_t open(const char *pathname, int flags, mode_t mode) {
   fd_t fd = ::syscall(SYS_open,pathname, flags | O_NONBLOCK, mode);
-  //if (0 <= fd)
-    //current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(fd);
+  if (0 <= fd)
+    current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(fd);
   return fd;
 }
 
 fd_t creat(const char *pathname, mode_t mode) {
   fd_t fd = ::syscall(SYS_open,pathname, O_CREAT | O_WRONLY | O_TRUNC| O_NONBLOCK, mode);
-  //if (0 <= fd)
-    //current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(fd);
+  if (0 <= fd)
+    current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(fd);
   return fd;
 }
 
-fd_t pipe(fd_t fds[2]) {
+fd_t pipe(fd_t (&fds)[2]) {
   int rc = ::syscall(SYS_pipe2, fds, O_NONBLOCK);
-  //if (0 == rc) {
-    //current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(fds[0]);
-    //current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(fds[1]);
-  //}
+  if (0 == rc) {
+    current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(fds[0]);
+    current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(fds[1]);
+  }
   return rc;
 }
 
-fd_t pipe2(fd_t fds[2], int flags) {
+fd_t pipe2(fd_t (&fds)[2], int flags) {
   int rc = ::syscall(SYS_pipe2, fds, flags | O_NONBLOCK);
-  //if (0 == rc) {
-    //current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(fds[0]);
-    //current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(fds[1]);
-  //}
+  if (0 == rc) {
+    current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(fds[0]);
+    current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(fds[1]);
+  }
   return rc;
 }
 
 socket_t socket(int domain, int type, int protocol) {
   socket_t socket = ::syscall(SYS_socket, domain, type | SOCK_NONBLOCK, protocol);
-  //if (0 <= socket)
-    //current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(socket);
+  if (0 <= socket)
+    current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(socket);
   return socket;
 }
 
@@ -143,8 +153,8 @@ ssize_t write(fd_t fd, const void* buf, size_t count, int timeout_ms) {
 
 socket_t accept(socket_t socket, sockaddr* address, socklen_t* address_len, int timeout_ms) {
   socket_t new_socket = boson_classic_syscall<SYS_accept>::call_timeout(socket, timeout_ms, address, address_len);
-  //if (0 <= socket)
-    //current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(new_socket);
+  if (0 <= socket)
+    current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(new_socket);
   return new_socket;
 }
 

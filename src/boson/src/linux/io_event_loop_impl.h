@@ -79,6 +79,8 @@ class io_event_loop {
   void send_event(int event);
   void send_fd_panic(int proc_from, int fd);
   io_loop_end_reason loop(int max_iter = -1, int timeout_ms = -1);
+
+  static size_t get_max_fds();
 };
 }
 

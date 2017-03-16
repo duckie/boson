@@ -30,5 +30,9 @@ void netpoller_platform_impl::interrupt() {
   loop_->interrupt();
 }
 
+size_t netpoller_platform_impl::get_max_fds() {
+  return io_event_loop::get_max_fds();
+}
+
 }
 }

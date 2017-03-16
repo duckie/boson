@@ -115,8 +115,8 @@ class thread : public event_handler {
   friend fd_t boson::open(const char*, int);
   friend fd_t boson::open(const char*, int, mode_t);
   friend fd_t boson::creat(const char*, mode_t);
-  friend int boson::pipe(fd_t fds[2]);
-  friend int boson::pipe2(fd_t fds[2], int);
+  friend int boson::pipe(fd_t (&fds)[2]);
+  friend int boson::pipe2(fd_t (&fds)[2], int);
   friend socket_t boson::socket(int, int, int);
   friend socket_t boson::accept(socket_t, sockaddr*, socklen_t*, int);
   friend int boson::close(int);
