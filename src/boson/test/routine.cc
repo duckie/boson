@@ -21,22 +21,17 @@ inline int time_factor() {
 
 TEST_CASE("Routines - Panic", "[routines][panic]") {
   boson::debug::logger_instance(&std::cout);
-
   int pipe_fds[2];
-  ::pipe(pipe_fds);
-  ::fcntl(pipe_fds[0], F_SETFL, ::fcntl(pipe_fds[0], F_GETFD) | O_NONBLOCK);
-  ::fcntl(pipe_fds[1], F_SETFL, ::fcntl(pipe_fds[1], F_GETFD) | O_NONBLOCK);
   int return_code = 0;
 
   boson::run(1, [&]() {
     using namespace boson;
+    boson::pipe(pipe_fds);
 
     start([&]() {
       char buf[1];
       return_code = boson::read(pipe_fds[0], buf, 1);
-      //CHECK(return_code == -1);
-      //CHECK(errno == EINTR);
-      
+      CHECK(return_code == 1);
     });
 
     start([&]() {

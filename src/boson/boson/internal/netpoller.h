@@ -115,6 +115,8 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   void signal_new_fd(fd_t fd) {
     //pending_updates_.write(command { command_type::new_fd, fd, Data{} });
     netpoller_platform_impl::register_fd(fd);
+    waiters_[fd].read_data = -1;
+    waiters_[fd].write_data = -1;
     //std::cout << "Yo 1 " << fd << std::endl;
   }
 

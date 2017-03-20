@@ -66,7 +66,7 @@ template <int SyscallId> struct boson_classic_syscall {
   template <class... Args>
   static inline decltype(auto) call_timeout(int fd, int timeout_ms, Args&&... args) {
     auto return_code = syscall_callable<SyscallId>::call(fd, std::forward<Args>(args)...);
-    if (return_code < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
+    while(return_code < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
       return_code = wait_readiness<syscall_traits<SyscallId>::is_read>(fd, timeout_ms);
       if (0 == return_code) {
         return_code = syscall_callable<SyscallId>::call(fd, std::forward<Args>(args)...);
