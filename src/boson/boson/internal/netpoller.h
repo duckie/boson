@@ -99,6 +99,7 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   }
 
   void closed(fd_t fd) override {
+    printf("C%d\n", fd);
     read_events_.emplace_back(fd, -EBADF);
     write_events_.emplace_back(fd, -EBADF);
   }
@@ -115,8 +116,18 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   void signal_new_fd(fd_t fd) {
     //pending_updates_.write(command { command_type::new_fd, fd, Data{} });
     netpoller_platform_impl::register_fd(fd);
-    waiters_[fd].read_data = -1;
-    waiters_[fd].write_data = -1;
+    { 
+      std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
+      waiters_[fd].read_missed = false;
+      waiters_[fd].read_enabled = false;
+      waiters_[fd].read_data = -1;
+    }
+    {
+      std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
+      waiters_[fd].write_missed = false;
+      waiters_[fd].write_enabled = false;
+      waiters_[fd].write_data = -1;
+    }
     //std::cout << "Yo 1 " << fd << std::endl;
   }
 
@@ -128,6 +139,16 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   void signal_fd_closed(fd_t fd) {
     //pending_updates_.write(command { command_type::close_fd, fd, Data{} });gg
     netpoller_platform_impl::unregister(fd);
+    //{
+      //std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
+      //if (waiters_[fd].read_enabled)
+        //handler_.read(fd, waiters_[fd].read_data, -EINTR);
+    //}
+    //{
+      //std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
+      //if (waiters_[fd].write_enabled)
+        //handler_.write(fd, waiters_[fd].write_data, -EINTR);
+    //}
     netpoller_platform_impl::interrupt();
   }
 
@@ -174,6 +195,8 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
     //pending_updates_.write(command { command_type::remove_read, fd, Data{} });
     std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
     waiters_[fd].read_enabled = false;
+    waiters_[fd].read_data = -1;
+    printf("UR%d\n",fd);
   }
 
   /**
@@ -186,6 +209,8 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
     //pending_updates_.write(command { command_type::remove_write, fd, Data{} });
     std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
     waiters_[fd].write_enabled = false;
+    waiters_[fd].write_data = -1;
+    printf("UW%d\n",fd);
   }
 
   ///**

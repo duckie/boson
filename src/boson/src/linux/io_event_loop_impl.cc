@@ -69,6 +69,7 @@ void* io_event_loop::unregister(int fd) {
   //if (return_code < 0) {
     //throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   //}
+  //printf("C%d\n ?", fd);
   pending_commands_.write({ command_type::close_fd, fd });
   return nullptr;
 }

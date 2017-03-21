@@ -153,7 +153,7 @@ ssize_t write(fd_t fd, const void* buf, size_t count, int timeout_ms) {
 
 socket_t accept(socket_t socket, sockaddr* address, socklen_t* address_len, int timeout_ms) {
   socket_t new_socket = boson_classic_syscall<SYS_accept>::call_timeout(socket, timeout_ms, address, address_len);
-  if (0 <= socket)
+  if (0 <= new_socket)
     current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(new_socket);
   return new_socket;
 }
@@ -204,7 +204,8 @@ int connect(socket_t sockfd, const sockaddr* addr, socklen_t addrlen, int timeou
 int close(fd_t fd) {
   int rc = syscall_callable<SYS_close>::call(fd);
   auto current_errno = errno;
-  current_thread()->unregister_fd(fd);
+  //current_thread()->unregister_fd(fd);
+  current_thread()->engine_proxy_.get_engine().event_loop().signal_fd_closed(fd);
   errno = current_errno;
   return rc;
 }
