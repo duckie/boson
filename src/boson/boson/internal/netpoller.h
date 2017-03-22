@@ -7,7 +7,6 @@
 #include "../utility.h"
 #include "thread.h"
 #include <chrono>
-#include <iostream>
 
 namespace boson {
 namespace internal {
@@ -89,8 +88,6 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   }
 
   void read(fd_t fd, event_status status) override {
-    //std::cout << "S" << fd << std::endl;
-    printf("S%d\n",fd);
     read_events_.emplace_back(fd, status);
   }
 
@@ -99,7 +96,6 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   }
 
   void closed(fd_t fd) override {
-    printf("C%d\n", fd);
     read_events_.emplace_back(fd, -EBADF);
     write_events_.emplace_back(fd, -EBADF);
   }
@@ -128,7 +124,6 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
       waiters_[fd].write_enabled = false;
       waiters_[fd].write_data = -1;
     }
-    //std::cout << "Yo 1 " << fd << std::endl;
   }
 
   /**
@@ -159,7 +154,6 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    */
   void register_read(fd_t fd, Data value) {
     assert(0 <= fd);
-    printf("R%d\n",fd);
     std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
     waiters_[fd].read_data = value;
     waiters_[fd].read_enabled = true;
@@ -196,7 +190,6 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
     std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
     waiters_[fd].read_enabled = false;
     waiters_[fd].read_data = -1;
-    printf("UR%d\n",fd);
   }
 
   /**
@@ -210,7 +203,6 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
     std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
     waiters_[fd].write_enabled = false;
     waiters_[fd].write_data = -1;
-    printf("UW%d\n",fd);
   }
 
   ///**

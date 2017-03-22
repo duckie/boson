@@ -1,5 +1,4 @@
 #include "engine.h"
-#include <iostream>
 
 namespace boson {
 
@@ -104,7 +103,6 @@ engine::engine(size_t max_nb_cores)
 };
 
 void engine::read(fd_t fd, uint64_t data, event_status status) {
-  std::cout << "YoR " << fd << std::endl;
   thread_id id = (0xffffffff00000000 & data) >> 32;
   size_t event_index = (0x00000000ffffffff & data);
   auto& view = *threads_.at(id);
@@ -115,7 +113,6 @@ void engine::read(fd_t fd, uint64_t data, event_status status) {
 }
 
 void engine::write(fd_t fd, uint64_t data, event_status status) {
-  std::cout << "YoW " << fd << std::endl;
   thread_id id = (0xffffffff00000000 & data) >> 32;
   size_t event_index = (0x00000000ffffffff & data);
   auto& view = *threads_.at(id);

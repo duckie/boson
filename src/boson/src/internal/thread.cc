@@ -6,7 +6,6 @@
 #include "internal/routine.h"
 #include "semaphore.h"
 #include "event_loop_impl.h"
-#include <iostream>
 
 namespace boson {
 namespace internal {
@@ -116,7 +115,6 @@ void thread::handle_engine_event() {
           //else
             //engine_proxy_.get_engine().event_loop().unregister_write(std::get<1>(data));
           ////suspended_slots_.free(std::get<0>(data));
-          ////std::cout << "Suspended ! " << std::get<1>(data) << std::endl;
         //}
       } break;
     }
@@ -170,7 +168,6 @@ int thread::register_read(int fd, routine_slot slot) {
     suspended_slots_[slot_index] = slot;
   } else {
     auto index = suspended_slots_.allocate();
-    printf("FD %d registered at read slot %lu\n", fd, index);
     suspended_slots_[index] = slot;
     engine_proxy_.get_engine().event_loop().register_read(
         fd, (static_cast<uint64_t>(engine_proxy_.get_id()) << 32) | index);
@@ -206,10 +203,8 @@ int thread::register_write(int fd, routine_slot slot) {
   if (has_existing_write) {
     std::size_t slot_index = (0x00000000ffffffff & data);
     suspended_slots_[slot_index] = slot;
-    printf("FD %d re registered at write slot %lu\n", fd, slot_index);
   } else {
     auto index = suspended_slots_.allocate();
-    printf("FD %d registered at write slot %lu\n", fd, index);
     suspended_slots_[index] = slot;
     engine_proxy_.get_engine().event_loop().register_write(
         fd, (static_cast<uint64_t>(engine_proxy_.get_id()) << 32) | index);
@@ -252,7 +247,6 @@ void thread::event(int event_id, void* data, event_status status) {
 void thread::read(int fd, void* data, event_status status) {
   if (suspended_slots_.has(reinterpret_cast<std::size_t>(data))) {
     auto& slot = suspended_slots_[reinterpret_cast<std::size_t>(data)];
-    printf("Tryin %d at slot %lu\n", fd, reinterpret_cast<std::size_t>(data));
     bool pointer_is_valid = slot.ptr;
     bool unregister = !pointer_is_valid || status < 0;
 
@@ -261,25 +255,25 @@ void thread::read(int fd, void* data, event_status status) {
       if (status < 0)
         suspended_slots_.free(reinterpret_cast<std::size_t>(data));
     }
-    if (unregister) {
-      size_t existing_read = -1;
-      uint64_t data = 0;
-      bool has_existing_read = engine_proxy_.get_engine().event_loop().get_read_data(fd,data);
-      has_existing_read = has_existing_read && (engine_proxy_.get_id() == ((0xffffffff00000000 & data) >> 32));
-      if (has_existing_read) {
-        //loop_->unregister(existing_read);
-        //printf("U%d\n", fd);
-        engine_proxy_.get_engine().event_loop().unregister_read(fd);
-      }
-      suspended_slots_.free(reinterpret_cast<std::size_t>(data));
-    }
+    engine_proxy_.get_engine().event_loop().unregister_read(fd);
+    suspended_slots_.free(reinterpret_cast<std::size_t>(data));
+    //if (unregister) {
+      //size_t existing_read = -1;
+      //uint64_t data = 0;
+      //bool has_existing_read = engine_proxy_.get_engine().event_loop().get_read_data(fd,data);
+      //has_existing_read = has_existing_read && (engine_proxy_.get_id() == ((0xffffffff00000000 & data) >> 32));
+      //if (has_existing_read) {
+        ////loop_->unregister(existing_read);
+        //engine_proxy_.get_engine().event_loop().unregister_read(fd);
+      //}
+      //suspended_slots_.free(reinterpret_cast<std::size_t>(data));
+    //}
   }
 }
 
 void thread::write(int fd, void* data, event_status status) {
   if (suspended_slots_.has(reinterpret_cast<std::size_t>(data))) {
     auto& slot = suspended_slots_[reinterpret_cast<std::size_t>(data)];
-    printf("Tryin %d at slot %lu\n", fd, reinterpret_cast<std::size_t>(data));
     bool pointer_is_valid = slot.ptr;
     bool unregister = !pointer_is_valid || status < 0;
     if (pointer_is_valid) {
@@ -287,18 +281,20 @@ void thread::write(int fd, void* data, event_status status) {
       if (status < 0)
         suspended_slots_.free(reinterpret_cast<std::size_t>(data));
     }
-    if (unregister) {
-      size_t existing_write = -1;
-      uint64_t data = 0;
-      bool has_existing_write = engine_proxy_.get_engine().event_loop().get_write_data(fd,data);
-      has_existing_write = has_existing_write && (engine_proxy_.get_id() == ((0xffffffff00000000 & data) >> 32));
-      if (has_existing_write) {
-        //loop_->unregister(existing_write);
-        engine_proxy_.get_engine().event_loop().unregister_write(fd);
-      }
-      // Dry run, just disable the event
-      suspended_slots_.free(reinterpret_cast<std::size_t>(data));
-    }
+    engine_proxy_.get_engine().event_loop().unregister_write(fd);
+    suspended_slots_.free(reinterpret_cast<std::size_t>(data));
+    //if (unregister) {
+      //size_t existing_write = -1;
+      //uint64_t data = 0;
+      //bool has_existing_write = engine_proxy_.get_engine().event_loop().get_write_data(fd,data);
+      //has_existing_write = has_existing_write && (engine_proxy_.get_id() == ((0xffffffff00000000 & data) >> 32));
+      //if (has_existing_write) {
+        ////loop_->unregister(existing_write);
+        //engine_proxy_.get_engine().event_loop().unregister_write(fd);
+      //}
+      //// Dry run, just disable the event
+      //suspended_slots_.free(reinterpret_cast<std::size_t>(data));
+    //}
   }
 }
 

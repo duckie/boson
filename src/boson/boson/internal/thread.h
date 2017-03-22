@@ -255,6 +255,7 @@ class thread : public event_handler {
 
   inline thread_id id() const;
   inline engine const& get_engine() const;
+  inline engine& get_engine();
 
   // Event handler interface
   void event(int event_id, void* data, event_status status) override;
@@ -285,29 +286,29 @@ class thread : public event_handler {
     engine_proxy_.start_routine(std::make_unique<routine>(engine_proxy_.get_new_routine_id(),
                                                           std::forward<Function>(func),
                                                           std::forward<Args>(args)...));
-  }
+    }
 
-  /**
-   * Starts a new routine in a specific thread
-   */
-  template <class Function, class... Args>
-  void start_routine_explicit(thread_id id, Function&& func, Args&&... args) {
-    engine_proxy_.start_routine(
-        id, std::make_unique<routine>(engine_proxy_.get_new_routine_id(),
-                                      std::forward<Function>(func), std::forward<Args>(args)...));
-  }
+    /**
+     * Starts a new routine in a specific thread
+     */
+    template <class Function, class... Args>
+    void start_routine_explicit(thread_id id, Function && func, Args && ... args) {
+      engine_proxy_.start_routine(
+          id, std::make_unique<routine>(engine_proxy_.get_new_routine_id(),
+                                        std::forward<Function>(func), std::forward<Args>(args)...));
+    }
 
-  /**
-   * Returns the currently running routine
-   */
-  inline routine* running_routine();
+    /**
+     * Returns the currently running routine
+     */
+    inline routine* running_routine();
 
-  /**
-   * Returns a memory buffer suitable for a shared_buffer
-   *
-   * See documentation of boson::shared_buffer
-   */
-  char* get_shared_buffer(std::size_t minimum_size);
+    /**
+     * Returns a memory buffer suitable for a shared_buffer
+     *
+     * See documentation of boson::shared_buffer
+     */
+    char* get_shared_buffer(std::size_t minimum_size);
 };
 
 /**
@@ -333,6 +334,10 @@ thread_id thread::id() const {
 }
 
 engine const& thread::get_engine() const {
+  return engine_proxy_.get_engine();
+}
+
+engine& thread::get_engine() {
   return engine_proxy_.get_engine();
 }
 

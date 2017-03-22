@@ -399,12 +399,26 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
       };
       std::tie(result, rc) = select_call();
 
-      CHECK(result == 0);
-      CHECK(rc > 0);
+      if (result == 0) {
+        CHECK(result == 0); // To maintain same assert number
+        CHECK(rc > 0);
+        std::tie(result, rc) = select_call();
+        CHECK(result == 1);
+        CHECK(rc == 0);
+      }
+      else {
+        CHECK(result == 1);
+        CHECK(rc == 0);
+        std::tie(result, rc) = select_call();
+        CHECK(result == 0);
+        CHECK(rc > 0);
+      }
 
-      std::tie(result, rc) = select_call();
-      CHECK(result == 1);
-      CHECK(rc == 0);
+      //CHECK(rc > 0);
+//
+      //std::tie(result, rc) = select_call();
+      //CHECK(result == 1);
+      //CHECK(rc == 0);
 
       boson::close(listening_socket);
     });

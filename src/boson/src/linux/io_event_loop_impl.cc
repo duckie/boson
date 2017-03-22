@@ -57,7 +57,6 @@ void io_event_loop::register_fd(int fd) {
   if (return_code < 0) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
-  printf("A%d\n",fd);
 }
 
 void* io_event_loop::unregister(int fd) {
@@ -69,7 +68,6 @@ void* io_event_loop::unregister(int fd) {
   //if (return_code < 0) {
     //throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   //}
-  //printf("C%d\n ?", fd);
   pending_commands_.write({ command_type::close_fd, fd });
   return nullptr;
 }
@@ -112,11 +110,9 @@ io_loop_end_reason io_event_loop::loop(int max_iter, int timeout_ms) {
         bool interrupted = epoll_event.events & (EPOLLERR | EPOLLRDHUP);
         if (epoll_event.data.fd != loop_breaker_event_) {
           if (epoll_event.events & EPOLLIN) {
-            printf("SR %d\n", epoll_event.data.fd);
             handler_.read(epoll_event.data.fd, interrupted ? -EINTR : 0);
           }
           if (epoll_event.events & EPOLLOUT) {
-            printf("SW %d\n", epoll_event.data.fd);
             handler_.write(epoll_event.data.fd, interrupted ? -EINTR : 0);
           }
         }

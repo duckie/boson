@@ -41,18 +41,9 @@ int wait_readiness(fd_t fd, int timeout_ms) {
   if (0 <= timeout_ms) {
     current_routine->add_timer(time_point_cast<milliseconds>(high_resolution_clock::now() + milliseconds(timeout_ms)));
   }
-  if (IsARead) {
-    printf("WR%d\n", fd);
-  }
-  else {
-    printf("WW%d\n", fd);
-  }
   current_routine->commit_event_round();
   current_routine->previous_status_ = routine_status::wait_events;
   current_routine->status_ = routine_status::running;
-  if (IsARead) {
-    printf("G%d\n", fd);
-  }
 
   int return_code = 0;
   if (current_routine->happened_rc_  < 0) {
@@ -72,7 +63,6 @@ template <int SyscallId> struct boson_classic_syscall {
         return_code = syscall_callable<SyscallId>::call(fd, std::forward<Args>(args)...);
       }
     }
-    printf("Y%d\n", fd);
     return return_code;
   }
 };
