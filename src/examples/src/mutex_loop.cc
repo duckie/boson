@@ -57,17 +57,21 @@ int main(int argc, char* argv[]) {
       for (int i = 0; i < nb_threads / 2; ++i) {
         boson::start([mut, &data]() mutable {
           for (int j = 0; j < nb_iter; ++j) {
+            std::cout << "Lock !" << std::endl;
             mut.lock();
             data.push_back(1);
             //boson::sleep(2ms);
+            std::cout << "UnLock !" << std::endl;
             mut.unlock();
           }
         });
         boson::start([mut2, &data2]() mutable {
           for (int j = 0; j < nb_iter; ++j) {
+            std::cout << "Lock !" << std::endl;
             mut2.lock();
             data2.push_back(1);
             //boson::sleep(2ms);
+            std::cout << "UnLock !" << std::endl;
             mut2.unlock();
           }
         });
@@ -86,18 +90,22 @@ int main(int argc, char* argv[]) {
       for (int i = 0; i < nb_threads / 2; ++i) {
         start([&data, &std_mut]() mutable {
           for (int j = 0; j < nb_iter; ++j) {
+            std::cout << "Lock !" << std::endl;
             std_mut.lock();
             data.push_back(1);
             //std::this_thread::sleep_for(2ms);
+            std::cout << "UnLock !" << std::endl;
             std_mut.unlock();
             //std::this_thread::yield();
           }
         });
         start([&data2, &std_mut2]() mutable {
           for (int j = 0; j < nb_iter; ++j) {
+            std::cout << "Lock !" << std::endl;
             std_mut2.lock();
             data2.push_back(1);
             //std::this_thread::sleep_for(2ms);
+            std::cout << "UnLock !" << std::endl;
             std_mut2.unlock();
             //std::this_thread::yield();
           }

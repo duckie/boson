@@ -10,6 +10,7 @@
 #include <memory>
 #include <thread>
 #include <vector>
+#include <condition_variable>
 #include "boson/event_loop.h"
 #include "boson/memory/local_ptr.h"
 #include "boson/memory/sparse_vector.h"
@@ -150,7 +151,9 @@ class thread : public event_handler {
   /**
    * Event loop managing interruptions
    */
-  std::unique_ptr<event_loop> loop_;
+  //std::unique_ptr<event_loop> loop_;
+  std::condition_variable blocker_;
+  std::mutex blocker_mutex_;
 
   engine_queue_t engine_queue_;
   std::atomic<std::size_t> nb_pending_commands_{0};

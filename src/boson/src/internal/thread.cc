@@ -6,6 +6,7 @@
 #include "internal/routine.h"
 #include "semaphore.h"
 #include "event_loop_impl.h"
+#include "logger.h"
 
 namespace boson {
 namespace internal {
@@ -87,8 +88,8 @@ void thread::handle_engine_event() {
         status_ = thread_status::finishing;
         break;
       case thread_command_type::fd_panic: {
-        auto& fd = received_command->data.get<int>();
-        loop_->send_fd_panic(id(),fd);
+        //auto& fd = received_command->data.get<int>();
+        //loop_->send_fd_panic(id(),fd);
       } break;
       case thread_command_type::fd_ready: {
         auto& data  = received_command->data.get<thread_fd_event>();
@@ -103,7 +104,8 @@ void thread::handle_engine_event() {
         else {
           this->write(fd,reinterpret_cast<void*>(std::get<0>(data)), std::get<2>(data));
         }
-        loop_->send_event(engine_event_id_);
+        //loop_->send_event(engine_event_id_);
+        blocker_.notify_all();
         
         //if (pointer_is_valid) {
           //slot.ptr->get()->event_happened(slot.event_index, status);
@@ -124,7 +126,7 @@ void thread::handle_engine_event() {
 }
 
 void thread::unregister_all_events() {
-  loop_->unregister(engine_event_id_);
+  //loop_->unregister(engine_event_id_);
   //loop_->unregister(self_event_id_);
 }
 
@@ -229,10 +231,10 @@ void thread::unregister_fd(int fd) {
 
 thread::thread(engine& parent_engine)
     : engine_proxy_(parent_engine),
-      loop_(new event_loop{*this, static_cast<int>(parent_engine.max_nb_cores() + 1)}),
+      //loop_(new event_loop{*this, static_cast<int>(parent_engine.max_nb_cores() + 1)}),
       engine_queue_{}
 {
-  engine_event_id_ = loop_->register_event(&engine_event_id_);
+  //engine_event_id_ = loop_->register_event(&engine_event_id_);
   engine_proxy_.set_id();  // Tells the engine which thread id we got
 }
 
@@ -306,7 +308,8 @@ void thread::push_command(thread_id from, std::unique_ptr<thread_command> comman
   nb_pending_commands_.fetch_add(1);
   //engine_queue_.write(from, command.release());
   engine_queue_.write(std::move(command));
-  loop_->send_event(engine_event_id_);
+  //loop_->send_event(engine_event_id_);
+  blocker_.notify_all();
 };
 
 bool thread::execute_scheduled_routines() {
@@ -400,7 +403,8 @@ bool thread::execute_scheduled_routines() {
         return false;
       } else {
         // Schedule pending commands immediately
-        loop_->send_event(engine_event_id_);
+        //loop_->send_event(engine_event_id_);
+        blocker_.notify_all();
         return true;
       }
     } else {
@@ -436,17 +440,34 @@ void thread::loop() {
       }
     }
 
-    auto return_code = loop_->loop(1, timeout_ms);
-    switch (return_code) {
-      case loop_end_reason::max_iter_reached:
+    //auto return_code = loop_->loop(1, timeout_ms);
+    
+    auto status = std::cv_status::no_timeout;
+    if (timeout_ms != 0) {
+      std::unique_lock<std::mutex> lock(blocker_mutex_);
+      if (timeout_ms == -1)
+        blocker_.wait(lock, [this]() {
+          //return 0 == nb_suspended_routines_ ||
+          return        0 < nb_pending_commands_.load(std::memory_order_acquire) ||
+                 0 < scheduled_routines_.size();
+        });
+      else
+        status = blocker_.wait_for(lock, std::chrono::milliseconds(timeout_ms), [this]() {
+          //return 0 == nb_suspended_routines_ ||
+                return 0 < nb_pending_commands_.load(std::memory_order_acquire) ||
+                 0 < scheduled_routines_.size();
+        }) ? std::cv_status::timeout : std::cv_status::no_timeout;
+    }
+    if (0 < nb_pending_commands_.load(std::memory_order_acquire)) {
+      handle_engine_event();
+    }
+
+    switch (status) {
+      case std::cv_status::no_timeout:
         break;
-      case loop_end_reason::timed_out:
+      case std::cv_status::timeout:
         fire_timed_out_routines = true;
         break;
-      case loop_end_reason::error_occured:
-      default:
-        throw exception("Boson unknown error");
-        return;
     }
     if (fire_timed_out_routines) {
       // Schedule routines that timed out
