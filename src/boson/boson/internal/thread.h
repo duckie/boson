@@ -154,6 +154,7 @@ class thread : public event_handler {
   //std::unique_ptr<event_loop> loop_;
   std::condition_variable blocker_;
   std::mutex blocker_mutex_;
+  std::atomic<bool> blocker_flag_;
 
   engine_queue_t engine_queue_;
   std::atomic<std::size_t> nb_pending_commands_{0};

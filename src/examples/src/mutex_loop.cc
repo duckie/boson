@@ -10,7 +10,7 @@
 using namespace std::literals;
 using namespace std::chrono;
 
-static constexpr int nb_iter = 2 * 1e5;
+static constexpr int nb_iter = 2 * 1e6;
 static constexpr int nb_threads = 8;
 
 int main(int argc, char* argv[]) {
@@ -54,24 +54,20 @@ int main(int argc, char* argv[]) {
       boson::mutex mut;   // if not shared, it must outlive the engine instance
       boson::mutex mut2;  // if not shared, it must outlive the engine instance
 
-      for (int i = 0; i < nb_threads / 2; ++i) {
+      for (int i = 0; i < 2*nb_threads; ++i) {
         boson::start([mut, &data]() mutable {
           for (int j = 0; j < nb_iter; ++j) {
-            std::cout << "Lock !" << std::endl;
             mut.lock();
             data.push_back(1);
             //boson::sleep(2ms);
-            std::cout << "UnLock !" << std::endl;
             mut.unlock();
           }
         });
         boson::start([mut2, &data2]() mutable {
           for (int j = 0; j < nb_iter; ++j) {
-            std::cout << "Lock !" << std::endl;
             mut2.lock();
             data2.push_back(1);
             //boson::sleep(2ms);
-            std::cout << "UnLock !" << std::endl;
             mut2.unlock();
           }
         });
@@ -85,27 +81,23 @@ int main(int argc, char* argv[]) {
     std::mutex std_mut;
     std::mutex std_mut2;
     // Execute a routine communication through pipes
-    boson::run(nb_threads, [&]() mutable {
+    boson::run(nb_threads*4, [&]() mutable {
       using namespace boson;
-      for (int i = 0; i < nb_threads / 2; ++i) {
+      for (int i = 0; i < 2*nb_threads; ++i) {
         start([&data, &std_mut]() mutable {
           for (int j = 0; j < nb_iter; ++j) {
-            std::cout << "Lock !" << std::endl;
             std_mut.lock();
             data.push_back(1);
             //std::this_thread::sleep_for(2ms);
-            std::cout << "UnLock !" << std::endl;
             std_mut.unlock();
             //std::this_thread::yield();
           }
         });
         start([&data2, &std_mut2]() mutable {
           for (int j = 0; j < nb_iter; ++j) {
-            std::cout << "Lock !" << std::endl;
             std_mut2.lock();
             data2.push_back(1);
             //std::this_thread::sleep_for(2ms);
-            std::cout << "UnLock !" << std::endl;
             std_mut2.unlock();
             //std::this_thread::yield();
           }

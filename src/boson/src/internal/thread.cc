@@ -105,6 +105,7 @@ void thread::handle_engine_event() {
           this->write(fd,reinterpret_cast<void*>(std::get<0>(data)), std::get<2>(data));
         }
         //loop_->send_event(engine_event_id_);
+        blocker_flag_.store(true, std::memory_order_release);
         blocker_.notify_all();
         
         //if (pointer_is_valid) {
@@ -231,9 +232,9 @@ void thread::unregister_fd(int fd) {
 
 thread::thread(engine& parent_engine)
     : engine_proxy_(parent_engine),
-      //loop_(new event_loop{*this, static_cast<int>(parent_engine.max_nb_cores() + 1)}),
-      engine_queue_{}
-{
+      // loop_(new event_loop{*this, static_cast<int>(parent_engine.max_nb_cores() + 1)}),
+      blocker_flag_{false},
+      engine_queue_{} {
   //engine_event_id_ = loop_->register_event(&engine_event_id_);
   engine_proxy_.set_id();  // Tells the engine which thread id we got
 }
@@ -309,6 +310,7 @@ void thread::push_command(thread_id from, std::unique_ptr<thread_command> comman
   //engine_queue_.write(from, command.release());
   engine_queue_.write(std::move(command));
   //loop_->send_event(engine_event_id_);
+  blocker_flag_.store(true, std::memory_order_release);
   blocker_.notify_all();
 };
 
@@ -404,6 +406,7 @@ bool thread::execute_scheduled_routines() {
       } else {
         // Schedule pending commands immediately
         //loop_->send_event(engine_event_id_);
+        blocker_flag_.store(true, std::memory_order_release);
         blocker_.notify_all();
         return true;
       }
@@ -447,16 +450,22 @@ void thread::loop() {
       std::unique_lock<std::mutex> lock(blocker_mutex_);
       if (timeout_ms == -1)
         blocker_.wait(lock, [this]() {
+          return this->blocker_flag_.load(std::memory_order_acquire) 
+          || 0 == nb_suspended_routines_
+          || 0 < nb_pending_commands_.load(std::memory_order_acquire)
+          || 0 < scheduled_routines_.size();
           //return 0 == nb_suspended_routines_ ||
-          return        0 < nb_pending_commands_.load(std::memory_order_acquire) ||
-                 0 < scheduled_routines_.size();
+          //return        0 < nb_pending_commands_.load(std::memory_order_acquire) ||
+                 //0 < scheduled_routines_.size();
         });
       else
         status = blocker_.wait_for(lock, std::chrono::milliseconds(timeout_ms), [this]() {
+          return this->blocker_flag_.load(std::memory_order_acquire);
           //return 0 == nb_suspended_routines_ ||
-                return 0 < nb_pending_commands_.load(std::memory_order_acquire) ||
-                 0 < scheduled_routines_.size();
+                //return 0 < nb_pending_commands_.load(std::memory_order_acquire) ||
+                 //0 < scheduled_routines_.size();
         }) ? std::cv_status::timeout : std::cv_status::no_timeout;
+      blocker_flag_.store(false, std::memory_order_release);
     }
     if (0 < nb_pending_commands_.load(std::memory_order_acquire)) {
       handle_engine_event();
