@@ -20,15 +20,10 @@ void producer(int in, int out) {
 void router(int source_in, int source_out, int dest_in, int dest_out) {
   int result = -1;
   do {
-    printf("Router Step 0: next %d\n",source_in);
     boson::read(source_in, &result, sizeof(int));
-    printf("Router Step 1: %d next %d\n",source_in, dest_out);
     boson::write(dest_out, &result, sizeof(int));
-    printf("Router Step 2: %d next %d\n",dest_out, dest_in);
     boson::read(dest_in, &result, sizeof(int));
-    printf("Router Step 3: %d\n",dest_in);
     boson::write(source_out, &result, sizeof(int));
-    printf("Router Step 4: %d\n",source_out);
   } while (result < nb_iter -1);
 }
 
@@ -38,10 +33,10 @@ void consumer(int in, int out) {
     auto rc = boson::read(in, &result, sizeof(int));
     //assert(0 <= rc);
     if (rc < 0) {
-      printf("Error %d %ld %d %s\n", in, rc, errno, ::strerror(errno));
+      boson::debug::log("Error %d %ld %d %s\n", in, rc, errno, ::strerror(errno));
       std::terminate();
     }
-    printf("C received: %d\n",result);
+    boson::debug::log("C received: %d\n",result);
     boson::write(out, &result, sizeof(int));
   } while (result < nb_iter - 1);
 }
@@ -73,8 +68,6 @@ int main(int argc, char* argv[]) {
     start(router, a2b[0], b2a[1], c2b[0], b2c[1]);
     start(consumer, b2c[0], c2b[1]);
   });
-
-  printf("Hum.\n");
 
   ::close(a2b[1]);
   ::close(b2a[0]);

@@ -10,7 +10,7 @@
 using namespace std::literals;
 using namespace std::chrono;
 
-static constexpr int nb_iter = 2 * 1e6;
+static constexpr int nb_iter = 1e5;
 static constexpr int nb_threads = 8;
 
 int main(int argc, char* argv[]) {
@@ -81,9 +81,9 @@ int main(int argc, char* argv[]) {
     std::mutex std_mut;
     std::mutex std_mut2;
     // Execute a routine communication through pipes
-    boson::run(nb_threads*4, [&]() mutable {
+    boson::run(nb_threads*2, [&]() mutable {
       using namespace boson;
-      for (int i = 0; i < 2*nb_threads; ++i) {
+      for (int i = 0; i < nb_threads; ++i) {
         start([&data, &std_mut]() mutable {
           for (int j = 0; j < nb_iter; ++j) {
             std_mut.lock();

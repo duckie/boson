@@ -5,7 +5,6 @@
 #include "exception.h"
 #include "internal/routine.h"
 #include "semaphore.h"
-#include "event_loop_impl.h"
 #include "logger.h"
 
 namespace boson {
@@ -60,8 +59,6 @@ void engine_proxy::set_id() {
 }
 
 void thread::handle_engine_event() {
-  //thread_command* received_command = nullptr;
-  //while ((received_command = static_cast<thread_command*>(engine_queue_.read(id())))) {
   std::unique_ptr<thread_command> received_command;
   while (engine_queue_.read(received_command)) {
     nb_pending_commands_.fetch_sub(1);
@@ -104,21 +101,11 @@ void thread::handle_engine_event() {
         else {
           this->write(fd,reinterpret_cast<void*>(std::get<0>(data)), std::get<2>(data));
         }
-        //loop_->send_event(engine_event_id_);
-        blocker_flag_.store(true, std::memory_order_release);
+        {
+          std::unique_lock<std::mutex> lock(blocker_mutex_);
+          blocker_flag_ = true;
+        }
         blocker_.notify_all();
-        
-        //if (pointer_is_valid) {
-          //slot.ptr->get()->event_happened(slot.event_index, status);
-          ////if (status < 0) suspended_slots_.free(std::get<0>(data));
-        //}
-        //if (unregister) {
-          //if (std::get<3>(data))
-            //engine_proxy_.get_engine().event_loop().unregister_read(std::get<1>(data));
-          //else
-            //engine_proxy_.get_engine().event_loop().unregister_write(std::get<1>(data));
-          ////suspended_slots_.free(std::get<0>(data));
-        //}
       } break;
     }
     //delete received_command;
@@ -127,8 +114,6 @@ void thread::handle_engine_event() {
 }
 
 void thread::unregister_all_events() {
-  //loop_->unregister(engine_event_id_);
-  //loop_->unregister(self_event_id_);
 }
 
 timed_routines_set& thread::register_timer(routine_time_point const& date, routine_slot slot) {
@@ -148,19 +133,6 @@ std::size_t thread::register_semaphore_wait(routine_slot slot) {
 }
 
 int thread::register_read(int fd, routine_slot slot) {
-  //int existing_read = -1;
-  //tie(existing_read, std::ignore) = loop_->get_events(fd);
-  //if (0 <= existing_read) {
-    //std::size_t slot_index = reinterpret_cast<std::size_t>(loop_->get_data(existing_read));
-    //suspended_slots_[slot_index] = slot;
-  //}
-  //else {
-    //auto index = suspended_slots_.allocate();
-    //suspended_slots_[index] = slot;
-    //existing_read = loop_->register_read(fd, reinterpret_cast<void*>(index));
-  //}
-  //++nb_suspended_routines_;
-  //return existing_read;
   size_t existing_read = -1;
   uint64_t data = 0;
   bool has_existing_read = engine_proxy_.get_engine().event_loop().get_read_data(fd, data);
@@ -180,24 +152,6 @@ int thread::register_read(int fd, routine_slot slot) {
 }
 
 int thread::register_write(int fd, routine_slot slot) {
-  //int existing_write = -1;
-  //tie(std::ignore, existing_write) = loop_->get_events(fd);
-  //if (0 <= existing_write) {
-    //std::size_t slot_index = reinterpret_cast<std::size_t>(loop_->get_data(existing_write));
-    //suspended_slots_[slot_index] = slot;
-  //}
-  //else {
-    //auto index = suspended_slots_.allocate();
-    //suspended_slots_[index] = slot;
-    //existing_write = loop_->register_write(fd, reinterpret_cast<void*>(index));
-  //}
-  //++nb_suspended_routines_;
-  //return existing_write;
-  //auto index = suspended_slots_.allocate();
-  //suspended_slots_[index] = slot;
-  //engine_proxy_.get_engine().event_loop().register_write(fd, std::make_pair(engine_proxy_.get_id(),index));
-  //++nb_suspended_routines_;
-  //return fd;
   size_t existing_write = -1;
   uint64_t data = 0;
   bool has_existing_write = engine_proxy_.get_engine().event_loop().get_write_data(fd, data);
@@ -221,21 +175,13 @@ void thread::unregister_expired_slot(std::size_t slot_index) {
 }
 
 void thread::unregister_fd(int fd) {
-  //loop_->send_fd_panic(engine_proxy_.get_id(), fd);
-  //int existing_read, existing_write;
-  //std::tie(existing_read, existing_write) = loop_->get_events(fd);
-  //if (0 <= existing_read)
-    //read(fd, loop_->get_data(existing_read), -EINTR);
-  //if (0 <= existing_write)
-    //write(fd, loop_->get_data(existing_write), -EINTR);
+  // TODO review usage
 }
 
 thread::thread(engine& parent_engine)
     : engine_proxy_(parent_engine),
-      // loop_(new event_loop{*this, static_cast<int>(parent_engine.max_nb_cores() + 1)}),
       blocker_flag_{false},
       engine_queue_{} {
-  //engine_event_id_ = loop_->register_event(&engine_event_id_);
   engine_proxy_.set_id();  // Tells the engine which thread id we got
 }
 
@@ -260,17 +206,6 @@ void thread::read(int fd, void* data, event_status status) {
     }
     engine_proxy_.get_engine().event_loop().unregister_read(fd);
     suspended_slots_.free(reinterpret_cast<std::size_t>(data));
-    //if (unregister) {
-      //size_t existing_read = -1;
-      //uint64_t data = 0;
-      //bool has_existing_read = engine_proxy_.get_engine().event_loop().get_read_data(fd,data);
-      //has_existing_read = has_existing_read && (engine_proxy_.get_id() == ((0xffffffff00000000 & data) >> 32));
-      //if (has_existing_read) {
-        ////loop_->unregister(existing_read);
-        //engine_proxy_.get_engine().event_loop().unregister_read(fd);
-      //}
-      //suspended_slots_.free(reinterpret_cast<std::size_t>(data));
-    //}
   }
 }
 
@@ -286,18 +221,6 @@ void thread::write(int fd, void* data, event_status status) {
     }
     engine_proxy_.get_engine().event_loop().unregister_write(fd);
     suspended_slots_.free(reinterpret_cast<std::size_t>(data));
-    //if (unregister) {
-      //size_t existing_write = -1;
-      //uint64_t data = 0;
-      //bool has_existing_write = engine_proxy_.get_engine().event_loop().get_write_data(fd,data);
-      //has_existing_write = has_existing_write && (engine_proxy_.get_id() == ((0xffffffff00000000 & data) >> 32));
-      //if (has_existing_write) {
-        ////loop_->unregister(existing_write);
-        //engine_proxy_.get_engine().event_loop().unregister_write(fd);
-      //}
-      //// Dry run, just disable the event
-      //suspended_slots_.free(reinterpret_cast<std::size_t>(data));
-    //}
   }
 }
 
@@ -307,10 +230,11 @@ void thread::callback() {
 // called by engine
 void thread::push_command(thread_id from, std::unique_ptr<thread_command> command) {
   nb_pending_commands_.fetch_add(1);
-  //engine_queue_.write(from, command.release());
   engine_queue_.write(std::move(command));
-  //loop_->send_event(engine_event_id_);
-  blocker_flag_.store(true, std::memory_order_release);
+  {
+    std::unique_lock<std::mutex> lock(blocker_mutex_);
+    blocker_flag_ = true;
+  }
   blocker_.notify_all();
 };
 
@@ -357,11 +281,6 @@ bool thread::execute_scheduled_routines() {
           // Should have been made by the routine by closing the FD
         } break;
       };
-
-      // if (routine.get()) {
-      // debug::log("Routine {}:{}:{} will be deleted.", id(), routine->id(),
-      // static_cast<int>(routine->status()));
-      //}
     }
     scheduled_routines_.pop_front();
   }
@@ -406,7 +325,10 @@ bool thread::execute_scheduled_routines() {
       } else {
         // Schedule pending commands immediately
         //loop_->send_event(engine_event_id_);
-        blocker_flag_.store(true, std::memory_order_release);
+        {
+          std::unique_lock<std::mutex> lock(blocker_mutex_);
+          blocker_flag_ = true;
+        }
         blocker_.notify_all();
         return true;
       }
@@ -442,35 +364,24 @@ void thread::loop() {
           fire_timed_out_routines = true;
       }
     }
-
-    //auto return_code = loop_->loop(1, timeout_ms);
     
     auto status = std::cv_status::no_timeout;
-    if (timeout_ms != 0) {
+    if (timeout_ms != 0) 
+    {
       std::unique_lock<std::mutex> lock(blocker_mutex_);
       if (timeout_ms == -1)
         blocker_.wait(lock, [this]() {
-          return this->blocker_flag_.load(std::memory_order_acquire) 
-          || 0 == nb_suspended_routines_
-          || 0 < nb_pending_commands_.load(std::memory_order_acquire)
-          || 0 < scheduled_routines_.size();
-          //return 0 == nb_suspended_routines_ ||
-          //return        0 < nb_pending_commands_.load(std::memory_order_acquire) ||
-                 //0 < scheduled_routines_.size();
+          return this->blocker_flag_;
         });
       else
         status = blocker_.wait_for(lock, std::chrono::milliseconds(timeout_ms), [this]() {
-          return this->blocker_flag_.load(std::memory_order_acquire);
-          //return 0 == nb_suspended_routines_ ||
-                //return 0 < nb_pending_commands_.load(std::memory_order_acquire) ||
-                 //0 < scheduled_routines_.size();
-        }) ? std::cv_status::timeout : std::cv_status::no_timeout;
-      blocker_flag_.store(false, std::memory_order_release);
+          return this->blocker_flag_;
+        }) ?  std::cv_status::no_timeout : std::cv_status::timeout;
+      blocker_flag_ = false;
     }
     if (0 < nb_pending_commands_.load(std::memory_order_acquire)) {
       handle_engine_event();
     }
-
     switch (status) {
       case std::cv_status::no_timeout:
         break;
@@ -478,6 +389,7 @@ void thread::loop() {
         fire_timed_out_routines = true;
         break;
     }
+
     if (fire_timed_out_routines) {
       // Schedule routines that timed out
       for (auto& timed_routine : first_timed_routines->second.slots) {

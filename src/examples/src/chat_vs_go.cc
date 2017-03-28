@@ -52,7 +52,8 @@ void displayCounter(std::atomic<uint64_t>* counter) {
   auto latest = high_resolution_clock::now();
   milliseconds step_duration {1000};
   for (;;) {
-    ::printf("%lu\n",counter->exchange(0,std::memory_order_relaxed)*1000/step_duration.count());
+    //::printf("%lu\n",counter->exchange(0,std::memory_order_relaxed)*1000/step_duration.count());
+    ::printf("%lu\n",counter->exchange(0,std::memory_order_relaxed));
     boson::sleep(1000ms);
     auto current = high_resolution_clock::now();
     step_duration = duration_cast<milliseconds>(current - latest);
