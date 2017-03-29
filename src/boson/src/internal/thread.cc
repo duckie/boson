@@ -193,14 +193,14 @@ void thread::read(int fd, void* data, event_status status) {
       if (slot.ptr->get()->event_is_a_fd_wait(slot.event_index, fd)) {
         slot.ptr->get()->event_happened(slot.event_index, status);
         //engine_proxy_.get_engine().event_loop().unregister_write(fd);
-        //suspended_slots_.free(reinterpret_cast<std::size_t>(data));
+        suspended_slots_.free(reinterpret_cast<std::size_t>(data));
         //if (status < 0)
           //suspended_slots_.free(reinterpret_cast<std::size_t>(data));
       }
     }
     //else {
       engine_proxy_.get_engine().event_loop().unregister_read(fd);
-      suspended_slots_.free(reinterpret_cast<std::size_t>(data));
+      //suspended_slots_.free(reinterpret_cast<std::size_t>(data));
     //}
   }
 }
@@ -213,16 +213,16 @@ void thread::write(int fd, void* data, event_status status) {
     if (pointer_is_valid) {
       if (slot.ptr->get()->event_is_a_fd_wait(slot.event_index, fd)) {
         slot.ptr->get()->event_happened(slot.event_index, status);
-        //engine_proxy_.get_engine().event_loop().unregister_write(fd);
         //suspended_slots_.free(reinterpret_cast<std::size_t>(data));
+        //engine_proxy_.get_engine().event_loop().unregister_write(fd);
+        suspended_slots_.free(reinterpret_cast<std::size_t>(data));
         // if (status < 0)
-        // suspended_slots_.free(reinterpret_cast<std::size_t>(data));
         //}
       }
     }
     //else {
       engine_proxy_.get_engine().event_loop().unregister_write(fd);
-      suspended_slots_.free(reinterpret_cast<std::size_t>(data));
+      //suspended_slots_.free(reinterpret_cast<std::size_t>(data));
     //}
   }
 }
