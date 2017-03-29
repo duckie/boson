@@ -42,7 +42,7 @@ class engine : public internal::net_event_handler<uint64_t> {
     }
   };
 
-  enum class command_type { add_routine, notify_idle, notify_end_of_thread, fd_panic };
+  enum class command_type { add_routine, notify_idle, notify_end_of_thread };
 
   using command_new_routine_data = std::tuple<thread_id, std::unique_ptr<internal::routine>>;
   using command_data = json_backbone::variant<std::nullptr_t, int, size_t, command_new_routine_data>;

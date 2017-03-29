@@ -44,7 +44,7 @@ enum class thread_status {
   finished    // Thread no longer executes a routine and is not required to wait
 };
 
-enum class thread_command_type { add_routine, schedule_waiting_routine, finish, fd_panic, fd_ready };
+enum class thread_command_type { add_routine, schedule_waiting_routine, finish, fd_ready };
 
 using thread_fd_event = std::tuple<std::size_t, int, event_status, bool>;
 
@@ -81,7 +81,6 @@ class engine_proxy final {
   void notify_idle(size_t nb_suspended_routines);
   void start_routine(std::unique_ptr<routine> new_routine);
   void start_routine(thread_id target_thread, std::unique_ptr<routine> new_routine);
-  void fd_panic(int fd);
   
   inline thread_id get_id() const {
     return current_thread_id_;
@@ -244,9 +243,9 @@ class thread : public event_handler {
   void unregister_fd(int fd);
 
   /**
-   * Sets a routine for execution at the next round
+   * Wakes up a waiting thread
    */
-  void schedule(routine* routine);
+  void wakeUp();
 
  public:
   thread(engine& parent_engine);

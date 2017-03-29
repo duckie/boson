@@ -48,12 +48,6 @@ void engine_proxy::start_routine(thread_id target_thread, std::unique_ptr<routin
                                                     target_thread, std::move(new_routine)}));
 }
 
-void engine_proxy::fd_panic(int fd) {
-  engine_->push_command(
-      current_thread_id_,
-      std::make_unique<engine::command>(current_thread_id_, engine::command_type::fd_panic, fd));
-}
-
 void engine_proxy::set_id() {
   current_thread_id_ = engine_->register_thread_id();
 }
@@ -84,16 +78,8 @@ void thread::handle_engine_event() {
       case thread_command_type::finish:
         status_ = thread_status::finishing;
         break;
-      case thread_command_type::fd_panic: {
-        //auto& fd = received_command->data.get<int>();
-        //loop_->send_fd_panic(id(),fd);
-      } break;
       case thread_command_type::fd_ready: {
         auto& data  = received_command->data.get<thread_fd_event>();
-        //auto& slot = suspended_slots_[std::get<0>(data)];
-        //auto& status = std::get<2>(data);
-        //bool pointer_is_valid = slot.ptr;
-        //bool unregister = !pointer_is_valid || status < 0;
         int fd = std::get<1>(data);
         if (std::get<3>(data)) {
           this->read(fd,reinterpret_cast<void*>(std::get<0>(data)), std::get<2>(data));
@@ -101,11 +87,7 @@ void thread::handle_engine_event() {
         else {
           this->write(fd,reinterpret_cast<void*>(std::get<0>(data)), std::get<2>(data));
         }
-        {
-          std::unique_lock<std::mutex> lock(blocker_mutex_);
-          blocker_flag_ = true;
-        }
-        blocker_.notify_all();
+        blocker_flag_ = true;
       } break;
     }
     //delete received_command;
@@ -178,6 +160,14 @@ void thread::unregister_fd(int fd) {
   // TODO review usage
 }
 
+void thread::wakeUp() {
+  {
+    std::unique_lock<std::mutex> lock(blocker_mutex_);
+    blocker_flag_ = true;
+  }
+  blocker_.notify_one();
+}
+
 thread::thread(engine& parent_engine)
     : engine_proxy_(parent_engine),
       blocker_flag_{false},
@@ -231,11 +221,7 @@ void thread::callback() {
 void thread::push_command(thread_id from, std::unique_ptr<thread_command> command) {
   nb_pending_commands_.fetch_add(1);
   engine_queue_.write(std::move(command));
-  {
-    std::unique_lock<std::mutex> lock(blocker_mutex_);
-    blocker_flag_ = true;
-  }
-  blocker_.notify_all();
+  wakeUp();
 };
 
 bool thread::execute_scheduled_routines() {
@@ -323,13 +309,7 @@ bool thread::execute_scheduled_routines() {
         }
         return false;
       } else {
-        // Schedule pending commands immediately
-        //loop_->send_event(engine_event_id_);
-        {
-          std::unique_lock<std::mutex> lock(blocker_mutex_);
-          blocker_flag_ = true;
-        }
-        blocker_.notify_all();
+        blocker_flag_ = true;
         return true;
       }
     } else {

@@ -39,14 +39,6 @@ void engine::execute_commands() {
         case command_type::notify_end_of_thread: {
           --nb_active_threads_;
         } break;
-        case command_type::fd_panic: {
-          int fd = new_command->data.get<int>();
-          for (auto& thread : threads_) {
-            thread->thread.push_command(
-                max_nb_cores_,
-                std::make_unique<command_t>(internal::thread_command_type::fd_panic, fd));
-          }
-        } break;
       }
       command_pushers_.fetch_sub(std::memory_order_release);
     }
