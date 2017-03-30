@@ -16,7 +16,6 @@ endmacro()
 # Reference test sources
 #add_project_test(test1 CATCH)
 add_project_test(channel CATCH)
-add_project_test(event_loop CATCH)
 add_project_test(io_event_loop CATCH)
 add_project_test(memory_flat_unordered_set CATCH)
 add_project_test(memory_sparse_vector CATCH)

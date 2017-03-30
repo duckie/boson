@@ -14,7 +14,6 @@
 #include "external/json_backbone.hpp"
 #include "queues/lcrq.h"
 #include "queues/mpsc.h"
-#include "event_loop.h"
 #include "internal/netpoller.h"
 
 namespace boson {

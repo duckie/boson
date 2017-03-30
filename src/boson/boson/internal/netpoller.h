@@ -2,7 +2,6 @@
 #define BOSON_NETPOLLER_H_
 
 #include "../io_event_loop.h"
-#include "../event_loop.h"
 #include "../queues/mpsc.h"
 #include "../utility.h"
 #include "thread.h"
@@ -65,8 +64,10 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   void dispatchRead(fd_t fd, event_status status) {
     auto& current_data = waiters_[fd];
     std::lock_guard<std::mutex> read_guard(current_data.read_lock);
-    if (current_data.read_enabled)
+    if (current_data.read_enabled) {
       handler_.read(fd, current_data.read_data, status);
+      current_data.read_enabled = false;
+    }
     else
       current_data.read_missed = true;
   }
@@ -74,8 +75,10 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   void dispatchWrite(fd_t fd, event_status status) {
     auto& current_data = waiters_[fd];
     std::lock_guard<std::mutex> write_guard(current_data.write_lock);
-    if (current_data.write_enabled)
+    if (current_data.write_enabled) {
       handler_.write(fd, current_data.write_data, status);
+      current_data.write_enabled = false;
+    }
     else
       current_data.write_missed = true;
   }

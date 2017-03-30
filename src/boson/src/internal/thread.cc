@@ -116,38 +116,20 @@ std::size_t thread::register_semaphore_wait(routine_slot slot) {
 
 int thread::register_read(int fd, routine_slot slot) {
   size_t existing_read = -1;
-  uint64_t data = 0;
-  bool has_existing_read = engine_proxy_.get_engine().event_loop().get_read_data(fd, data);
-  has_existing_read =
-      has_existing_read && (engine_proxy_.get_id() == ((0xffffffff00000000 & data) >> 32));
-  //if (has_existing_read) {
-    //std::size_t slot_index = (0x00000000ffffffff & data);
-    //suspended_slots_[slot_index] = slot;
-  //} else {
-    auto index = suspended_slots_.allocate();
-    suspended_slots_[index] = slot;
-    engine_proxy_.get_engine().event_loop().register_read(
-        fd, (static_cast<uint64_t>(engine_proxy_.get_id()) << 32) | index);
-  //}
+  auto index = suspended_slots_.allocate();
+  suspended_slots_[index] = slot;
+  engine_proxy_.get_engine().event_loop().register_read(
+      fd, (static_cast<uint64_t>(engine_proxy_.get_id()) << 32) | index);
   ++nb_suspended_routines_;
   return existing_read;
 }
 
 int thread::register_write(int fd, routine_slot slot) {
   size_t existing_write = -1;
-  uint64_t data = 0;
-  bool has_existing_write = engine_proxy_.get_engine().event_loop().get_write_data(fd, data);
-  has_existing_write =
-      has_existing_write && (engine_proxy_.get_id() == ((0xffffffff00000000 & data) >> 32));
-  //if (has_existing_write) {
-    //std::size_t slot_index = (0x00000000ffffffff & data);
-    //suspended_slots_[slot_index] = slot;
-  //} else {
-    auto index = suspended_slots_.allocate();
-    suspended_slots_[index] = slot;
-    engine_proxy_.get_engine().event_loop().register_write(
-        fd, (static_cast<uint64_t>(engine_proxy_.get_id()) << 32) | index);
-  //}
+  auto index = suspended_slots_.allocate();
+  suspended_slots_[index] = slot;
+  engine_proxy_.get_engine().event_loop().register_write(
+      fd, (static_cast<uint64_t>(engine_proxy_.get_id()) << 32) | index);
   ++nb_suspended_routines_;
   return existing_write;
 }
@@ -177,31 +159,16 @@ thread::thread(engine& parent_engine)
 
 thread::~thread() {}
 
-void thread::event(int event_id, void* data, event_status status) {
-  if (event_id == engine_event_id_) {
-    handle_engine_event();
-  } 
-}
-
 void thread::read(int fd, void* data, event_status status) {
   if (suspended_slots_.has(reinterpret_cast<std::size_t>(data))) {
     auto& slot = suspended_slots_[reinterpret_cast<std::size_t>(data)];
     bool pointer_is_valid = slot.ptr;
-    bool unregister = !pointer_is_valid || status < 0;
-
     if (pointer_is_valid) {
       if (slot.ptr->get()->event_is_a_fd_wait(slot.event_index, fd)) {
         slot.ptr->get()->event_happened(slot.event_index, status);
-        //engine_proxy_.get_engine().event_loop().unregister_write(fd);
         suspended_slots_.free(reinterpret_cast<std::size_t>(data));
-        //if (status < 0)
-          //suspended_slots_.free(reinterpret_cast<std::size_t>(data));
       }
     }
-    //else {
-      engine_proxy_.get_engine().event_loop().unregister_read(fd);
-      //suspended_slots_.free(reinterpret_cast<std::size_t>(data));
-    //}
   }
 }
 
@@ -209,25 +176,13 @@ void thread::write(int fd, void* data, event_status status) {
   if (suspended_slots_.has(reinterpret_cast<std::size_t>(data))) {
     auto& slot = suspended_slots_[reinterpret_cast<std::size_t>(data)];
     bool pointer_is_valid = slot.ptr;
-    bool unregister = !pointer_is_valid || status < 0;
     if (pointer_is_valid) {
       if (slot.ptr->get()->event_is_a_fd_wait(slot.event_index, fd)) {
         slot.ptr->get()->event_happened(slot.event_index, status);
-        //suspended_slots_.free(reinterpret_cast<std::size_t>(data));
-        //engine_proxy_.get_engine().event_loop().unregister_write(fd);
         suspended_slots_.free(reinterpret_cast<std::size_t>(data));
-        // if (status < 0)
-        //}
       }
     }
-    //else {
-      engine_proxy_.get_engine().event_loop().unregister_write(fd);
-      //suspended_slots_.free(reinterpret_cast<std::size_t>(data));
-    //}
   }
-}
-
-void thread::callback() {
 }
 
 // called by engine

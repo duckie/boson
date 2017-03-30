@@ -105,7 +105,7 @@ struct routine_slot {
  * Thread encapsulates an instance of an real thread
  *
  */
-class thread : public event_handler {
+class thread {
   friend void detail::resume_routine(transfer_t);
   friend void boson::yield();
   friend void boson::sleep(std::chrono::milliseconds);
@@ -259,17 +259,11 @@ class thread : public event_handler {
   inline engine const& get_engine() const;
   inline engine& get_engine();
 
-  // Event handler interface
-  void event(int event_id, void* data, event_status status) override;
-  void read(int fd, void* data, event_status status) override;
-  void write(int fd, void* data, event_status status) override;
-  void callback() override;
+  void read(int fd, void* data, event_status status);
+  void write(int fd, void* data, event_status status);
 
   // called by engine
   void push_command(thread_id from, std::unique_ptr<thread_command> command);
-
-  // called by engine
-  // void execute_commands();
 
   bool execute_scheduled_routines();
 

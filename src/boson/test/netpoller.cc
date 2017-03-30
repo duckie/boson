@@ -8,7 +8,6 @@
 #include "boson/system.h"
 #include "boson/internal/netpoller.h"
 #include "catch.hpp"
-#include "event_loop_impl.h"
 
 using namespace boson;
 
@@ -29,20 +28,6 @@ struct handler01 : public internal::net_event_handler<int> {
   void callback() override {};
 };
 }
-
-/*TEST_CASE("Netpoller - Event notification", "[netpoller][notif]") {
-  handler01 handler_instance;
-
-  boson::internal::netpoller<int> loop(handler_instance);
-  //int event_id = loop.register_event(nullptr);
-//
-  //std::thread t1{[&loop]() { loop.loop(1); }};
-//
-  //loop.send_event(event_id);
-  //t1.join();
-//
-  //CHECK(handler_instance.last_status == 0);
-}*/
 
 TEST_CASE("Netpoller - FD Read/Write", "[netpoller][read/write]") {
   handler01 handler_instance;
@@ -117,9 +102,11 @@ TEST_CASE("Netpoller - FD Read/Write same FD", "[netpoller][read/write]") {
   ::close(sv[1]);
 
   loop.signal_fd_closed(sv[0]);
+  loop.register_read(sv[0], 1);
+  loop.register_write(sv[0], 2);
   loop.loop(1,0);
   CHECK(handler_instance.last_read_fd == 1);
-  CHECK(handler_instance.last_write_fd == -1);
+  CHECK(handler_instance.last_write_fd == 2);
   CHECK(handler_instance.last_status == -EBADF);
 #endif
 }

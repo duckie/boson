@@ -5,17 +5,17 @@ import "time"
 import "fmt"
 import "sync/atomic"
 
-func listenClient(clientConn net.Conn, closeChan chan net.Conn, broadcastChan chan string) {
+func listenClient(clientConn net.Conn, broadcastChan chan string) {
   buf := make([]byte, 2048)
   for {
     nread, err := clientConn.Read(buf)
     if (err != nil || 0 == nread) {
-      closeChan <- clientConn
+      clientConn.Close()
       return 
     }
     message := string(buf[:nread-2]) // Looks like it reads \r\n
     if (message == "quit") {
-      closeChan <- clientConn
+      clientConn.Close()
       return 
     }
 
@@ -43,7 +43,6 @@ func displayCount(counter * uint64) {
 func main() {
   newConnChan := make(chan net.Conn,1)
   broadcastChan := make(chan string,1)
-  closeConnChan := make(chan net.Conn,1)
   go handleNewConnections(newConnChan)
   connections := make(map[net.Conn]bool)
   var counter uint64 = 0
@@ -54,15 +53,12 @@ func main() {
     select {
       case newConn := <- newConnChan:
         connections[newConn] = true
-        go listenClient(newConn, closeConnChan, broadcastChan)
+        go listenClient(newConn, broadcastChan)
       case message := <- broadcastChan:
         for conn, _ := range connections {
           conn.Write([]byte(message + "\n"))
           atomic.AddUint64(&counter,1)
         }
-      case oldConn := <- closeConnChan:
-        oldConn.Close()
-        delete(connections, oldConn)
     }
   }
 }
