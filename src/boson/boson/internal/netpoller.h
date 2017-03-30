@@ -54,21 +54,6 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
     Data write_data;
   };
 
-  enum class command_type {
-    new_fd,
-    close_fd,
-    //update_read,
-    //update_write,
-    //remove_read,
-    //remove_write
-  };
-
-  struct command {
-    command_type type;
-    fd_t fd;
-    Data data;
-  };
-
   /**
    * For this implementaiton, we consider open FDs to be dense
    *
@@ -76,9 +61,24 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    * kind must be used
    */
   std::vector<fd_data> waiters_;
-  std::vector<std::pair<fd_t, event_status>> read_events_;
-  std::vector<std::pair<fd_t, event_status>> write_events_;
-  queues::mpsc<command> pending_updates_;
+
+  void dispatchRead(fd_t fd, event_status status) {
+    auto& current_data = waiters_[fd];
+    std::lock_guard<std::mutex> read_guard(current_data.read_lock);
+    if (current_data.read_enabled)
+      handler_.read(fd, current_data.read_data, status);
+    else
+      current_data.read_missed = true;
+  }
+
+  void dispatchWrite(fd_t fd, event_status status) {
+    auto& current_data = waiters_[fd];
+    std::lock_guard<std::mutex> write_guard(current_data.write_lock);
+    if (current_data.write_enabled)
+      handler_.write(fd, current_data.write_data, status);
+    else
+      current_data.write_missed = true;
+  }
 
  public:
   netpoller(net_event_handler<Data>& handler)
@@ -88,16 +88,16 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   }
 
   void read(fd_t fd, event_status status) override {
-    read_events_.emplace_back(fd, status);
+    dispatchRead(fd, status);
   }
 
   void write(fd_t fd, event_status status) override {
-    write_events_.emplace_back(fd, status);
+    dispatchWrite(fd, status);
   }
 
   void closed(fd_t fd) override {
-    read_events_.emplace_back(fd, -EBADF);
-    write_events_.emplace_back(fd, -EBADF);
+    dispatchRead(fd, -EBADF);
+    dispatchWrite(fd, -EBADF);
   }
 
   void interrupt() {
@@ -110,7 +110,6 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    * Can be called from any thread
    */
   void signal_new_fd(fd_t fd) {
-    //pending_updates_.write(command { command_type::new_fd, fd, Data{} });
     netpoller_platform_impl::register_fd(fd);
     { 
       std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
@@ -132,18 +131,7 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    * Can be called from any thread
    */
   void signal_fd_closed(fd_t fd) {
-    //pending_updates_.write(command { command_type::close_fd, fd, Data{} });gg
     netpoller_platform_impl::unregister(fd);
-    //{
-      //std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
-      //if (waiters_[fd].read_enabled)
-        //handler_.read(fd, waiters_[fd].read_data, -EINTR);
-    //}
-    //{
-      //std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
-      //if (waiters_[fd].write_enabled)
-        //handler_.write(fd, waiters_[fd].write_data, -EINTR);
-    //}
     netpoller_platform_impl::interrupt();
   }
 
@@ -186,7 +174,6 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    */
   void unregister_read(fd_t fd) {
     assert(0 <= fd);
-    //pending_updates_.write(command { command_type::remove_read, fd, Data{} });
     std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
     waiters_[fd].read_enabled = false;
     waiters_[fd].read_data = -1;
@@ -199,33 +186,10 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    */
   void unregister_write(fd_t fd) {
     assert(0 <= fd);
-    //pending_updates_.write(command { command_type::remove_write, fd, Data{} });
     std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
     waiters_[fd].write_enabled = false;
     waiters_[fd].write_data = -1;
   }
-
-  ///**
-   //* Unregister for read and returns stored data
-   //*
-   //* Can only be called from the same thread than loop()
-   //*/
-  //Data local_unregister_read(fd_t fd) {
-    //assert(0 <= fd && fd < waiters_.size());
-    //unregister_read(fd);
-    //return waiters_[fd].read_data;
-  //}
-//
-  ///**
-   //* Unregister for write and returns stored data
-   //*
-   //* Can only be called from the same thread than loop()
-   //*/
-  //Data local_unregister_write(fd_t fd) {
-    //assert(0 <= fd && fd < waiters_.size());
-    //unregister_write(fd);
-    //return waiters_[fd].write_data;
-  //}
 
   /**
    * Loops onto events 
@@ -238,78 +202,6 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
     while (current_iter < nb_iter || nb_iter < 0) {
       // Loop once
       auto end_reason = netpoller_platform_impl::loop(nb_iter, timeout_ms);
-
-      // Unqueue the commands
-      command current_command;
-      while (pending_updates_.read(current_command)) {
-        size_t index = static_cast<size_t>(current_command.fd);
-        switch (current_command.type) {
-          case command_type::new_fd: {
-            //if (waiters_.size() <= index) {
-              //waiters_.resize(index + 1);
-            //}
-            assert(index < waiters_.size());
-            {
-              std::lock_guard<std::mutex> read_guard(waiters_[index].read_lock);
-              waiters_[index].read_enabled = false;
-              waiters_[index].read_missed = false;
-            }
-            {
-              std::lock_guard<std::mutex> write_guard(waiters_[index].write_lock);
-              waiters_[index].write_enabled = false;
-              waiters_[index].write_missed = false;
-            }
-          } break;
-          case command_type::close_fd: {
-            assert(index < waiters_.size());                                         
-            read_events_.emplace_back(current_command.fd, -EBADF);
-            write_events_.emplace_back(current_command.fd, -EBADF);
-          } break;
-          //case command_type::update_read: {
-            //assert(index < waiters_.size());                                         
-            //waiters_[index].read_enabled = true;
-            //waiters_[index].read_data = current_command.data;
-          //} break;
-          //case command_type::update_write: {
-            //assert(index < waiters_.size());                                         
-            //waiters_[index].write_enabled = true;
-            //waiters_[index].write_data = current_command.data;
-          //} break;
-          //case command_type::remove_read: {
-            //assert(index < waiters_.size());                                         
-            //waiters_[index].read_enabled = false;
-          //} break;
-          //case command_type::remove_write: {
-            //assert(index < waiters_.size());                                         
-            //waiters_[index].write_enabled = false;
-          //} break;
-        }
-      }
-
-      // Dispatch the events
-      for (auto const& read_event : read_events_) {
-        std::lock_guard<std::mutex> read_guard(waiters_[std::get<0>(read_event)].read_lock);
-        if (waiters_[std::get<0>(read_event)].read_enabled)
-          handler_.read(
-              std::get<0>(read_event),
-              waiters_[std::get<0>(read_event)].read_data,
-              std::get<1>(read_event));
-        else 
-          waiters_[std::get<0>(read_event)].read_missed = true;
-      }
-      read_events_.clear();
-
-      for (auto const& write_event : write_events_) {
-        std::lock_guard<std::mutex> write_guard(waiters_[std::get<0>(write_event)].write_lock);
-        if (waiters_[std::get<0>(write_event)].write_enabled)
-          handler_.write(
-              std::get<0>(write_event),
-              waiters_[std::get<0>(write_event)].write_data,
-              std::get<1>(write_event));
-        else 
-          waiters_[std::get<0>(write_event)].write_missed = true;
-      }
-      write_events_.clear();
 
       // Tells the handler we looped
       handler_.callback();
@@ -328,14 +220,12 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
     return io_loop_end_reason::max_iter_reached;
   }
 
-  // TODO: fix the atomic sequence here
   bool get_read_data(fd_t fd, Data& data) {
     std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
     data = waiters_[fd].read_data;
     return waiters_[fd].read_enabled;
   }
 
-  // TODO: fix the atomic sequence here
   bool get_write_data(fd_t fd, Data& data) {
     std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
     data = waiters_[fd].write_data;
