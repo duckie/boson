@@ -74,6 +74,37 @@ struct event_syscall_storage : protected event_storage<Func, std::tuple<Args...>
   }
 };
 
+template <class Func, class... Args>
+struct event_syscall_storage<Func, SYS_accept, Args...> : protected event_storage<Func, std::tuple<Args...>, std::tuple<int>> {
+  // Reference parent type
+  using parent_storage = event_storage<Func, std::tuple<Args...>, std::tuple<int>>;
+  // Inherit ctors
+  using parent_storage::parent_storage;
+  using return_type = decltype(std::declval<Func>()(std::declval<int>()));
+
+  static return_type execute(event_syscall_storage* self, internal::event_type,
+                                      bool event_round_cancelled) {
+    if (event_round_cancelled) {
+      return self->func_(std::get<0>(self->data_));
+    }
+    else {
+      fd_t new_socket = syscall_callable<SYS_accept>::apply_call(self->args_);
+      if (0 <= new_socket)
+        current_thread()->get_engine().event_loop().signal_new_fd(new_socket);
+      return self->func_(new_socket);
+    }
+  }
+
+  bool subscribe(internal::routine* current) {
+    std::get<0>(this->data_) = syscall_callable<SYS_accept>::apply_call(this->args_);
+    if (std::get<0>(this->data_) < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
+      add_event<syscall_traits<SYS_accept>::is_read>::apply(current, std::get<0>(this->args_));
+      return false;
+    }
+    return true;
+  }
+};
+
 // Specialization for the connect syscall
 template <class Func, class... Args>
 struct event_syscall_storage<Func, SYS_connect, Args...> : protected event_storage<Func, std::tuple<Args...>, std::tuple<int>> {

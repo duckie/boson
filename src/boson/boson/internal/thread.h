@@ -10,6 +10,7 @@
 #include <memory>
 #include <thread>
 #include <vector>
+#include <condition_variable>
 #include "boson/event_loop.h"
 #include "boson/memory/local_ptr.h"
 #include "boson/memory/sparse_vector.h"
@@ -17,6 +18,7 @@
 #include "boson/queues/simple.h"
 #include "boson/queues/lcrq.h"
 #include "boson/queues/vectorized_queue.h"
+#include "netpoller.h"
 #include "routine.h"
 #include "../external/json_backbone.hpp"
 
@@ -42,9 +44,13 @@ enum class thread_status {
   finished    // Thread no longer executes a routine and is not required to wait
 };
 
-enum class thread_command_type { add_routine, schedule_waiting_routine, finish, fd_panic };
+enum class thread_command_type { add_routine, schedule_waiting_routine, finish, fd_ready };
 
-using thread_command_data = json_backbone::variant<std::nullptr_t, int, routine_ptr_t, std::pair<std::weak_ptr<semaphore>, std::size_t>>;
+using thread_fd_event = std::tuple<std::size_t, int, event_status, bool>;
+
+using thread_command_data =
+    json_backbone::variant<std::nullptr_t, int, routine_ptr_t,
+                           std::pair<std::weak_ptr<semaphore>, std::size_t>, thread_fd_event>;
 //using thread_command_data = json_backbone::variant<std::nullptr_t, int, routine_ptr_t, std::pair<semaphore*, routine*>>;
 
 struct thread_command {
@@ -75,11 +81,11 @@ class engine_proxy final {
   void notify_idle(size_t nb_suspended_routines);
   void start_routine(std::unique_ptr<routine> new_routine);
   void start_routine(thread_id target_thread, std::unique_ptr<routine> new_routine);
-  void fd_panic(int fd);
+  
   inline thread_id get_id() const {
     return current_thread_id_;
   }
-  inline engine const& get_engine() const {
+  inline engine& get_engine() const {
     return *engine_;
   }
 };
@@ -99,12 +105,20 @@ struct routine_slot {
  * Thread encapsulates an instance of an real thread
  *
  */
-class thread : public event_handler {
+class thread {
   friend void detail::resume_routine(transfer_t);
   friend void boson::yield();
   friend void boson::sleep(std::chrono::milliseconds);
-  template <bool> friend int boson::wait_readiness(fd_t,int);
-  friend void boson::fd_panic(int fd);
+  template <bool>
+  friend int boson::wait_readiness(fd_t, int);
+  friend void boson::fd_panic(int);
+  friend fd_t boson::open(const char*, int);
+  friend fd_t boson::open(const char*, int, mode_t);
+  friend fd_t boson::creat(const char*, mode_t);
+  friend int boson::pipe(fd_t (&fds)[2]);
+  friend int boson::pipe2(fd_t (&fds)[2], int);
+  friend socket_t boson::socket(int, int, int);
+  friend socket_t boson::accept(socket_t, sockaddr*, socklen_t*, int);
   friend int boson::close(int);
   template <class ContentType>
   friend class channel;
@@ -136,7 +150,9 @@ class thread : public event_handler {
   /**
    * Event loop managing interruptions
    */
-  std::unique_ptr<event_loop> loop_;
+  std::condition_variable blocker_;
+  std::mutex blocker_mutex_;
+  bool blocker_flag_;
 
   engine_queue_t engine_queue_;
   std::atomic<std::size_t> nb_pending_commands_{0};
@@ -227,9 +243,9 @@ class thread : public event_handler {
   void unregister_fd(int fd);
 
   /**
-   * Sets a routine for execution at the next round
+   * Wakes up a waiting thread
    */
-  void schedule(routine* routine);
+  void wakeUp();
 
  public:
   thread(engine& parent_engine);
@@ -241,17 +257,13 @@ class thread : public event_handler {
 
   inline thread_id id() const;
   inline engine const& get_engine() const;
+  inline engine& get_engine();
 
-  // Event handler interface
-  void event(int event_id, void* data, event_status status) override;
-  void read(int fd, void* data, event_status status) override;
-  void write(int fd, void* data, event_status status) override;
+  void read(int fd, void* data, event_status status);
+  void write(int fd, void* data, event_status status);
 
   // called by engine
   void push_command(thread_id from, std::unique_ptr<thread_command> command);
-
-  // called by engine
-  // void execute_commands();
 
   bool execute_scheduled_routines();
 
@@ -270,29 +282,29 @@ class thread : public event_handler {
     engine_proxy_.start_routine(std::make_unique<routine>(engine_proxy_.get_new_routine_id(),
                                                           std::forward<Function>(func),
                                                           std::forward<Args>(args)...));
-  }
+    }
 
-  /**
-   * Starts a new routine in a specific thread
-   */
-  template <class Function, class... Args>
-  void start_routine_explicit(thread_id id, Function&& func, Args&&... args) {
-    engine_proxy_.start_routine(
-        id, std::make_unique<routine>(engine_proxy_.get_new_routine_id(),
-                                      std::forward<Function>(func), std::forward<Args>(args)...));
-  }
+    /**
+     * Starts a new routine in a specific thread
+     */
+    template <class Function, class... Args>
+    void start_routine_explicit(thread_id id, Function && func, Args && ... args) {
+      engine_proxy_.start_routine(
+          id, std::make_unique<routine>(engine_proxy_.get_new_routine_id(),
+                                        std::forward<Function>(func), std::forward<Args>(args)...));
+    }
 
-  /**
-   * Returns the currently running routine
-   */
-  inline routine* running_routine();
+    /**
+     * Returns the currently running routine
+     */
+    inline routine* running_routine();
 
-  /**
-   * Returns a memory buffer suitable for a shared_buffer
-   *
-   * See documentation of boson::shared_buffer
-   */
-  char* get_shared_buffer(std::size_t minimum_size);
+    /**
+     * Returns a memory buffer suitable for a shared_buffer
+     *
+     * See documentation of boson::shared_buffer
+     */
+    char* get_shared_buffer(std::size_t minimum_size);
 };
 
 /**
@@ -318,6 +330,10 @@ thread_id thread::id() const {
 }
 
 engine const& thread::get_engine() const {
+  return engine_proxy_.get_engine();
+}
+
+engine& thread::get_engine() {
   return engine_proxy_.get_engine();
 }
 

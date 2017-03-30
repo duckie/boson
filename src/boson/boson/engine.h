@@ -14,7 +14,7 @@
 #include "external/json_backbone.hpp"
 #include "queues/lcrq.h"
 #include "queues/mpsc.h"
-#include "event_loop.h"
+#include "internal/netpoller.h"
 
 namespace boson {
 
@@ -26,7 +26,7 @@ class routine;
  * engine encapsulates an instance of the boson runtime
  *
  */
-class engine : public event_handler {
+class engine : public internal::net_event_handler<uint64_t> {
   using thread_t = internal::thread;
   using command_t = internal::thread_command;
   using proxy_t = internal::engine_proxy;
@@ -41,7 +41,7 @@ class engine : public event_handler {
     }
   };
 
-  enum class command_type { add_routine, notify_idle, notify_end_of_thread, fd_panic };
+  enum class command_type { add_routine, notify_idle, notify_end_of_thread };
 
   using command_new_routine_data = std::tuple<thread_id, std::unique_ptr<internal::routine>>;
   using command_data = json_backbone::variant<std::nullptr_t, int, size_t, command_new_routine_data>;
@@ -86,7 +86,7 @@ class engine : public event_handler {
   using queue_t = queues::mpsc<std::unique_ptr<command>>;
   queue_t command_queue_;
   std::condition_variable command_waiter_;
-  //event_loop command_loop_;
+  internal::netpoller<uint64_t> event_loop_;
   //int self_event_id_;
   std::atomic<size_t> command_pushers_;
 
@@ -104,9 +104,11 @@ class engine : public event_handler {
   engine& operator=(engine&&) = default;
   ~engine();
 
-  void event(int event_id, void* data, event_status status) override;
-  void read(int fd, void* data, event_status status) override;
-  void write(int fd, void* data, event_status status) override;
+  void read(fd_t fd, uint64_t data, event_status status) override;
+  void write(fd_t fd, uint64_t data, event_status status) override;
+  void callback() override;
+
+  inline internal::netpoller<uint64_t>& event_loop();
 
   inline size_t max_nb_cores() const;
 
@@ -124,6 +126,10 @@ class engine : public event_handler {
 };
 
 // Inline/template implementations
+inline internal::netpoller<uint64_t>& engine::event_loop() {
+  return event_loop_;
+}
+
 inline size_t engine::max_nb_cores() const {
   return max_nb_cores_;
 }

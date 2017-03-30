@@ -18,17 +18,17 @@
 using namespace boson;
 using namespace std::chrono_literals;
 
-void listen_client(int fd, channel<std::string, 5> msg_chan, channel<int, 5> close_chan) {
+void listen_client(int fd, channel<std::string, 5> msg_chan) {
   std::array<char, 2048> buffer;
   for (;;) {
     ssize_t nread = boson::read(fd, buffer.data(), buffer.size());
     if (nread <= 1) {
-      close_chan << fd;
+      boson::close(fd);
       return;
     }
     std::string message(buffer.data(), nread - 2);
     if (message == "quit") {
-      close_chan << fd;
+      boson::close(fd);
       return;
     }
     msg_chan << message;
@@ -53,6 +53,7 @@ void displayCounter(std::atomic<uint64_t>* counter) {
   milliseconds step_duration {1000};
   for (;;) {
     ::printf("%lu\n",counter->exchange(0,std::memory_order_relaxed)*1000/step_duration.count());
+    //::printf("%lu\n",counter->exchange(0,std::memory_order_relaxed));
     boson::sleep(1000ms);
     auto current = high_resolution_clock::now();
     step_duration = duration_cast<milliseconds>(current - latest);
@@ -66,11 +67,8 @@ int main(int argc, char *argv[]) {
   boson::run(1, []() {
     channel<int, 5> new_connection;
     channel<std::string, 5> messages;
-    channel<int, 5> close_connection;
-
     std::atomic<uint64_t> counter {0};
     boson::start(displayCounter, &counter);
-
     boson::start(handleNewConnections, new_connection);
 
     // Create socket and list to connections
@@ -83,9 +81,9 @@ int main(int argc, char *argv[]) {
       select_any(                           //
           event_read(new_connection, conn,  //
                      [&](bool) {            //
-                       ::fcntl(conn, F_SETFL, ::fcntl(conn, F_GETFD) | O_NONBLOCK);
+                       //::fcntl(conn, F_SETFL, ::fcntl(conn, F_GETFD) | O_NONBLOCK);
                        conns.insert(conn);
-                       start(listen_client, conn, messages, close_connection);
+                       start(listen_client, conn, messages);
                      }),
           event_read(messages, message,
                      [&](bool) {  //
@@ -94,12 +92,6 @@ int main(int argc, char *argv[]) {
                          boson::write(fd, message.data(), message.size());
                          counter.fetch_add(1,std::memory_order_relaxed);
                        }
-                     }),
-          event_read(close_connection, conn,
-                     [&](bool) {  //
-                       conns.erase(conn);
-                       ::shutdown(conn, SHUT_WR);
-                       boson::close(conn);
                      }));
     };
   });

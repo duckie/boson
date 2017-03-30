@@ -68,6 +68,27 @@ struct is_unique_ptr : public std::false_type {};
 template <class T>
 struct is_unique_ptr<std::unique_ptr<T>> : public std::true_type {};
 
+template <typename T>
+struct copyable_atomic {
+  std::atomic<T> value;
+
+  copyable_atomic() : value(T()) {
+  }
+
+  explicit copyable_atomic(T const& v) : value(v) {
+  }
+  explicit copyable_atomic(std::atomic<T> const& a) : value(a.load()) {
+  }
+
+  copyable_atomic(copyable_atomic const& other) : value(other.value.load()) {
+  }
+
+  copyable_atomic& operator=(copyable_atomic const& other) {
+    value.store(other.value.load());
+    return *this;
+  }
+};
+
 }  // namespace boson
 
 #endif  // BOSON_SYSCALLS_H_

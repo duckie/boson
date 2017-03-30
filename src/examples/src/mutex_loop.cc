@@ -10,7 +10,7 @@
 using namespace std::literals;
 using namespace std::chrono;
 
-static constexpr int nb_iter = 2 * 1e5;
+static constexpr int nb_iter = 1e5;
 static constexpr int nb_threads = 8;
 
 int main(int argc, char* argv[]) {
@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
       boson::mutex mut;   // if not shared, it must outlive the engine instance
       boson::mutex mut2;  // if not shared, it must outlive the engine instance
 
-      for (int i = 0; i < nb_threads / 2; ++i) {
+      for (int i = 0; i < 2*nb_threads; ++i) {
         boson::start([mut, &data]() mutable {
           for (int j = 0; j < nb_iter; ++j) {
             mut.lock();
@@ -81,9 +81,9 @@ int main(int argc, char* argv[]) {
     std::mutex std_mut;
     std::mutex std_mut2;
     // Execute a routine communication through pipes
-    boson::run(nb_threads, [&]() mutable {
+    boson::run(nb_threads*2, [&]() mutable {
       using namespace boson;
-      for (int i = 0; i < nb_threads / 2; ++i) {
+      for (int i = 0; i < nb_threads; ++i) {
         start([&data, &std_mut]() mutable {
           for (int j = 0; j < nb_iter; ++j) {
             std_mut.lock();

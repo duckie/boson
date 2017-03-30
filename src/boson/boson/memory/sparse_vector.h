@@ -19,23 +19,26 @@ namespace memory {
  *
  * There is no way for the user to know wether an allocated
  * cell is valid or not
+ *
+ * This is very similar to a Simple Segregated Storage, but resizable
+ * at the cost of copying the content when extending
  */
 template <class ValueType>
 class sparse_vector {
   std::vector<ValueType> data_;
   std::vector<int64_t> free_cells_;
   int64_t first_free_cell_{-1};
-#ifndef NDEBUG
+//#ifndef NDEBUG
   int64_t last_free_cell_{-1};
-#endif
+//#endif
 
-#ifndef NDEBUG
+ public:
+//#ifndef NDEBUG
   inline bool has(std::size_t index) {
     return (index < data_.size() && last_free_cell_ != static_cast<int>(index) && free_cells_[index] == -1);
   }
-#endif
+//#endif
 
- public:
   sparse_vector() = default;
   sparse_vector(sparse_vector const&) = default;
   sparse_vector(sparse_vector&&) = default;
@@ -82,10 +85,10 @@ class sparse_vector {
       return data_.size() - 1;
     } else {
       int cell_index = first_free_cell_;
-#ifndef NDEBUG
+//#ifndef NDEBUG
       if (cell_index == last_free_cell_)
         last_free_cell_ = -1;
-#endif
+//#endif
       first_free_cell_ = free_cells_[cell_index];
       free_cells_[cell_index] = -1;
       return cell_index;
@@ -96,10 +99,10 @@ class sparse_vector {
    * free frees a cell in constant time
    */
   void free(std::size_t index) {
-#ifndef NDEBUG
+//#ifndef NDEBUG
     if (-1 == last_free_cell_)
       last_free_cell_ = index;
-#endif
+//#endif
     free_cells_[index] = first_free_cell_;
     first_free_cell_ = index;
   }

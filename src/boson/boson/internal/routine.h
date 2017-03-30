@@ -248,6 +248,8 @@ class routine {
 
   void set_as_semaphore_event_candidate(std::size_t index);
 
+  bool event_is_a_fd_wait(std::size_t index, int fd);
+
   // Called by the thread to tell an event happened
   bool event_happened(std::size_t index, event_status status = 0);
 

@@ -7,7 +7,8 @@ void engine::push_command(thread_id from, std::unique_ptr<command> new_command) 
   // command_waiter_.notify_one();
   //command_queue_.write(static_cast<int>(from), new_command.release());
   command_queue_.write(std::move(new_command));
-  command_waiter_.notify_one();
+  //command_waiter_.notify_one();
+  event_loop_.interrupt();
 }
 
 void engine::execute_commands() {
@@ -38,14 +39,6 @@ void engine::execute_commands() {
         case command_type::notify_end_of_thread: {
           --nb_active_threads_;
         } break;
-        case command_type::fd_panic: {
-          int fd = new_command->data.get<int>();
-          for (auto& thread : threads_) {
-            thread->thread.push_command(
-                max_nb_cores_,
-                std::make_unique<command_t>(internal::thread_command_type::fd_panic, fd));
-          }
-        } break;
       }
       command_pushers_.fetch_sub(std::memory_order_release);
     }
@@ -73,10 +66,14 @@ void engine::wait_all_routines() {
         }
       }
     }
-    command_waiter_.wait(lock, [this] {
-      return 0 == this->nb_active_threads_ ||
-             0 < this->command_pushers_.load(std::memory_order_acquire);
-    });
+    //command_waiter_.wait(lock, [this] () {
+      //return (0 == this->nb_active_threads_ ||
+             //0 < this->command_pushers_.load(std::memory_order_acquire));
+    //});
+    while (0 != this->nb_active_threads_ &&
+           0 == this->command_pushers_.load(std::memory_order_acquire)) {
+      event_loop_.loop(1, -1);
+    }
   }
 }
 
@@ -85,6 +82,7 @@ engine::engine(size_t max_nb_cores)
       max_nb_cores_{max_nb_cores},
       //command_loop_(*this, static_cast<int>(max_nb_cores + 1)),
       command_queue_{},
+      event_loop_(*this),
       command_pushers_{0} {
   // Start threads
   threads_.reserve(max_nb_cores);
@@ -96,13 +94,27 @@ engine::engine(size_t max_nb_cores)
   }
 };
 
-void engine::event(int event_id, void* data, event_status status) {
+void engine::read(fd_t fd, uint64_t data, event_status status) {
+  thread_id id = (0xffffffff00000000 & data) >> 32;
+  size_t event_index = (0x00000000ffffffff & data);
+  auto& view = *threads_.at(id);
+  view.thread.push_command(
+      max_nb_cores_,
+      std::make_unique<command_t>(internal::thread_command_type::fd_ready,
+                                  std::make_tuple(event_index, fd, status, true)));
 }
 
-void engine::read(int fd, void* data, event_status status) {
+void engine::write(fd_t fd, uint64_t data, event_status status) {
+  thread_id id = (0xffffffff00000000 & data) >> 32;
+  size_t event_index = (0x00000000ffffffff & data);
+  auto& view = *threads_.at(id);
+  view.thread.push_command(
+      max_nb_cores_,
+      std::make_unique<command_t>(internal::thread_command_type::fd_ready,
+                                  std::make_tuple(event_index, fd, status, false)));
 }
 
-void engine::write(int fd, void* data, event_status status) {
+void engine::callback() {
 }
 
 thread_id engine::register_thread_id() {
