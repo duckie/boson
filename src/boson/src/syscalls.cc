@@ -143,8 +143,10 @@ ssize_t write(fd_t fd, const void* buf, size_t count, int timeout_ms) {
 
 socket_t accept(socket_t socket, sockaddr* address, socklen_t* address_len, int timeout_ms) {
   socket_t new_socket = boson_classic_syscall<SYS_accept>::call_timeout(socket, timeout_ms, address, address_len);
-  if (0 <= new_socket)
+  if (0 <= new_socket) {
+    ::fcntl(new_socket, F_SETFL, ::fcntl(new_socket, F_GETFD) | O_NONBLOCK);
     current_thread()->engine_proxy_.get_engine().event_loop().signal_new_fd(new_socket);
+  }
   return new_socket;
 }
 

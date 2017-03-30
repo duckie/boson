@@ -4,6 +4,7 @@
 #include "internal/thread.h"
 #include "syscalls.h"
 #include "semaphore.h"
+#include "logger.h"
 
 namespace boson {
 namespace internal {
@@ -109,6 +110,16 @@ void routine::cancel_event_round() {
 void routine::set_as_semaphore_event_candidate(std::size_t index) {
   status_ = routine_status::sema_event_candidate;
   thread_->scheduled_routines_.emplace_back(routine_slot{current_ptr_,index});
+}
+
+bool routine::event_is_a_fd_wait(std::size_t index, int fd) {
+  if (index < events_.size()) {
+    auto& event = events_[index];
+    if (event.type == event_type::io_read || event.type == event_type::io_write) {
+      return (fd == event.data.get<routine_io_event>().fd);
+    }
+  }
+  return false;
 }
 
 bool routine::event_happened(std::size_t index, event_status status) {
@@ -230,6 +241,7 @@ void routine::resume(thread* managing_thread) {
     }
     default:
       // Not supposed to happen
+      boson::debug::log("Routine has status {}.", static_cast<int>(status_));
       assert(false);
       break;
   }
