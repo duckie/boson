@@ -53,8 +53,8 @@ TEST_CASE("Sockets - Simple accept/connect", "[syscalls][sockets][accept][connec
             int new_connection = boson::connect(sockfd, (struct sockaddr*)&cli_addr, clilen);
             CHECK(0 == new_connection);
             tickets << nullptr;
-            ::shutdown(new_connection, SHUT_WR);
-            boson::close(new_connection);
+            ::shutdown(sockfd, SHUT_WR);
+            boson::close(sockfd);
           },tickets);
 
           std::nullptr_t dummy;
@@ -95,7 +95,7 @@ TEST_CASE("Sockets - Simple accept/connect", "[syscalls][sockets][accept][connec
 
             // start First
             int sockfd = boson::socket(AF_INET, SOCK_STREAM, 0);
-            //::fcntl(sockfd, F_SETFL, O_NONBLOCK);
+            int sockfd2 = boson::socket(AF_INET, SOCK_STREAM, 0);
             int rc = boson::connect(sockfd, (struct sockaddr*)&cli_addr, clilen);
             CHECK(rc == 0);
             ::shutdown(sockfd, SHUT_WR);
@@ -103,15 +103,14 @@ TEST_CASE("Sockets - Simple accept/connect", "[syscalls][sockets][accept][connec
             CHECK(rc == 0);
 
             //// start second
-            sockfd = boson::socket(AF_INET, SOCK_STREAM, 0);
             cli_addr.sin_addr.s_addr = ::inet_addr("127.0.0.1");
             cli_addr.sin_family = AF_INET;
             cli_addr.sin_port = htons(10101);
-            rc = boson::connect(sockfd, (struct sockaddr*)&cli_addr, clilen);
+            rc = boson::connect(sockfd2, (struct sockaddr*)&cli_addr, clilen);
             //boson::debug::log(strerror(errno));
             CHECK(rc == 0);
-            ::shutdown(sockfd, SHUT_WR);
-            boson::close(sockfd);
+            ::shutdown(sockfd2, SHUT_WR);
+            boson::close(sockfd2);
           });
     });
   }

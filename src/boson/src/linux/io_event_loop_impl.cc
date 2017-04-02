@@ -60,14 +60,15 @@ void io_event_loop::register_fd(int fd) {
 }
 
 void* io_event_loop::unregister(int fd) {
-  // Since the FD is only supposed to be unregistered when closed, there is no 
-  // need to EPOLL_CTL_DEL it afterwars
-
-  //epoll_event_t new_event{ 0, {}};
-  //int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_DEL, fd, &new_event);
-  //if (return_code < 0) {
-    //throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
-  //}
+  // Since the FD is only supposed to be unregistered when closed 
+  // there is no apparent reasion to explicitely del it. But, as stated by
+  // https://idea.popcount.org/2017-03-20-epoll-is-fundamentally-broken-22/
+  // this is good practice
+  epoll_event_t new_event{ 0, {}};
+  int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_DEL, fd, &new_event);
+  if (return_code < 0) {
+    throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
+  }
   pending_commands_.write({ command_type::close_fd, fd });
   return nullptr;
 }

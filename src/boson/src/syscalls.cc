@@ -194,10 +194,10 @@ int connect(socket_t sockfd, const sockaddr* addr, socklen_t addrlen, int timeou
 }
 
 int close(fd_t fd) {
+  current_thread()->engine_proxy_.get_engine().event_loop().signal_fd_closed(fd);
   int rc = syscall_callable<SYS_close>::call(fd);
   auto current_errno = errno;
   //current_thread()->unregister_fd(fd);
-  current_thread()->engine_proxy_.get_engine().event_loop().signal_fd_closed(fd);
   errno = current_errno;
   return rc;
 }
