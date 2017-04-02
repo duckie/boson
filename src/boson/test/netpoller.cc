@@ -96,12 +96,12 @@ TEST_CASE("Netpoller - FD Read/Write same FD", "[netpoller][read/write]") {
   CHECK(handler_instance.last_write_fd == -1);
   CHECK(handler_instance.last_status == 0);
   
+  loop.signal_fd_closed(sv[0]);
   ::shutdown(sv[0], SHUT_WR);
   ::shutdown(sv[1], SHUT_WR);
   ::close(sv[0]);
   ::close(sv[1]);
 
-  loop.signal_fd_closed(sv[0]);
   loop.register_read(sv[0], 1);
   loop.register_write(sv[0], 2);
   loop.loop(1,0);
@@ -110,42 +110,3 @@ TEST_CASE("Netpoller - FD Read/Write same FD", "[netpoller][read/write]") {
   CHECK(handler_instance.last_status == -EBADF);
 #endif
 }
-
-/*
-TEST_CASE("Netpoller - FD Panic Read/Write", "[netpoller][panic]") {
-  handler01 handler_instance;
-  int pipe_fds[2];
-  ::pipe(pipe_fds);
-  ::fcntl(pipe_fds[0], F_SETFL, ::fcntl(pipe_fds[0], F_GETFD) | O_NONBLOCK);
-  ::fcntl(pipe_fds[1], F_SETFL, ::fcntl(pipe_fds[1], F_GETFD) | O_NONBLOCK);
-
-  boson::event_loop loop(handler_instance,1);
-  loop.register_read(pipe_fds[0], nullptr);
-
-  loop.loop(1,0);
-  CHECK(handler_instance.last_read_fd == -1);
-
-  loop.send_fd_panic(0,pipe_fds[0]);
-  loop.loop(1);
-  CHECK(handler_instance.last_read_fd == pipe_fds[0]);
-  CHECK(handler_instance.last_status < 0);
-}
-
-TEST_CASE("Netpoller - Bas fds", "[netpoller]") {
-  handler01 handler_instance;
-  std::string temp1 = std::tmpnam(nullptr);
-  int disk_fd = ::open(temp1.c_str(), O_RDWR | O_CREAT | O_NONBLOCK, 0600);
-
-  boson::event_loop loop(handler_instance,1);
-  try {
-    loop.register_read(disk_fd, nullptr);
-  }
-  catch(boson::exception& e) {
-    CHECK(std::strncmp(e.what(),"Syscall error (epoll_ctl): Operation not permitted",26) == 0);
-    CHECK(true);
-  }
-
-  ::close(disk_fd);
-  ::unlink(temp1.c_str());
-}
-*/
