@@ -63,6 +63,49 @@ TEST_CASE("Sockets - Simple accept/connect", "[syscalls][sockets][accept][connec
     });
   }
 
+  SECTION("Simple connection with data") {
+    boson::run(1, [&]() {
+      boson::channel<std::nullptr_t,2> tickets;
+      start(
+          [](auto tickets) -> void {
+            // Listen on a port
+            int listening_socket = boson::net::create_listening_socket(10101);
+            struct sockaddr_in cli_addr;
+            socklen_t clilen = sizeof(cli_addr);
+            int new_connection = boson::accept(listening_socket, (struct sockaddr*)&cli_addr, &clilen);
+            size_t buffer = 0;
+            ssize_t rc = boson::recv(new_connection, &buffer, sizeof(size_t), 0);
+            CHECK(rc == sizeof(size_t));
+            CHECK(buffer == 1);
+            tickets << nullptr;
+            boson::close(listening_socket);
+          }, tickets);
+
+      start(
+          [](auto tickets) -> void {
+            struct sockaddr_in cli_addr;
+            cli_addr.sin_addr.s_addr = ::inet_addr("127.0.0.1");
+            cli_addr.sin_family = AF_INET;
+            cli_addr.sin_port = htons(10101);
+            socklen_t clilen = sizeof(cli_addr);
+            int sockfd = boson::socket(AF_INET, SOCK_STREAM, 0);
+            //::fcntl(sockfd, F_SETFL, O_NONBLOCK);
+            int new_connection = boson::connect(sockfd, (struct sockaddr*)&cli_addr, clilen);
+            CHECK((0 == new_connection));
+            size_t data = 1;
+            ssize_t rc = boson::send(sockfd, &data, sizeof(size_t), 0);
+            CHECK(rc == sizeof(size_t));
+            tickets << nullptr;
+            ::shutdown(sockfd, SHUT_WR);
+            boson::close(sockfd);
+          },tickets);
+
+          std::nullptr_t dummy;
+          CHECK(tickets >> dummy);
+          CHECK(tickets >> dummy);
+    });
+  }
+
   SECTION("Reconnect") {
     boson::run(1, [&]() {
       boson::channel<std::nullptr_t,1> tickets_for_accept, tickets_for_connect;
@@ -80,6 +123,7 @@ TEST_CASE("Sockets - Simple accept/connect", "[syscalls][sockets][accept][connec
             // Accept 2nd
             //new_connection = boson::accept(listening_socket, (struct sockaddr*)&cli_addr, &clilen);
             //CHECK(new_connection > 0);
+            boson::close(new_connection);
           });
 
       start(

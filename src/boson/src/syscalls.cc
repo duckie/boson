@@ -202,8 +202,4 @@ int close(fd_t fd) {
   return rc;
 }
 
-void fd_panic(int fd) {
-  current_thread()->engine_proxy_.get_engine().event_loop().signal_fd_closed(fd);
-}
-
 }  // namespace boson

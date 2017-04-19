@@ -54,7 +54,9 @@ void io_event_loop::register_fd(int fd) {
   epoll_event_t new_event{ EPOLLIN | EPOLLOUT | EPOLLET | EPOLLRDHUP, {}};
   new_event.data.fd = fd;
   int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, fd, &new_event);
-  if (return_code < 0) {
+  // It is allowed to fail on disk file FDs here, we do not care, the loop will not be used
+  // for them anyway
+  if (return_code < 0 && errno != EPERM) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
 }
@@ -66,7 +68,7 @@ void* io_event_loop::unregister(int fd) {
   // this is good practice
   epoll_event_t new_event{ 0, {}};
   int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_DEL, fd, &new_event);
-  if (return_code < 0) {
+  if (return_code < 0 && errno != EPERM) {
     throw exception(std::string("Syscall error (epoll_ctl): ") + ::strerror(errno));
   }
   pending_commands_.write({ command_type::close_fd, fd });

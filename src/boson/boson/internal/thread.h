@@ -111,7 +111,6 @@ class thread {
   friend void boson::sleep(std::chrono::milliseconds);
   template <bool>
   friend int boson::wait_readiness(fd_t, int);
-  friend void boson::fd_panic(int);
   friend fd_t boson::open(const char*, int);
   friend fd_t boson::open(const char*, int, mode_t);
   friend fd_t boson::creat(const char*, mode_t);

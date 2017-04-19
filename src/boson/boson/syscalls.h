@@ -78,7 +78,6 @@ inline ssize_t recv(socket_t socket, void *buffer, size_t length, int flags, std
 }
 
 int close(int fd);
-void fd_panic(int fd);
 
 }  // namespace boson
 

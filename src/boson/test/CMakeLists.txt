@@ -31,6 +31,9 @@ add_project_test(static CATCH)
 add_project_test(test_local_ptr CATCH)
 add_project_test(test_mpsc CATCH)
 add_project_test(test_wfqueue CATCH)
+add_project_test(syscalls CATCH)
+add_project_test(exception CATCH)
+add_project_test(logger CATCH)
 
 # Create main test executable
 add_executable(unit_tests ${catch_exe_source_list})
