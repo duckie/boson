@@ -51,7 +51,7 @@ TEST_CASE("Sockets - Simple accept/connect", "[syscalls][sockets][accept][connec
             int sockfd = boson::socket(AF_INET, SOCK_STREAM, 0);
             //::fcntl(sockfd, F_SETFL, O_NONBLOCK);
             int new_connection = boson::connect(sockfd, (struct sockaddr*)&cli_addr, clilen);
-            CHECK(0 == new_connection);
+            CHECK((0 == new_connection));
             tickets << nullptr;
             ::shutdown(sockfd, SHUT_WR);
             boson::close(sockfd);

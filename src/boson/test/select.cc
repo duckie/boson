@@ -142,7 +142,7 @@ TEST_CASE("Routines - Select", "[routines][i/o][select]") {
             
             // Fill up the pipe to make next try blocking
             ssize_t pipe_size = ::fcntl(out1, F_GETPIPE_SZ);
-            for(ssize_t index = 0; index < (pipe_size - sizeof(size_t)); ++index) {
+            for(ssize_t index = 0; index < static_cast<ssize_t>(pipe_size - sizeof(size_t)); ++index) {
               boson::write(out1,"",1);
             }
 

@@ -174,3 +174,69 @@ TEST_CASE("Channels", "[channels]") {
   CHECK(acks == expected);
 }
 
+TEST_CASE("Empty channels", "[channels]") {
+  boson::debug::logger_instance(&std::cout);
+  SECTION("Close an empty channel") {
+    boson::run(3, [&]() {
+      using namespace boson;
+      channel<int, channel_size> chan;
+
+      chan.close();
+      int result = 0;
+      CHECK(channel_result_value::closed == (chan << result));
+      CHECK(channel_result_value::closed == (chan >> result));
+    });
+  }
+
+  SECTION("Close an empty channel of size 0") {
+    boson::run(3, [&]() {
+      using namespace boson;
+      channel<std::nullptr_t, channel_size> chan;
+
+      chan.close();
+      std::nullptr_t result = 0;
+      CHECK(channel_result_value::closed == (chan << nullptr));
+      CHECK(channel_result_value::closed == (chan >> result));
+    });
+  }
+}
+
+TEST_CASE("Timeouts on channels", "[channels]") {
+  boson::debug::logger_instance(&std::cout);
+  SECTION("Timeout an empty channel") {
+    boson::run(3, [&]() {
+      using namespace boson;
+      channel<int, channel_size> chan;
+
+      for(int index = 0; index < channel_size; ++index) {
+        chan.write(index);
+      }
+      CHECK(chan.write(0,time_factor()) == channel_result_value::timedout);
+      
+      int dummy = 0;
+      for(int index = 0; index < channel_size; ++index) {
+        chan.read(dummy);
+        CHECK(index == dummy);
+      }
+      CHECK(chan.read(dummy,time_factor()) == channel_result_value::timedout);
+    });
+  }
+
+  SECTION("Timeout an empty channel of nullptr") {
+    boson::run(3, [&]() {
+      using namespace boson;
+      channel<std::nullptr_t, channel_size> chan;
+
+      for(int index = 0; index < channel_size; ++index) {
+        chan.write(nullptr);
+      }
+      CHECK(chan.write(0,time_factor()) == channel_result_value::timedout);
+      
+      std::nullptr_t dummy {};
+      for(int index = 0; index < channel_size; ++index) {
+        chan.read(dummy);
+      }
+      CHECK(chan.read(dummy,time_factor()) == channel_result_value::timedout);
+    });
+  }
+}

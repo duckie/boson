@@ -77,7 +77,7 @@ class channel_impl {
    * Returns false only if the channel is closed.
    */
   channel_result write(thread_id tid, ContentType value, int timeout_ms = -1) {
-    auto ticket = writer_slots_.wait(timeout_ms = -1);
+    auto ticket = writer_slots_.wait(timeout_ms);
     if (!ticket)
       return {ticket == semaphore_return_value::timedout ? channel_result_value::timedout
                                                          : channel_result_value::closed};
@@ -141,7 +141,7 @@ class channel_impl<std::nullptr_t,Size> {
    * Returns false only if the channel is closed.
    */
   channel_result write(thread_id tid, ContentType value, int timeout_ms = -1) {
-    auto ticket = writer_slots_.wait(timeout_ms = -1);
+    auto ticket = writer_slots_.wait(timeout_ms);
     if (!ticket)
       return {ticket == semaphore_return_value::timedout ? channel_result_value::timedout
                                                          : channel_result_value::closed};
