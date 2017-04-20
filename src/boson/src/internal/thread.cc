@@ -194,7 +194,6 @@ void thread::push_command(thread_id from, std::unique_ptr<thread_command> comman
 
 bool thread::execute_scheduled_routines() {
   decltype(scheduled_routines_) next_scheduled_routines;
-  std::deque<std::tuple<size_t, routine_ptr_t>> new_timed_routines_;
   while (!scheduled_routines_.empty()) {
     // For now; we schedule them in order
     auto& slot = scheduled_routines_.front();
