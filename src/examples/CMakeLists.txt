@@ -21,6 +21,7 @@ add_example(channel_loop2)
 add_example(socket_server)
 add_example(chat_server)
 add_example(chat_vs_go)
+add_example(ld_preload)
 
 add_example(readme1)
 add_example(readme2)

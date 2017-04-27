@@ -23,6 +23,7 @@ file(GLOB lib_sources
   src/queues/simple.cc 
   src/net/*.cc
   )
+list(REMOVE_ITEM lib_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/syscall_shim.cc)
 file(GLOB lib_linux_sources src/linux/*.cc)
 set(lib_sources ${lib_sources} ${lib_linux_sources})
 set(lib_queues_sources src/queues/lcrq.cc)
