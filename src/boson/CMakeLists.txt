@@ -32,13 +32,18 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/boson ${CMAKE_CURRENT_SOURCE_DIR
 
 # Boson lib
 add_library(boson ${lib_sources} $<TARGET_OBJECTS:boson_fcontext>)
-target_compile_options(boson PUBLIC -nostdlib)
+target_compile_options(boson PUBLIC)
 target_link_libraries(boson ${LIBRARIES} -lpthread)
 target_include_directories(boson PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
+# Boson shim lib
+add_library(bosonsysshim SHARED src/syscall_shim.cc)
+target_link_libraries(bosonsysshim dl)
+target_compile_options(bosonsysshim PUBLIC)
+
 # Boson queue lib
 add_library(bosonqueues ${lib_queues_sources})
-target_compile_options(bosonqueues PUBLIC -nostdlib)
+target_compile_options(bosonqueues PUBLIC)
 target_link_libraries(bosonqueues ${LIBRARIES})
 target_include_directories(bosonqueues PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
