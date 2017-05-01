@@ -151,11 +151,11 @@ socket_t accept(socket_t socket, sockaddr* address, socklen_t* address_len, int 
 }
 
 ssize_t send(socket_t socket, const void* buffer, size_t length, int flags, int timeout_ms) {
-  return boson_classic_syscall<SYS_sendto>::call_timeout(socket, timeout_ms, buffer, length, flags, nullptr, 0);
+  return boson_classic_syscall<SYS_sendto>::call_timeout(socket, timeout_ms, buffer, length, flags, nullptr, nullptr);
 }
 
 ssize_t recv(socket_t socket, void* buffer, size_t length, int flags, int timeout_ms) {
-  return boson_classic_syscall<SYS_recvfrom>::call_timeout(socket, timeout_ms, buffer, length, flags, nullptr, 0);
+  return boson_classic_syscall<SYS_recvfrom>::call_timeout(socket, timeout_ms, buffer, length, flags, nullptr, nullptr);
 }
 
 /**
