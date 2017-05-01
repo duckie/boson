@@ -8,6 +8,7 @@
 #include "system.h"
 
 namespace boson {
+
 /**
  * Gives back control to the scheduler
  *
@@ -16,10 +17,19 @@ namespace boson {
  */
 void yield();
 
+
 /**
  * Suspends the routine for the given duration
  */
-void sleep(std::chrono::milliseconds duration);
+
+void usleep(std::chrono::microseconds duration_ms);
+void nanosleep(std::chrono::nanoseconds duration_ns);
+
+template <class T_Rep, class T_Period>
+void sleep(std::chrono::duration<T_Rep, T_Period> const& duration) {
+  using namespace std::chrono;
+  usleep(duration_cast<microseconds>(duration));
+}
 
 /**
  * Suspends the routine until the fd is ready for a syscall
@@ -35,6 +45,10 @@ ssize_t send(socket_t socket, const void *buffer, size_t length, int flags, int 
 ssize_t recv(socket_t socket, void *buffer, size_t length, int flags, int timeout_ms);
 
 // Boson equivalents to POSIX systemcalls
+
+unsigned int sleep(int duration_seconds);
+int usleep(useconds_t duration_ms);
+int nanosleep(const struct timespec* rqtp, struct timespec* rmtp);
 
 fd_t open(const char *pathname, int flags);
 fd_t open(const char *pathname, int flags, mode_t mode);

@@ -108,7 +108,7 @@ struct routine_slot {
 class thread {
   friend void detail::resume_routine(transfer_t);
   friend void boson::yield();
-  friend void boson::sleep(std::chrono::milliseconds);
+  friend void boson::usleep(std::chrono::microseconds);
   template <bool>
   friend int boson::wait_readiness(fd_t, int);
   friend fd_t boson::open(const char*, int);

@@ -18,7 +18,12 @@ void yield() {
   current_routine->status_ = routine_status::running;
 }
 
-void sleep(std::chrono::milliseconds duration) {
+void nanosleep(std::chrono::nanoseconds duration) {
+  using namespace std::chrono;
+  usleep(duration_cast<microseconds>(duration));
+}
+
+void usleep(std::chrono::microseconds duration) {
   // Compute the time in ms
   using namespace std::chrono;
   thread* this_thread = current_thread();
@@ -29,6 +34,27 @@ void sleep(std::chrono::milliseconds duration) {
   current_routine->commit_event_round();
   current_routine->previous_status_ = routine_status::wait_events;
   current_routine->status_ = routine_status::running;
+}
+
+unsigned int sleep(int duration_seconds) {
+  using namespace std::chrono;
+  usleep(duration_cast<milliseconds>(seconds(duration_seconds)));
+  return 0;
+}
+
+int usleep(useconds_t duration_ms) {
+  usleep(std::chrono::microseconds(duration_ms));
+  return 0;
+}
+
+int nanosleep(const struct timespec* rqtp, struct timespec* rmtp) {
+  using namespace std::chrono;
+  usleep(duration_cast<microseconds>(seconds(rqtp->tv_sec) + nanoseconds(rqtp->tv_nsec)));
+  if (rmtp) {
+    rmtp->tv_sec = 0;
+    rmtp->tv_nsec = 0;
+  }
+  return 0;
 }
 
 template <bool IsARead>
