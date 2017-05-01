@@ -3,6 +3,7 @@
 #include <type_traits>
 #include <utility>
 #include <tuple>
+#include <atomic>
 #include "std/experimental/apply.h"
 
 namespace boson {
