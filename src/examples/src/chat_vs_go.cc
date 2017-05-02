@@ -47,12 +47,15 @@ void handleNewConnections(boson::channel<int, 5> newConnChan) {
   }
 }
 
+//void displayCounter(uint64_t* counter) {
 void displayCounter(std::atomic<uint64_t>* counter) {
   using namespace std::chrono;
   auto latest = high_resolution_clock::now();
   milliseconds step_duration {1000};
   for (;;) {
     ::printf("%lu\n",counter->exchange(0,std::memory_order_relaxed)*1000/step_duration.count());
+    //::printf("%lu\n",(*counter)*1000/step_duration.count());
+    //*counter = 0;
     //::printf("%lu\n",counter->exchange(0,std::memory_order_relaxed));
     boson::sleep(1000ms);
     auto current = high_resolution_clock::now();
@@ -64,10 +67,11 @@ void displayCounter(std::atomic<uint64_t>* counter) {
 int main(int argc, char *argv[]) {
   struct sigaction action {SIG_IGN,0,0};
   ::sigaction(SIGPIPE, &action, nullptr);
-  boson::run(1, []() {
+  boson::run(4, []() {
     channel<int, 5> new_connection;
     channel<std::string, 5> messages;
     std::atomic<uint64_t> counter {0};
+    //uint64_t counter {0};
     boson::start(displayCounter, &counter);
     boson::start(handleNewConnections, new_connection);
 
@@ -77,21 +81,25 @@ int main(int argc, char *argv[]) {
     std::set<int> conns;
     for (;;) {
       int conn = 0;
+      int scheduler = 0;
       std::string message;
       select_any(                           //
           event_read(new_connection, conn,  //
                      [&](bool) {            //
-                       //::fcntl(conn, F_SETFL, ::fcntl(conn, F_GETFD) | O_NONBLOCK);
                        conns.insert(conn);
-                       start(listen_client, conn, messages);
+                       start_explicit(++scheduler % 3 + 1, listen_client, conn, messages);
+                       //start(listen_client, conn, messages);
                      }),
           event_read(messages, message,
                      [&](bool) {  //
                        message += "\n";
-                       for (auto fd : conns) {
-                         boson::write(fd, message.data(), message.size());
-                         counter.fetch_add(1,std::memory_order_relaxed);
-                       }
+                       start([&conns, &counter](std::string&& message) {
+                         for (auto fd : conns) {
+                           boson::write(fd, message.data(), message.size());
+                           //++counter;
+                           counter.fetch_add(1, std::memory_order_relaxed);
+                         }
+                       }, std::move(message));
                      }));
     };
   });

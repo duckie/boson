@@ -7,15 +7,14 @@ import "sync/atomic"
 
 func listenClient(clientConn net.Conn, broadcastChan chan string) {
   buf := make([]byte, 2048)
+  defer clientConn.Close()
   for {
     nread, err := clientConn.Read(buf)
-    if (err != nil || 0 == nread) {
-      clientConn.Close()
+    if (err != nil || nread < 2) {
       return 
     }
     message := string(buf[:nread-2]) // Looks like it reads \r\n
     if (message == "quit") {
-      clientConn.Close()
       return 
     }
 
