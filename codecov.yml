@@ -3,6 +3,7 @@ coverage:
     - "3rdparty/**/*"
     - "src/boson/boson/external/json_backbone.hpp"
     - "src/boson/src/queues/lcrq.cc"
+    - "src/boson/src/syscall_shim.cc"
     - "src/examples/src/*"
 codecov:
   ci:

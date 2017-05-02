@@ -10,6 +10,7 @@
 #include "internal/routine.h"
 #include "system.h"
 #include "std/experimental/apply.h"
+#include "std/experimental/chrono.h"
 #include <utility>
 
 namespace boson {
@@ -31,15 +32,33 @@ template <int SyscallId> struct syscall_callable {
 /**
  * Applies the right event add depending on the syscall
  */
-template <bool IsRead> struct add_event;
-template <> struct add_event<true> {
+template <bool IsRead>
+struct add_event;
+template <>
+struct add_event<true> {
   static inline void apply(internal::routine* current, int fd) {
     current->add_read(fd);
   }
 };
-template <> struct add_event<false> {
+template <>
+struct add_event<false> {
   static inline void apply(internal::routine* current, int fd) {
     current->add_write(fd);
+  }
+};
+
+template <bool HasTimer>
+struct add_timer;
+template <>
+struct add_timer<true> {
+  static inline void apply(internal::routine* current, int timeout_ms) {
+    current->add_timer(experimental::chrono::ceil<std::chrono::milliseconds>(
+        std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(timeout_ms)));
+  }
+};
+template <> struct add_timer<false> {
+  static inline void apply(internal::routine*, int) {
+    // Do nothin
   }
 };
 

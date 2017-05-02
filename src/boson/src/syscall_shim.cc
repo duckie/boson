@@ -57,6 +57,9 @@ RETURN_TYPE SYMBOL(EXPAND_AS_FUNC_##NB_ARGS( __VA_ARGS__)) { \
   return sys_##SYMBOL(EXPAND_AS_ARGS_##NB_ARGS( __VA_ARGS__)); \
 }}
 
+DECLARE_SYSTEM_SYMBOL_SHIM(sleep,unsigned int,1,unsigned int,duration);
+DECLARE_SYSTEM_SYMBOL_SHIM(usleep,int,1,useconds_t,duration);
+DECLARE_SYSTEM_SYMBOL_SHIM(nanosleep,int,2,const timespec*,req,timespec*,rem); 
 DECLARE_SYSTEM_SYMBOL_SHIM(open,int,3,const char *,pathname,int,flags,mode_t,mode);
 DECLARE_SYSTEM_SYMBOL_SHIM(creat,int,2,const char *,pathname,mode_t,mode);
 DECLARE_SYSTEM_SYMBOL_SHIM(pipe,int,PIPE1,int,fds);

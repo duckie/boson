@@ -20,12 +20,11 @@ The main point is to simplify writing concurrent applications by removing the as
 - Routines (or fibers) are lightweight compared to threads, to launch and to schedule.
 - Interruption points are known by the developer, whereas they are not when scheduling threads.
 
-### What about `boost::fiber` ?
+### Other frameworks exist, what is particular about Boson ?
 
-`boost::fiber` and `boson` have a lot in common. `boson` even uses ASM code from Oliver Kowalke, the author of `boost::fiber`. Some technical differences might make `boson` better suited to your use case:
-- *Ease of use*: Using `boost::fiber` combined with `boost::asio` requires a decent experience of *C++* to be used efficiently. The learning curve is steep.
-- *System interface*: the `boson` framework mimics the common system calls. The reason for that is to make synchronous code easily portable into `boson`: you just have to route the system calls to those of `boson`, and make you calls from within a routine. Database drivers are much more easier to write this way. This is also a way to create a familiar ground for *C* and *Go* users.
-- *Select statement*: The `select_*` statement is the key feature of the framework. It is more versatile than the *Go* one, and does not exist in `boost::fiber` (as of time of writing). The `select` statement allows for programming constructs that are hard to reproduce without it.
+- *Ease of use*: The learning curve is very gentle, especially for `C` and `Go` developers used to system interfaces.
+- *Select statement*: The `select_*` statement is versatile and allows programming constructs that are hard to reproduce without it.
+- *System calls interception*: Libraries that have not been prepared to can be used in a asynchronized way with a `LD_PRELOAD` trick.
 
 ## Quick overview
 
@@ -43,7 +42,14 @@ boson::run(1 /* number of thread */, []() {
 
 ### System calls
 
-The boson framework provides its versions of system calls that are scheduled away for efficiency with an event loop. Current available syscalls are `close`, `sleep`, `read`, `write`, `accept`, `connect`, `recv` and `send`. See [an example](./src/examples/src/socket_server.cc).
+The boson framework provides its versions of system calls that are scheduled away for efficiency with an event loop. Current asynchronized syscalls are:
+- `sleep`, `usleep`, `nanosleep`
+- `read`, `recv`
+- `write`, `send`
+- `accept`
+- `connect`
+
+See [an example](./src/examples/src/socket_server.cc).
 
 This snippet launches two routines doing different jobs, in a single thread.
 

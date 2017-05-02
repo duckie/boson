@@ -109,7 +109,7 @@ class thread {
   friend void detail::resume_routine(transfer_t);
   friend void boson::yield();
   friend void boson::usleep(std::chrono::microseconds);
-  template <bool>
+  template <bool, bool>
   friend int boson::wait_readiness(fd_t, int);
   friend fd_t boson::open(const char*, int);
   friend fd_t boson::open(const char*, int, mode_t);
@@ -117,7 +117,8 @@ class thread {
   friend int boson::pipe(fd_t (&fds)[2]);
   friend int boson::pipe2(fd_t (&fds)[2], int);
   friend socket_t boson::socket(int, int, int);
-  friend socket_t boson::accept(socket_t, sockaddr*, socklen_t*, int);
+  template <bool>
+  friend socket_t boson::accept_impl(socket_t, sockaddr*, socklen_t*, int);
   friend int boson::close(int);
   template <class ContentType>
   friend class channel;
