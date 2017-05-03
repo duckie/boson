@@ -10,10 +10,10 @@ func listenClient(clientConn net.Conn, broadcastChan chan string) {
   defer clientConn.Close()
   for {
     nread, err := clientConn.Read(buf)
-    if (err != nil || nread < 2) {
+    if (err != nil || nread < 1) {
       return 
     }
-    message := string(buf[:nread-2]) // Looks like it reads \r\n
+    message := string(buf[:nread-1]) // Looks like it reads \r\n
     if (message == "quit") {
       return 
     }
@@ -32,10 +32,15 @@ func handleNewConnections(newConnChan chan net.Conn) {
   }
 }
 
-func displayCount(counter * uint64) {
+func displayCount(counter * int64) {
+  latest := time.Now()
+  stepDuration := time.Second
   for {
-    fmt.Println(atomic.SwapUint64(counter,0))
-    time.Sleep(1*time.Second)
+    fmt.Println(atomic.SwapInt64(counter,0)*time.Second.Nanoseconds()/stepDuration.Nanoseconds())
+    time.Sleep(time.Second)
+    current := time.Now()
+    stepDuration = current.Sub(latest)
+    latest = current
   }
 }
 
@@ -44,7 +49,7 @@ func main() {
   broadcastChan := make(chan string,1)
   go handleNewConnections(newConnChan)
   connections := make(map[net.Conn]bool)
-  var counter uint64 = 0
+  var counter int64 = 0
 
   go displayCount(&counter)
 
@@ -54,10 +59,12 @@ func main() {
         connections[newConn] = true
         go listenClient(newConn, broadcastChan)
       case message := <- broadcastChan:
-        for conn, _ := range connections {
-          conn.Write([]byte(message + "\n"))
-          atomic.AddUint64(&counter,1)
-        }
+        //go func() {
+          for conn, _ := range connections {
+            conn.Write([]byte(message + "\n"))
+            atomic.AddInt64(&counter,1)
+          }
+        //}()
     }
   }
 }

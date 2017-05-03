@@ -4,9 +4,10 @@ import "net"
 import "fmt"
 import "sync/atomic"
 import "time"
+import "strconv"
+import "os"
 
 func clientRead(conn net.Conn, counter *uint64) {
-  fmt.Println("Start read")
   for {
     buf := make([]byte, 2048)
     nread, err := conn.Read(buf)
@@ -17,7 +18,6 @@ func clientRead(conn net.Conn, counter *uint64) {
 }
 
 func clientWrite(conn net.Conn, counter *uint64) {
-  fmt.Println("Start write")
   for {
     nwritten, err := conn.Write([]byte("message"))
     if (err == nil && 0 < nwritten) {
@@ -27,7 +27,7 @@ func clientWrite(conn net.Conn, counter *uint64) {
 }
 
 func main() {
-  nb_iter := 10
+  nb_iter, _ := strconv.Atoi(os.Args[1])
   i := 0
   wcounters := make([]uint64,nb_iter)
   rcounters := make([]uint64,nb_iter)
@@ -48,10 +48,13 @@ func main() {
 
   go func(rcounters []uint64, wcounters []uint64, size int) {
     for {
+      var nread uint64
+      var nwrite uint64
       for i := 0; i < nb_iter; i++ {
-        fmt.Printf("(%9d/%9d) ", atomic.LoadUint64(&rcounters[i]), atomic.LoadUint64(&wcounters[i]))
+        nread += atomic.LoadUint64(&rcounters[i])
+        nwrite += atomic.LoadUint64(&wcounters[i])
       }
-      fmt.Printf("\n") 
+      fmt.Printf("R%9d W%9d\n", nread, nwrite) 
       time.Sleep(1*time.Second)
     }
   }(rcounters,wcounters,nb_iter)
