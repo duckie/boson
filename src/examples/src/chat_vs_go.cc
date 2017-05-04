@@ -12,6 +12,7 @@
 #include "iostream"
 #include <fcntl.h>
 #include <signal.h>
+#include <random>
 
 // sudo perf stat -e 'syscalls:sys_enter_epoll*'
 
@@ -73,7 +74,9 @@ int main(int argc, char *argv[]) {
     // Create socket and list to connections
 
     // Main loop
-    std::set<int> conns;
+    //std::set<int> conns;
+    std::vector<int> conns;
+    std::minstd_rand rand(std::random_device{}());
     for (;;) {
       int conn = 0;
       int scheduler = 0;
@@ -81,20 +84,16 @@ int main(int argc, char *argv[]) {
       select_any(                           //
           event_read(new_connection, conn,  //
                      [&](bool) {            //
-                       conns.insert(conn);
-                       start_explicit(++scheduler % 3 + 1, listen_client, conn, messages);
-                       //start(listen_client, conn, messages);
+                       conns.push_back(conn);
+                       //start_explicit(++scheduler % 3 + 1, listen_client, conn, messages);
+                       start(listen_client, conn, messages);
                      }),
           event_read(messages, message,
                      [&](bool) {  //
                        message += "\n";
-                       //start([&conns, &counter](std::string&& message) {
-                         for (auto fd : conns) {
-                           boson::write(fd, message.data(), message.size());
-                           //++counter;
-                           counter.fetch_add(1, std::memory_order_relaxed);
-                         }
-                       //}, std::move(message));
+                       std::uniform_int_distribution<size_t> dist(0, conns.size() - 1);
+                       boson::write(conns[dist(rand)], message.data(), message.size());
+                       counter.fetch_add(1, std::memory_order_relaxed);
                      }));
     };
   });

@@ -4,6 +4,7 @@ import "net"
 import "time"
 import "fmt"
 import "sync/atomic"
+import "math/rand"
 
 func listenClient(clientConn net.Conn, broadcastChan chan string) {
   buf := make([]byte, 2048)
@@ -48,7 +49,7 @@ func main() {
   newConnChan := make(chan net.Conn,1)
   broadcastChan := make(chan string,1)
   go handleNewConnections(newConnChan)
-  connections := make(map[net.Conn]bool)
+  connections := make([]net.Conn,0)
   var counter int64 = 0
 
   go displayCount(&counter)
@@ -56,15 +57,11 @@ func main() {
   for {
     select {
       case newConn := <- newConnChan:
-        connections[newConn] = true
+        connections = append(connections, newConn)
         go listenClient(newConn, broadcastChan)
       case message := <- broadcastChan:
-        //go func() {
-          for conn, _ := range connections {
-            conn.Write([]byte(message + "\n"))
-            atomic.AddInt64(&counter,1)
-          }
-        //}()
+        connections[rand.Intn(len(connections))].Write([]byte(message + "\n"))
+        atomic.AddInt64(&counter,1)
     }
   }
 }
