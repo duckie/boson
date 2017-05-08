@@ -18,7 +18,7 @@
 #include "boson/queues/simple.h"
 #include "boson/queues/lcrq.h"
 #include "boson/queues/vectorized_queue.h"
-#include "netpoller.h"
+#include "boson/internal/netpoller.h"
 #include "routine.h"
 #include "../external/json_backbone.hpp"
 
@@ -105,7 +105,7 @@ struct routine_slot {
  * Thread encapsulates an instance of an real thread
  *
  */
-class thread {
+class thread : public internal::net_event_handler<uint64_t> {
   friend void detail::resume_routine(transfer_t);
   friend void boson::yield();
   friend void boson::usleep(std::chrono::microseconds);
@@ -153,6 +153,7 @@ class thread {
   std::condition_variable blocker_;
   std::mutex blocker_mutex_;
   bool blocker_flag_;
+  netpoller<uint64_t> event_loop_;
 
   engine_queue_t engine_queue_;
   std::atomic<std::size_t> nb_pending_commands_{0};
@@ -184,8 +185,9 @@ class thread {
   /**
    * Struct to store the shared buffer
    *
-   * The shared buffer is a way of the user to use a thread local
-   * buffer for io without having to repeat the memory everywhere
+   * The shared buffer is a way for the user to use a thread local
+   * buffer for io without having to allocate the memory on every
+   * stack
    */
   struct shared_buffer_storage {
     char* buffer;
@@ -193,7 +195,7 @@ class thread {
     ~shared_buffer_storage();
   };
 
-  // Instance of the shared buffer
+  // Instances of the shared buffer
   std::map<std::size_t, shared_buffer_storage> shared_buffers_;
 
   /**
@@ -259,8 +261,11 @@ class thread {
   inline engine const& get_engine() const;
   inline engine& get_engine();
 
-  void read(int fd, void* data, event_status status);
-  void write(int fd, void* data, event_status status);
+  void read(fd_t fd, uint64_t data, event_status status) override;
+  void write(fd_t fd, uint64_t data, event_status status) override;
+  void callback() override;
+  //void read(int fd, void* data, event_status status);
+  //void write(int fd, void* data, event_status status);
 
   // called by engine
   void push_command(thread_id from, std::unique_ptr<thread_command> command);

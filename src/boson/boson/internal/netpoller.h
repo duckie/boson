@@ -4,8 +4,10 @@
 #include "../io_event_loop.h"
 #include "../queues/mpsc.h"
 #include "../utility.h"
-#include "thread.h"
 #include <chrono>
+#include <vector>
+#include <mutex>
+#include <cassert>
 
 namespace boson {
 namespace internal {

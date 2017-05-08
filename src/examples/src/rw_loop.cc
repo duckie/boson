@@ -29,16 +29,18 @@ void router(int source_in, int source_out, int dest_in, int dest_out) {
 
 void consumer(int in, int out) {
   int result = -1;
+  boson::debug::log("C in\n");
   do {
     auto rc = boson::read(in, &result, sizeof(int));
     //assert(0 <= rc);
     if (rc < 0) {
-      boson::debug::log("Error %d %ld %d %s\n", in, rc, errno, ::strerror(errno));
+      boson::debug::log("Error {} {} {} {}\n", in, rc, errno, ::strerror(errno));
       std::terminate();
     }
-    boson::debug::log("C received: %d\n",result);
+    boson::debug::log("C received: {} ({})\n",result, (result < nb_iter - 1));
     boson::write(out, &result, sizeof(int));
   } while (result < nb_iter - 1);
+  boson::debug::log("C out\n");
 }
 
 void set_no_block(int pipe_fd) {
@@ -69,12 +71,12 @@ int main(int argc, char* argv[]) {
     start(consumer, b2c[0], c2b[1]);
   });
 
-  ::close(a2b[1]);
-  ::close(b2a[0]);
-  ::close(a2b[0]);
-  ::close(b2a[1]);
-  ::close(b2c[1]);
-  ::close(c2b[0]);
-  ::close(b2c[0]);
-  ::close(c2b[1]);
+  //::close(a2b[1]);
+  //::close(b2a[0]);
+  //::close(a2b[0]);
+  //::close(b2a[1]);
+  //::close(b2c[1]);
+  //::close(c2b[0]);
+  //::close(b2c[0]);
+  //::close(c2b[1]);
 }

@@ -82,12 +82,13 @@ void thread::handle_engine_event() {
         auto& data  = received_command->data.get<thread_fd_event>();
         int fd = std::get<1>(data);
         if (std::get<3>(data)) {
-          this->read(fd,reinterpret_cast<void*>(std::get<0>(data)), std::get<2>(data));
+          this->read(fd,std::get<0>(data), std::get<2>(data));
         }
         else {
-          this->write(fd,reinterpret_cast<void*>(std::get<0>(data)), std::get<2>(data));
+          this->write(fd,std::get<0>(data), std::get<2>(data));
         }
-        blocker_flag_ = true;
+        //blocker_flag_ = true;
+        event_loop_.interrupt();
       } break;
     }
     //delete received_command;
@@ -118,8 +119,9 @@ int thread::register_read(int fd, routine_slot slot) {
   size_t existing_read = -1;
   auto index = suspended_slots_.allocate();
   suspended_slots_[index] = slot;
-  engine_proxy_.get_engine().event_loop().register_read(
-      fd, (static_cast<uint64_t>(engine_proxy_.get_id()) << 32) | index);
+  //engine_proxy_.get_engine().event_loop().register_read(
+      //fd, (static_cast<uint64_t>(engine_proxy_.get_id()) << 32) | index);
+  event_loop_.register_read(fd, index);
   ++nb_suspended_routines_;
   return existing_read;
 }
@@ -128,8 +130,9 @@ int thread::register_write(int fd, routine_slot slot) {
   size_t existing_write = -1;
   auto index = suspended_slots_.allocate();
   suspended_slots_[index] = slot;
-  engine_proxy_.get_engine().event_loop().register_write(
-      fd, (static_cast<uint64_t>(engine_proxy_.get_id()) << 32) | index);
+  //engine_proxy_.get_engine().event_loop().register_write(
+      //fd, (static_cast<uint64_t>(engine_proxy_.get_id()) << 32) | index);
+  event_loop_.register_write(fd, index);
   ++nb_suspended_routines_;
   return existing_write;
 }
@@ -143,47 +146,51 @@ void thread::unregister_fd(int fd) {
 }
 
 void thread::wakeUp() {
-  {
-    std::unique_lock<std::mutex> lock(blocker_mutex_);
-    blocker_flag_ = true;
-  }
-  blocker_.notify_one();
+  //{
+    //std::unique_lock<std::mutex> lock(blocker_mutex_);
+    //blocker_flag_ = true;
+  //}
+  //blocker_.notify_one();
+  event_loop_.interrupt();
 }
 
 thread::thread(engine& parent_engine)
     : engine_proxy_(parent_engine),
       blocker_flag_{false},
+      event_loop_(*this),
       engine_queue_{} {
   engine_proxy_.set_id();  // Tells the engine which thread id we got
 }
 
 thread::~thread() {}
 
-void thread::read(int fd, void* data, event_status status) {
-  if (suspended_slots_.has(reinterpret_cast<std::size_t>(data))) {
-    auto& slot = suspended_slots_[reinterpret_cast<std::size_t>(data)];
+void thread::read(int fd, uint64_t data, event_status status) {
+  if (suspended_slots_.has(static_cast<std::size_t>(data))) {
+    auto& slot = suspended_slots_[static_cast<std::size_t>(data)];
     bool pointer_is_valid = slot.ptr;
     if (pointer_is_valid) {
-      if (slot.ptr->get()->event_is_a_fd_wait(slot.event_index, fd)) {
+      //if (slot.ptr->get()->event_is_a_fd_wait(slot.event_index, fd)) {
         slot.ptr->get()->event_happened(slot.event_index, status);
-        suspended_slots_.free(reinterpret_cast<std::size_t>(data));
-      }
+        suspended_slots_.free(static_cast<std::size_t>(data));
+      //}
     }
   }
 }
 
-void thread::write(int fd, void* data, event_status status) {
-  if (suspended_slots_.has(reinterpret_cast<std::size_t>(data))) {
-    auto& slot = suspended_slots_[reinterpret_cast<std::size_t>(data)];
+void thread::write(int fd, uint64_t data, event_status status) {
+  if (suspended_slots_.has(static_cast<std::size_t>(data))) {
+    auto& slot = suspended_slots_[static_cast<std::size_t>(data)];
     bool pointer_is_valid = slot.ptr;
     if (pointer_is_valid) {
-      if (slot.ptr->get()->event_is_a_fd_wait(slot.event_index, fd)) {
+      //if (slot.ptr->get()->event_is_a_fd_wait(slot.event_index, fd)) {
         slot.ptr->get()->event_happened(slot.event_index, status);
-        suspended_slots_.free(reinterpret_cast<std::size_t>(data));
-      }
+        suspended_slots_.free(static_cast<std::size_t>(data));
+      //}
     }
   }
 }
+
+void thread::callback() {}
 
 // called by engine
 void thread::push_command(thread_id from, std::unique_ptr<thread_command> command) {
@@ -276,7 +283,8 @@ bool thread::execute_scheduled_routines() {
         }
         return false;
       } else {
-        blocker_flag_ = true;
+        //blocker_flag_ = true;
+        event_loop_.interrupt();
         return true;
       }
     } else {
@@ -312,28 +320,38 @@ void thread::loop() {
       }
     }
     
-    auto status = std::cv_status::no_timeout;
-    if (timeout_ms != 0) 
-    {
-      std::unique_lock<std::mutex> lock(blocker_mutex_);
-      if (timeout_ms == -1)
-        blocker_.wait(lock, [this]() {
-          return this->blocker_flag_;
-        });
-      else
-        status = blocker_.wait_for(lock, std::chrono::milliseconds(timeout_ms), [this]() {
-          return this->blocker_flag_;
-        }) ?  std::cv_status::no_timeout : std::cv_status::timeout;
-      blocker_flag_ = false;
-    }
+    //auto status = std::cv_status::no_timeout;
+    //if (timeout_ms != 0) 
+    //{
+      //std::unique_lock<std::mutex> lock(blocker_mutex_);
+      //if (timeout_ms == -1)
+        //blocker_.wait(lock, [this]() {
+          //return this->blocker_flag_;
+        //});
+      //else
+        //status = blocker_.wait_for(lock, std::chrono::milliseconds(timeout_ms), [this]() {
+          //return this->blocker_flag_;
+        //}) ?  std::cv_status::no_timeout : std::cv_status::timeout;
+      //blocker_flag_ = false;
+    //}
+    auto status = event_loop_.loop(1, timeout_ms);
     if (0 < nb_pending_commands_.load(std::memory_order_acquire)) {
       handle_engine_event();
     }
-    switch (status) {
-      case std::cv_status::no_timeout:
+    //switch (status) {
+      //case std::cv_status::no_timeout:
+        //break;
+      //case std::cv_status::timeout:
+        //fire_timed_out_routines = true;
+        //break;
+    //}
+    switch(status) {
+      case io_loop_end_reason::max_iter_reached:
         break;
-      case std::cv_status::timeout:
+      case io_loop_end_reason::timed_out:
         fire_timed_out_routines = true;
+        break;
+      case io_loop_end_reason::error_occured:
         break;
     }
 
