@@ -33,7 +33,7 @@ socket_t create_listening_socket(
 
   // re use socket
   int yes = 1;
-  if (::setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1)
+  if (::setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0)
     throw boson::exception("setsockopt");
 
   // bind it

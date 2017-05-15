@@ -150,10 +150,10 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
     std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
     waiters_[fd].read_data = value;
     waiters_[fd].read_enabled = true;
-    if (waiters_[fd].read_missed) {
-      waiters_[fd].read_missed = false;
-      handler_.read( fd, value, 0);  // TODO: handle error here
-    }
+    //if (waiters_[fd].read_missed) {
+      //waiters_[fd].read_missed = false;
+      //handler_.read( fd, value, 0);  // TODO: handle error here
+    //}
   }
 
   /**
@@ -166,10 +166,10 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
     std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
     waiters_[fd].write_data = value;
     waiters_[fd].write_enabled = true;
-    if (waiters_[fd].write_missed) {
-      waiters_[fd].write_missed = false;
-      handler_.write( fd, value, 0);  // TODO: handle error here
-    }
+    //if (waiters_[fd].write_missed) {
+      //waiters_[fd].write_missed = false;
+      //handler_.write( fd, value, 0);  // TODO: handle error here
+    //}
   }
 
   /**

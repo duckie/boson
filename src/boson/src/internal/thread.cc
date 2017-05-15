@@ -63,6 +63,7 @@ void thread::handle_engine_event() {
         break;
       case thread_command_type::schedule_waiting_routine: {
         auto& data = received_command->data.get<std::pair<std::weak_ptr<semaphore>, std::size_t>>();
+        debug::log("Tries {}", data.second);
         auto& shared_routine = suspended_slots_[data.second];
         // If not previously invalidated by a timeout
         if (shared_routine.ptr) {
@@ -73,6 +74,7 @@ void thread::handle_engine_event() {
           if (sema_pointer)
             sema_pointer->pop_a_waiter(this);
         }
+        debug::log("T Frees {}",data.second);
         suspended_slots_.free(data.second);
       } break;
       case thread_command_type::finish:
@@ -169,6 +171,8 @@ void thread::read(int fd, uint64_t data, event_status status) {
     auto& slot = suspended_slots_[static_cast<std::size_t>(data)];
     bool pointer_is_valid = slot.ptr;
     if (pointer_is_valid) {
+        int status = static_cast<int>(slot.ptr->get()->status());
+        (void)status;
       //if (slot.ptr->get()->event_is_a_fd_wait(slot.event_index, fd)) {
         slot.ptr->get()->event_happened(slot.event_index, status);
         suspended_slots_.free(static_cast<std::size_t>(data));

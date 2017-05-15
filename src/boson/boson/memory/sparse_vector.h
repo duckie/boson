@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <vector>
 #include <cassert>
+#include "../logger.h"
 
 namespace boson {
 namespace memory {
@@ -82,6 +83,7 @@ class sparse_vector {
       // No free cell available,have to allocate
       data_.emplace_back();
       free_cells_.emplace_back(-1);
+      debug::log("Allocate {}",data_.size() - 1);
       return data_.size() - 1;
     } else {
       int cell_index = first_free_cell_;
@@ -91,6 +93,7 @@ class sparse_vector {
 //#endif
       first_free_cell_ = free_cells_[cell_index];
       free_cells_[cell_index] = -1;
+      debug::log("Allocate {}",cell_index);
       return cell_index;
     }
   }
@@ -99,6 +102,7 @@ class sparse_vector {
    * free frees a cell in constant time
    */
   void free(std::size_t index) {
+      debug::log("Frees {}",index);
 //#ifndef NDEBUG
     if (-1 == last_free_cell_)
       last_free_cell_ = index;

@@ -1,18 +1,20 @@
-#include <iostream>
-#include <chrono>
-#include <set>
-#include <string>
-#include <atomic>
 #include "boson/boson.h"
+#include "boson/logger.h"
 #include "boson/channel.h"
 #include "boson/net/socket.h"
 #include "boson/select.h"
 #include "boson/shared_buffer.h"
 #include "fmt/format.h"
 #include "iostream"
+#include <atomic>
+#include <chrono>
 #include <fcntl.h>
-#include <signal.h>
+#include <iostream>
+#include <netinet/tcp.h>
 #include <random>
+#include <set>
+#include <signal.h>
+#include <string>
 
 // sudo perf stat -e 'syscalls:sys_enter_epoll*'
 
@@ -25,9 +27,10 @@ void listen_client(int fd, channel<std::string, 5> msg_chan) {
     ssize_t nread = boson::read(fd, buffer.data(), buffer.size());
     if (nread <= 1) {
       boson::close(fd);
+      std::terminate();
       return;
     }
-    std::string message(buffer.data(), nread - 2);
+    std::string message(buffer.data(), nread);
     if (message == "quit") {
       boson::close(fd);
       return;
@@ -37,12 +40,15 @@ void listen_client(int fd, channel<std::string, 5> msg_chan) {
 }
 
 void handleNewConnections(boson::channel<int, 5> newConnChan) {
+  int yes = 1;
   int sockfd = net::create_listening_socket(8080);
   struct sockaddr_in cli_addr;
   socklen_t clilen = sizeof(cli_addr);
   for (;;) {
     int newFd = boson::accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
     if (0 <= newFd) {
+      if (::setsockopt(newFd, IPPROTO_TCP, TCP_NODELAY, &yes, sizeof(yes)) < 0)
+        throw boson::exception("setsockopt");
       newConnChan << newFd;
     }
   }
@@ -62,9 +68,10 @@ void displayCounter(std::atomic<uint64_t>* counter) {
 }
 
 int main(int argc, char *argv[]) {
+  boson::debug::logger_instance(&std::cout);
   struct sigaction action {SIG_IGN,0,0};
   ::sigaction(SIGPIPE, &action, nullptr);
-  boson::run(4, []() {
+  boson::run(1, []() {
     channel<int, 5> new_connection;
     channel<std::string, 5> messages;
     std::atomic<uint64_t> counter {0};
@@ -89,11 +96,15 @@ int main(int argc, char *argv[]) {
                        start(listen_client, conn, messages);
                      }),
           event_read(messages, message,
-                     [&](bool) {  //
-                       message += "\n";
-                       std::uniform_int_distribution<size_t> dist(0, conns.size() - 1);
-                       boson::write(conns[dist(rand)], message.data(), message.size());
-                       counter.fetch_add(1, std::memory_order_relaxed);
+                     [&](bool result) {  //
+                       if (result) {
+                         message += "\n";
+                         std::uniform_int_distribution<size_t> dist(0, conns.size() - 1);
+                         ssize_t rc = boson::write(conns[dist(rand)], message.data(), message.size());
+                         if (rc < 0)
+                          std::terminate();
+                         counter.fetch_add(1, std::memory_order_relaxed);
+                       }
                      }));
     };
   });
