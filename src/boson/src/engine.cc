@@ -72,7 +72,7 @@ void engine::wait_all_routines() {
     //});
     while (0 != this->nb_active_threads_ &&
            0 == this->command_pushers_.load(std::memory_order_acquire)) {
-      event_loop_.loop(1, -1);
+      event_loop_.wait(-1);
     }
   }
 }

@@ -53,6 +53,7 @@ void engine_proxy::set_id() {
 }
 
 void thread::handle_engine_event() {
+  debug::log("Flush queue");
   std::unique_ptr<thread_command> received_command;
   while (engine_queue_.read(received_command)) {
     nb_pending_commands_.fetch_sub(1);
@@ -71,8 +72,10 @@ void thread::handle_engine_event() {
         }
         else {
           auto sema_pointer = data.first.lock();
-          if (sema_pointer)
+          if (sema_pointer) {
             sema_pointer->pop_a_waiter(this);
+            debug::log("Pops");
+          }
         }
         debug::log("T Frees {}",data.second);
         suspended_slots_.free(data.second);
@@ -96,6 +99,7 @@ void thread::handle_engine_event() {
     //delete received_command;
     //received_command.reset(nullptr);
   }
+  debug::log("Flush queue end");
 }
 
 void thread::unregister_all_events() {
@@ -173,7 +177,9 @@ void thread::read(int fd, uint64_t data, event_status status) {
     if (pointer_is_valid) {
         int status = static_cast<int>(slot.ptr->get()->status());
         (void)status;
+      assert(slot.ptr->get()->event_is_a_fd_wait(slot.event_index, fd));
       //if (slot.ptr->get()->event_is_a_fd_wait(slot.event_index, fd)) {
+        event_loop_.unregister_read(fd);
         slot.ptr->get()->event_happened(slot.event_index, status);
         suspended_slots_.free(static_cast<std::size_t>(data));
       //}
@@ -186,7 +192,9 @@ void thread::write(int fd, uint64_t data, event_status status) {
     auto& slot = suspended_slots_[static_cast<std::size_t>(data)];
     bool pointer_is_valid = slot.ptr;
     if (pointer_is_valid) {
+      assert(slot.ptr->get()->event_is_a_fd_wait(slot.event_index, fd));
       //if (slot.ptr->get()->event_is_a_fd_wait(slot.event_index, fd)) {
+        event_loop_.unregister_write(fd);
         slot.ptr->get()->event_happened(slot.event_index, status);
         suspended_slots_.free(static_cast<std::size_t>(data));
       //}
@@ -338,7 +346,7 @@ void thread::loop() {
         //}) ?  std::cv_status::no_timeout : std::cv_status::timeout;
       //blocker_flag_ = false;
     //}
-    auto status = event_loop_.loop(1, timeout_ms);
+    auto status = event_loop_.wait(timeout_ms);
     if (0 < nb_pending_commands_.load(std::memory_order_acquire)) {
       handle_engine_event();
     }

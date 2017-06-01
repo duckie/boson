@@ -79,10 +79,9 @@ void io_event_loop::send_fd_panic(int proc_from,int fd) {
   interrupt();
 }
 
-io_loop_end_reason io_event_loop::loop(int max_iter, int timeout_ms) {
-  bool forever = (-1 == max_iter);
+io_loop_end_reason io_event_loop::wait(int timeout_ms) {
   bool retry = false;
-  for (size_t index = 0; index < static_cast<size_t>(max_iter) || forever || retry; ++index) {
+  do {
     int return_code = 0;
     retry = false;
     return_code = ::epoll_wait(loop_fd_, events_.data(), events_.size(), timeout_ms);
@@ -135,7 +134,7 @@ io_loop_end_reason io_event_loop::loop(int max_iter, int timeout_ms) {
           handler_.closed(current_command.fd);
       }
     }
-  }
+  } while(retry);
   return io_loop_end_reason::max_iter_reached;
 }
 }

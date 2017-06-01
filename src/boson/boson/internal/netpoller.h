@@ -19,7 +19,7 @@ struct netpoller_platform_impl {
   ~netpoller_platform_impl();
   void register_fd(fd_t fd);
   void unregister(fd_t fd);
-  io_loop_end_reason loop(int nb_iter, int timeout_ms);
+  io_loop_end_reason wait(int timeout_ms);
   void interrupt();
 
   static size_t get_max_fds();
@@ -65,7 +65,7 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
 
   void dispatchRead(fd_t fd, event_status status) {
     auto& current_data = waiters_[fd];
-    std::lock_guard<std::mutex> read_guard(current_data.read_lock);
+    //std::lock_guard<std::mutex> read_guard(current_data.read_lock);
     if (current_data.read_enabled) {
       handler_.read(fd, current_data.read_data, status);
       current_data.read_enabled = false;
@@ -76,7 +76,7 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
 
   void dispatchWrite(fd_t fd, event_status status) {
     auto& current_data = waiters_[fd];
-    std::lock_guard<std::mutex> write_guard(current_data.write_lock);
+    //std::lock_guard<std::mutex> write_guard(current_data.write_lock);
     if (current_data.write_enabled) {
       handler_.write(fd, current_data.write_data, status);
       current_data.write_enabled = false;
@@ -117,13 +117,13 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   void signal_new_fd(fd_t fd) {
     netpoller_platform_impl::register_fd(fd);
     { 
-      std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
+      //std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
       waiters_[fd].read_missed = false;
       waiters_[fd].read_enabled = false;
       waiters_[fd].read_data = -1;
     }
     {
-      std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
+      //std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
       waiters_[fd].write_missed = false;
       waiters_[fd].write_enabled = false;
       waiters_[fd].write_data = -1;
@@ -147,7 +147,7 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    */
   void register_read(fd_t fd, Data value) {
     assert(0 <= fd);
-    std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
+    //std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
     waiters_[fd].read_data = value;
     waiters_[fd].read_enabled = true;
     //if (waiters_[fd].read_missed) {
@@ -163,7 +163,7 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    */
   void register_write(fd_t fd, Data value) {
     assert(0 <= fd);
-    std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
+    //std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
     waiters_[fd].write_data = value;
     waiters_[fd].write_enabled = true;
     //if (waiters_[fd].write_missed) {
@@ -179,7 +179,7 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    */
   void unregister_read(fd_t fd) {
     assert(0 <= fd);
-    std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
+    //std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
     waiters_[fd].read_enabled = false;
     waiters_[fd].read_data = -1;
   }
@@ -191,7 +191,7 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    */
   void unregister_write(fd_t fd) {
     assert(0 <= fd);
-    std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
+    //std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
     waiters_[fd].write_enabled = false;
     waiters_[fd].write_data = -1;
   }
@@ -202,45 +202,39 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    * The timeout is repeated for every iteration. With nb_iter < 0, it 
    * can be used as a kind of GC to be sure to unqueue requests
    */
-  io_loop_end_reason loop(int nb_iter = -1, int timeout_ms = -1) {
-    int current_iter = 0;
-    while (current_iter < nb_iter || nb_iter < 0) {
-      // Loop once
-      auto end_reason = netpoller_platform_impl::loop(nb_iter, timeout_ms);
+  io_loop_end_reason wait(int timeout_ms = -1) {
+    // Loop once
+    auto end_reason = netpoller_platform_impl::wait(timeout_ms);
 
-      // Tells the handler we looped
-      handler_.callback();
+    // Tells the handler we looped
+    handler_.callback();
 
-      switch (end_reason) {
-        case io_loop_end_reason::max_iter_reached:
-          break;
-        case io_loop_end_reason::timed_out:
-        case io_loop_end_reason::error_occured:
-          return end_reason;
-      }
-
-      ++current_iter;
+    switch (end_reason) {
+      case io_loop_end_reason::max_iter_reached:
+        break;
+      case io_loop_end_reason::timed_out:
+      case io_loop_end_reason::error_occured:
+        return end_reason;
     }
-
     return io_loop_end_reason::max_iter_reached;
   }
 
   bool get_read_data(fd_t fd, Data& data) {
-    std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
+    //std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
     data = waiters_[fd].read_data;
     return waiters_[fd].read_enabled;
   }
 
   bool get_write_data(fd_t fd, Data& data) {
-    std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
+    //std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
     data = waiters_[fd].write_data;
     return waiters_[fd].write_enabled;
   }
 
   template <class Duration>
-  io_loop_end_reason loop(int nb_iter, Duration&& duration) {
-    return this->loop(
-        nb_iter, std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
+  io_loop_end_reason wait(Duration&& duration) {
+    return this->wait(
+        std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
   }
 };
 

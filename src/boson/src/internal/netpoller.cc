@@ -22,8 +22,8 @@ void netpoller_platform_impl::unregister(fd_t fd)
   loop_->unregister(fd);
 }
 
-io_loop_end_reason netpoller_platform_impl::loop(int nb_iter, int timeout_ms) {
-  return loop_->loop(nb_iter, timeout_ms);
+io_loop_end_reason netpoller_platform_impl::wait(int timeout_ms) {
+  return loop_->wait(timeout_ms);
 }
 
 void netpoller_platform_impl::interrupt() {
