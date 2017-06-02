@@ -53,7 +53,6 @@ void engine_proxy::set_id() {
 }
 
 void thread::handle_engine_event() {
-  debug::log("Flush queue");
   std::unique_ptr<thread_command> received_command;
   while (engine_queue_.read(received_command)) {
     nb_pending_commands_.fetch_sub(1);
@@ -64,7 +63,6 @@ void thread::handle_engine_event() {
         break;
       case thread_command_type::schedule_waiting_routine: {
         auto& data = received_command->data.get<std::pair<std::weak_ptr<semaphore>, std::size_t>>();
-        debug::log("Tries {}", data.second);
         auto& shared_routine = suspended_slots_[data.second];
         // If not previously invalidated by a timeout
         if (shared_routine.ptr) {
@@ -74,16 +72,15 @@ void thread::handle_engine_event() {
           auto sema_pointer = data.first.lock();
           if (sema_pointer) {
             sema_pointer->pop_a_waiter(this);
-            debug::log("Pops");
           }
+          suspended_slots_.free(data.second);
         }
-        debug::log("T Frees {}",data.second);
-        suspended_slots_.free(data.second);
       } break;
       case thread_command_type::finish:
         status_ = thread_status::finishing;
         break;
       case thread_command_type::fd_ready: {
+        assert(false);
         auto& data  = received_command->data.get<thread_fd_event>();
         int fd = std::get<1>(data);
         if (std::get<3>(data)) {
@@ -99,7 +96,6 @@ void thread::handle_engine_event() {
     //delete received_command;
     //received_command.reset(nullptr);
   }
-  debug::log("Flush queue end");
 }
 
 void thread::unregister_all_events() {
@@ -264,8 +260,9 @@ bool thread::execute_scheduled_routines() {
   auto first_timed_routines = begin(timed_routines_);
   while (first_timed_routines != end(timed_routines_) && first_timed_routines->second.nb_active == 0) {
     // Clean up suspended vector
-    for (auto index : first_timed_routines->second.slots)
+    for (auto index : first_timed_routines->second.slots) {
       suspended_slots_.free(index);
+    }
     // Delete full record
     first_timed_routines = timed_routines_.erase(first_timed_routines);
   }

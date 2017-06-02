@@ -44,7 +44,6 @@ void routine::add_semaphore_wait(semaphore* sema) {
   events_.back().data.get<routine_sema_event_data>().slot_index = slot_index;
   int result = sema->counter_.fetch_add(1,std::memory_order_release);
   if (0 <= result) {
-    debug::log("Immediate pop");
     sema->pop_a_waiter(thread_);
   }
 }
@@ -142,6 +141,7 @@ bool routine::event_happened(std::size_t index, event_status status) {
     case event_type::sema_wait: {
       --thread_->nb_suspended_routines_;
       auto sema = event.data.get<routine_sema_event_data>().sema;
+      thread_->unregister_expired_slot(event.data.get<routine_sema_event_data>().slot_index);
       int result = sema->counter_.fetch_sub(1,std::memory_order_acquire);
       if (semaphore::disabling_threshold < result) {
         sema->counter_.fetch_add(1,std::memory_order_relaxed);
@@ -157,7 +157,6 @@ bool routine::event_happened(std::size_t index, event_status status) {
         event.data.get<routine_sema_event_data>().index = sema->write(thread_, slot_index);
         result = sema->counter_.fetch_add(1, std::memory_order_release);
         if (0 <= result) {
-          debug::log("Failure pop");
           sema->pop_a_waiter(thread_);
         }
         return false;
@@ -243,7 +242,7 @@ void routine::resume(thread* managing_thread) {
     }
     default:
       // Not supposed to happen
-      boson::debug::log("Routine has status {}.", static_cast<int>(status_));
+      //boson::debug::log("Routine has status {}.", static_cast<int>(status_));
       assert(false);
       break;
   }

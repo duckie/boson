@@ -48,7 +48,7 @@ TEST_CASE("IO Event Loop - Event notification", "[ioeventloop][notif]") {
   // events
   for (int index=0; index < 2; ++index) {
     std::thread t1{[&loop]() { 
-      loop.loop(1);
+      loop.wait();
     }};
     loop.interrupt();
     t1.join();
@@ -69,7 +69,7 @@ TEST_CASE("IO Event Loop - FD Read/Write", "[ioeventloop][read/write]") {
   boson::io_event_loop loop(handler_instance,1);
 
   std::thread t1{[&loop]() { 
-    loop.loop(1);
+    loop.wait();
   }};
 
   loop.register_fd(pipe_fds[0]);
@@ -80,7 +80,7 @@ TEST_CASE("IO Event Loop - FD Read/Write", "[ioeventloop][read/write]") {
   CHECK(handler_instance.last_status == 0);
 
   std::thread t2{[&loop]() { 
-    loop.loop(1);
+    loop.wait();
   }};
   size_t data{1};
   ::write(pipe_fds[1], &data, sizeof(size_t));
@@ -101,7 +101,7 @@ TEST_CASE("IO Event Loop - FD Read/Write same FD", "[ioeventloop][read/write]") 
   boson::io_event_loop loop(handler_instance,1);
   loop.register_fd(sv[0]);
 
-  loop.loop(1);
+  loop.wait();
   CHECK(handler_instance.last_read_fd == -1);
   CHECK(handler_instance.last_write_fd == sv[0]);
   CHECK(handler_instance.last_status == 0);
@@ -111,7 +111,7 @@ TEST_CASE("IO Event Loop - FD Read/Write same FD", "[ioeventloop][read/write]") 
   size_t data{1};
   ::send(sv[1],&data, sizeof(size_t),0);
   handler_instance.last_write_fd = -1;
-  loop.loop(1);
+  loop.wait();
   CHECK(handler_instance.last_read_fd == sv[0]);
   CHECK(handler_instance.last_write_fd == sv[0]);
   CHECK(handler_instance.last_status == 0);
@@ -133,12 +133,12 @@ TEST_CASE("IO Event Loop - FD Panic Read/Write", "[ioeventloop][panic]") {
   boson::io_event_loop loop(handler_instance,1);
   loop.register_fd(pipe_fds[0]);
 
-  loop.loop(1,0);
+  loop.wait(0);
   CHECK(handler_instance.last_read_fd == -1);
 
   loop.unregister(pipe_fds[0]);
   loop.interrupt();  // Its is unregister caller responsibility to call "interrupt"
-  loop.loop(1);
+  loop.wait();
   CHECK(handler_instance.last_read_fd == pipe_fds[0]);
   CHECK(handler_instance.last_write_fd == pipe_fds[0]);
   CHECK(handler_instance.last_status == EBADF);

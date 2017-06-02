@@ -40,7 +40,7 @@ TEST_CASE("Netpoller - FD Read/Write", "[netpoller][read/write]") {
 
   // Test 1
   std::thread t1{[&loop]() { 
-    loop.loop(1);
+    loop.wait();
   }};
   loop.signal_new_fd(pipe_fds[0]);
   loop.signal_new_fd(pipe_fds[1]);
@@ -52,7 +52,7 @@ TEST_CASE("Netpoller - FD Read/Write", "[netpoller][read/write]") {
 
   // Test 2
   std::thread t2{[&loop]() { 
-    loop.loop(1);
+    loop.wait();
   }};
   size_t data{1};
   ::write(pipe_fds[1], &data, sizeof(size_t));
@@ -74,7 +74,7 @@ TEST_CASE("Netpoller - FD Read/Write same FD", "[netpoller][read/write]") {
   loop.register_read(sv[0], 1);
   loop.register_write(sv[0], 2);
 
-  loop.loop(1,0);
+  loop.wait(0);
   CHECK(handler_instance.last_read_fd == -1);
   CHECK(handler_instance.last_write_fd == 2);
   CHECK(handler_instance.last_status == 0);
@@ -84,14 +84,14 @@ TEST_CASE("Netpoller - FD Read/Write same FD", "[netpoller][read/write]") {
   ::send(sv[1],&data, sizeof(size_t),0);
   handler_instance.last_write_fd = -1;
   loop.unregister_write(sv[0]);
-  loop.loop(1);
+  loop.wait();
   CHECK(handler_instance.last_read_fd == 1);
   CHECK(handler_instance.last_write_fd == -1);  // This is unexpected but a write event happens here
   CHECK(handler_instance.last_status == 0);
 
   handler_instance.last_read_fd = -1;
   handler_instance.last_write_fd = -1;
-  loop.loop(1,0);
+  loop.wait(0);
   CHECK(handler_instance.last_read_fd == -1);
   CHECK(handler_instance.last_write_fd == -1);
   CHECK(handler_instance.last_status == 0);
@@ -104,7 +104,7 @@ TEST_CASE("Netpoller - FD Read/Write same FD", "[netpoller][read/write]") {
 
   loop.register_read(sv[0], 1);
   loop.register_write(sv[0], 2);
-  loop.loop(1,0);
+  loop.wait(0);
   CHECK(handler_instance.last_read_fd == 1);
   CHECK(handler_instance.last_write_fd == 2);
   CHECK(handler_instance.last_status == -EBADF);

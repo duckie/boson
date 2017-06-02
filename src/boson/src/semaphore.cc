@@ -25,7 +25,6 @@ bool semaphore::pop_a_waiter(internal::thread* current) {
     waiting_unit_t waiter;
     if (read(waiter)) {
       thread* managing_thread = waiter.first;
-      debug::log("Pop a waiter index {}", waiter.second);
       managing_thread->push_command(
           current->id(), std::make_unique<thread_command>(
                              thread_command_type::schedule_waiting_routine,
@@ -104,7 +103,6 @@ semaphore_result semaphore::post() {
   }
   else if(0 <= result) {
     // We may not gotten in the middle of a wait, so we cant avoid to try a pop
-    //debug::log("Internal pops");
     pop_a_waiter(internal::current_thread());
   }
   // We do not yield, this is the wait purpose
