@@ -45,10 +45,6 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   net_event_handler<Data>& handler_;
 
   struct fd_data {
-    std::mutex read_lock; // TODO Replace byt bitmasked atomic data
-    std::mutex write_lock; // TODO Replace byt bitmasked atomic data
-    bool read_missed;
-    bool write_missed;
     bool read_enabled;
     bool write_enabled;
     Data read_data;
@@ -65,24 +61,18 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
 
   void dispatchRead(fd_t fd, event_status status) {
     auto& current_data = waiters_[fd];
-    //std::lock_guard<std::mutex> read_guard(current_data.read_lock);
     if (current_data.read_enabled) {
       handler_.read(fd, current_data.read_data, status);
       current_data.read_enabled = false;
     }
-    else
-      current_data.read_missed = true;
   }
 
   void dispatchWrite(fd_t fd, event_status status) {
     auto& current_data = waiters_[fd];
-    //std::lock_guard<std::mutex> write_guard(current_data.write_lock);
     if (current_data.write_enabled) {
       handler_.write(fd, current_data.write_data, status);
       current_data.write_enabled = false;
     }
-    else
-      current_data.write_missed = true;
   }
 
  public:
@@ -117,14 +107,10 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   void signal_new_fd(fd_t fd) {
     netpoller_platform_impl::register_fd(fd);
     { 
-      //std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
-      waiters_[fd].read_missed = false;
       waiters_[fd].read_enabled = false;
       waiters_[fd].read_data = -1;
     }
     {
-      //std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
-      waiters_[fd].write_missed = false;
       waiters_[fd].write_enabled = false;
       waiters_[fd].write_data = -1;
     }
@@ -147,13 +133,8 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    */
   void register_read(fd_t fd, Data value) {
     assert(0 <= fd);
-    //std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
     waiters_[fd].read_data = value;
     waiters_[fd].read_enabled = true;
-    //if (waiters_[fd].read_missed) {
-      //waiters_[fd].read_missed = false;
-      //handler_.read( fd, value, 0);  // TODO: handle error here
-    //}
   }
 
   /**
@@ -163,13 +144,8 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    */
   void register_write(fd_t fd, Data value) {
     assert(0 <= fd);
-    //std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
     waiters_[fd].write_data = value;
     waiters_[fd].write_enabled = true;
-    //if (waiters_[fd].write_missed) {
-      //waiters_[fd].write_missed = false;
-      //handler_.write( fd, value, 0);  // TODO: handle error here
-    //}
   }
 
   /**
@@ -179,7 +155,6 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    */
   void unregister_read(fd_t fd) {
     assert(0 <= fd);
-    //std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
     waiters_[fd].read_enabled = false;
     waiters_[fd].read_data = -1;
   }
@@ -191,7 +166,6 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    */
   void unregister_write(fd_t fd) {
     assert(0 <= fd);
-    //std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
     waiters_[fd].write_enabled = false;
     waiters_[fd].write_data = -1;
   }
@@ -220,13 +194,11 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   }
 
   bool get_read_data(fd_t fd, Data& data) {
-    //std::lock_guard<std::mutex> read_guard(waiters_[fd].read_lock);
     data = waiters_[fd].read_data;
     return waiters_[fd].read_enabled;
   }
 
   bool get_write_data(fd_t fd, Data& data) {
-    //std::lock_guard<std::mutex> write_guard(waiters_[fd].write_lock);
     data = waiters_[fd].write_data;
     return waiters_[fd].write_enabled;
   }

@@ -23,9 +23,8 @@ size_t io_event_loop::get_max_fds() {
 io_event_loop::io_event_loop(io_event_handler& handler, int nprocs)
     : handler_{handler},
       loop_fd_{epoll_create1(0)},
-      loop_breaker_event_{-1}
+      loop_breaker_event_{::eventfd(0,0)}
 {
-  loop_breaker_event_ = ::eventfd(0,0);
   epoll_event_t new_event{ EPOLLIN | EPOLLET | EPOLLRDHUP, {}};
   new_event.data.fd = loop_breaker_event_;
   int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, loop_breaker_event_, &new_event);
@@ -45,7 +44,6 @@ io_event_loop::~io_event_loop() {
 void  io_event_loop::interrupt() {
   size_t buffer{1};
   ssize_t nb_bytes = ::write(loop_breaker_event_, &buffer, 8u);
-  debug::log("Breaking loop {}", loop_breaker_event_);
   if (nb_bytes < 0) {
     throw exception(std::string("Syscall error (write): ") + strerror(errno));
   }

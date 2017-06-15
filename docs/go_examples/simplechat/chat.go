@@ -55,7 +55,7 @@ func main() {
 
   go displayCount(&counter)
 
-  for cumulatedCounter < 1e7 {
+  for cumulatedCounter < 1e6 {
     select {
       case newConn := <- newConnChan:
         connections = append(connections, newConn)

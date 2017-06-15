@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
     size_t cumulatedCounter = 0;
     std::vector<int> conns;
     std::minstd_rand rand(std::random_device{}());
-    while(cumulatedCounter < 1e7) {
+    while(cumulatedCounter < 1e6) {
       int conn = 0;
       int scheduler = 0;
       std::string message;
