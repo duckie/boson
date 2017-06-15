@@ -51,10 +51,11 @@ func main() {
   go handleNewConnections(newConnChan)
   connections := make([]net.Conn,0)
   var counter int64 = 0
+  var cumulatedCounter int64 = 0
 
   go displayCount(&counter)
 
-  for {
+  for cumulatedCounter < 1e7 {
     select {
       case newConn := <- newConnChan:
         connections = append(connections, newConn)
@@ -62,6 +63,7 @@ func main() {
       case message := <- broadcastChan:
         connections[rand.Intn(len(connections))].Write([]byte(message + "\n"))
         atomic.AddInt64(&counter,1)
+        cumulatedCounter += 1
     }
   }
 }

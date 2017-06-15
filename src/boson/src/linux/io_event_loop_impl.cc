@@ -45,6 +45,7 @@ io_event_loop::~io_event_loop() {
 void  io_event_loop::interrupt() {
   size_t buffer{1};
   ssize_t nb_bytes = ::write(loop_breaker_event_, &buffer, 8u);
+  debug::log("Breaking loop {}", loop_breaker_event_);
   if (nb_bytes < 0) {
     throw exception(std::string("Syscall error (write): ") + strerror(errno));
   }
@@ -92,7 +93,8 @@ io_loop_end_reason io_event_loop::wait(int timeout_ms) {
     else if (return_code < 0) {
       switch (errno) {
         case EINTR:
-          throw exception(std::string("Syscall error (epoll_wait) EINTR : ") + ::strerror(errno));
+          //throw exception(std::string("Syscall error (epoll_wait) EINTR : ") + ::strerror(errno));
+          retry = true;
           break;
         case EBADF:
           throw exception(std::string("Syscall error (epoll_wait) EBADF : ") + std::to_string(loop_fd_) + ::strerror(errno));

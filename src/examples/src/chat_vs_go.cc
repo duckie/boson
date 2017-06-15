@@ -27,7 +27,7 @@ void listen_client(int fd, channel<std::string, 5> msg_chan) {
     ssize_t nread = boson::read(fd, buffer.data(), buffer.size());
     if (nread <= 1) {
       boson::close(fd);
-      std::terminate();
+      std::exit(1);
       return;
     }
     std::string message(buffer.data(), nread);
@@ -58,6 +58,7 @@ void displayCounter(std::atomic<uint64_t>* counter) {
   using namespace std::chrono;
   auto latest = high_resolution_clock::now();
   milliseconds step_duration {1000};
+  //for (int i = 0;i < 60; ++i) {
   for (;;) {
     ::printf("%lu\n",counter->exchange(0,std::memory_order_relaxed)*1000/step_duration.count());
     boson::sleep(1000ms);
@@ -65,6 +66,7 @@ void displayCounter(std::atomic<uint64_t>* counter) {
     step_duration = duration_cast<milliseconds>(current - latest);
     latest = current;
   }
+  std::exit(0);
 }
 
 int main(int argc, char *argv[]) {
@@ -82,9 +84,10 @@ int main(int argc, char *argv[]) {
 
     // Main loop
     //std::set<int> conns;
+    size_t cumulatedCounter = 0;
     std::vector<int> conns;
     std::minstd_rand rand(std::random_device{}());
-    for (;;) {
+    while(cumulatedCounter < 1e7) {
       int conn = 0;
       int scheduler = 0;
       std::string message;
@@ -102,10 +105,12 @@ int main(int argc, char *argv[]) {
                          std::uniform_int_distribution<size_t> dist(0, conns.size() - 1);
                          ssize_t rc = boson::write(conns[dist(rand)], message.data(), message.size());
                          if (rc < 0)
-                          std::terminate();
-                         counter.fetch_add(1, std::memory_order_relaxed);
+                          std::exit(1);
+                         auto value = counter.fetch_add(1, std::memory_order_relaxed);
+                         ++cumulatedCounter;
                        }
                      }));
     };
+    std::exit(0);
   });
 }

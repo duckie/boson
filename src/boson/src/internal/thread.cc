@@ -90,7 +90,8 @@ void thread::handle_engine_event() {
           this->write(fd,std::get<0>(data), std::get<2>(data));
         }
         //blocker_flag_ = true;
-        event_loop_.interrupt();
+        //event_loop_.interrupt();
+        force_next_loop_immediate_exit_ = true;
       } break;
     }
     //delete received_command;
@@ -153,12 +154,20 @@ void thread::wakeUp() {
     //blocker_flag_ = true;
   //}
   //blocker_.notify_one();
-  event_loop_.interrupt();
+  if (current_thread() && current_thread()->id() == engine_proxy_.get_id()) {
+    force_next_loop_immediate_exit_ = true;
+  }
+  else {
+    //if(loop_currently_waiting_.load(std::memory_order_acquire)) {
+    event_loop_.interrupt();
+    //}
+  }
 }
 
 thread::thread(engine& parent_engine)
     : engine_proxy_(parent_engine),
-      blocker_flag_{false},
+      force_next_loop_immediate_exit_{false},
+      loop_currently_waiting_{false},
       event_loop_(*this),
       engine_queue_{} {
   engine_proxy_.set_id();  // Tells the engine which thread id we got
@@ -293,7 +302,8 @@ bool thread::execute_scheduled_routines() {
         return false;
       } else {
         //blocker_flag_ = true;
-        event_loop_.interrupt();
+        //event_loop_.interrupt();
+        force_next_loop_immediate_exit_ = true;
         return true;
       }
     } else {
@@ -343,10 +353,14 @@ void thread::loop() {
         //}) ?  std::cv_status::no_timeout : std::cv_status::timeout;
       //blocker_flag_ = false;
     //}
+    
+    if (force_next_loop_immediate_exit_)
+      timeout_ms = 0;
     auto status = event_loop_.wait(timeout_ms);
     if (0 < nb_pending_commands_.load(std::memory_order_acquire)) {
       handle_engine_event();
     }
+
     //switch (status) {
       //case std::cv_status::no_timeout:
         //break;
@@ -354,6 +368,7 @@ void thread::loop() {
         //fire_timed_out_routines = true;
         //break;
     //}
+    
     switch(status) {
       case io_loop_end_reason::max_iter_reached:
         break;

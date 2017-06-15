@@ -83,11 +83,16 @@ template <int SyscallId> struct boson_classic_syscall {
   static inline decltype(auto) call(int fd, int timeout_ms, Args&&... args) {
     (void)timeout_ms;  // For "unused" warning
     auto return_code = syscall_callable<SyscallId>::call(fd, std::forward<Args>(args)...);
+    int nb_retry = 0;
     while(return_code < 0 && (EAGAIN == errno || EWOULDBLOCK == errno)) {
+      ++nb_retry;
       return_code = wait_readiness<syscall_traits<SyscallId>::is_read,HasTimer>(fd, timeout_ms);
       if (0 == return_code) {
         return_code = syscall_callable<SyscallId>::call(fd, std::forward<Args>(args)...);
       }
+    }
+    if (1 < nb_retry) {
+      debug::log("Syscall {} finished with {} retries.", SyscallId, nb_retry);
     }
     return return_code;
   }

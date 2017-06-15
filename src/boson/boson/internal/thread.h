@@ -152,7 +152,8 @@ class thread : public internal::net_event_handler<uint64_t> {
    */
   std::condition_variable blocker_;
   std::mutex blocker_mutex_;
-  bool blocker_flag_;
+  bool force_next_loop_immediate_exit_;
+  std::atomic<bool> loop_currently_waiting_;
   netpoller<uint64_t> event_loop_;
 
   engine_queue_t engine_queue_;
