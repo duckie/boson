@@ -45,10 +45,11 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   net_event_handler<Data>& handler_;
 
   struct fd_data {
-    bool read_enabled;
-    bool write_enabled;
-    Data read_data;
-    Data write_data;
+    bool registered = false;
+    bool read_enabled = false;
+    bool write_enabled = false;
+    Data read_data = {};
+    Data write_data = {};
   };
 
   /**
@@ -106,14 +107,7 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    */
   void signal_new_fd(fd_t fd) {
     netpoller_platform_impl::register_fd(fd);
-    { 
-      waiters_[fd].read_enabled = false;
-      waiters_[fd].read_data = -1;
-    }
-    {
-      waiters_[fd].write_enabled = false;
-      waiters_[fd].write_data = -1;
-    }
+    waiters_[fd].registered = true;
   }
 
   /**
@@ -123,7 +117,12 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    */
   void signal_fd_closed(fd_t fd) {
     netpoller_platform_impl::unregister(fd);
-    netpoller_platform_impl::interrupt();
+    if (waiters_[fd].read_enabled || waiters_[fd].write_enabled) {
+      netpoller_platform_impl::interrupt();
+      waiters_[fd].registered = false;
+      waiters_[fd].read_enabled = false;
+      waiters_[fd].write_enabled = false;
+    }
   }
 
   /**
@@ -133,6 +132,8 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    */
   void register_read(fd_t fd, Data value) {
     assert(0 <= fd);
+    if (!waiters_[fd].registered)
+      signal_new_fd(fd);
     waiters_[fd].read_data = value;
     waiters_[fd].read_enabled = true;
   }
@@ -144,6 +145,8 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    */
   void register_write(fd_t fd, Data value) {
     assert(0 <= fd);
+    if (!waiters_[fd].registered)
+      signal_new_fd(fd);
     waiters_[fd].write_data = value;
     waiters_[fd].write_enabled = true;
   }

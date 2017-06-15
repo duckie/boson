@@ -89,8 +89,6 @@ struct event_syscall_storage<Func, SYS_accept, Args...> : protected event_storag
     }
     else {
       fd_t new_socket = syscall_callable<SYS_accept>::apply_call(self->args_);
-      if (0 <= new_socket)
-        current_thread()->get_engine().event_loop().signal_new_fd(new_socket);
       return self->func_(new_socket);
     }
   }
