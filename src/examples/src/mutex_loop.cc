@@ -12,10 +12,41 @@ using namespace std::chrono;
 
 static constexpr int nb_iter = 1e5;
 static constexpr int nb_threads = 8;
-static constexpr int nb_tasks= nb_threads * 64;
+static constexpr int nb_tasks= nb_threads * 32;
 
 int main(int argc, char* argv[]) {
   boson::debug::logger_instance(&std::cout);
+
+  auto t1b = high_resolution_clock::now();
+  {
+    std::vector<int> data;
+    std::vector<int> data2;
+    std::mutex mut;   // if not shared, it must outlive the engine instance
+    std::mutex mut2;  // if not shared, it must outlive the engine instance
+    // Execute a routine communication through pipes
+    boson::run(nb_threads, [&]() {
+      using namespace boson;
+
+      for (int i = 0; i < nb_tasks/2; ++i) {
+        boson::start([&mut, &data]() mutable {
+          for (int j = 0; j < nb_iter; ++j) {
+            mut.lock();
+            data.push_back(1);
+            mut.unlock();
+          }
+        });
+        boson::start([&mut2, &data2]() mutable {
+          for (int j = 0; j < nb_iter; ++j) {
+            mut2.lock();
+            data2.push_back(1);
+            mut2.unlock();
+          }
+        });
+      }
+      t1b = high_resolution_clock::now();
+    });
+  }
+  auto t1e = high_resolution_clock::now();
 
   auto t2b = high_resolution_clock::now();
   {
@@ -76,6 +107,7 @@ int main(int argc, char* argv[]) {
     });
   }
   auto t3e = high_resolution_clock::now();
-  std::cout << fmt::format("Pass 2: {}\n", duration_cast<milliseconds>(t2e - t2b).count())
+  std::cout << fmt::format("Pass 1: {}\n", duration_cast<milliseconds>(t1e - t1b).count())
+            << fmt::format("Pass 2: {}\n", duration_cast<milliseconds>(t2e - t2b).count())
             << fmt::format("Pass 3: {}\n", duration_cast<milliseconds>(t3e - t3b).count());
 }

@@ -149,25 +149,21 @@ void thread::unregister_fd(int fd) {
 }
 
 void thread::wakeUp() {
-  //{
-    //std::unique_lock<std::mutex> lock(blocker_mutex_);
-    //blocker_flag_ = true;
-  //}
-  //blocker_.notify_one();
   if (current_thread() && current_thread()->id() == engine_proxy_.get_id()) {
     force_next_loop_immediate_exit_ = true;
   }
+  else if (loop_mutex_.try_lock()) {
+    force_next_loop_immediate_exit_ = true;
+    loop_mutex_.unlock();
+  }
   else {
-    //if(loop_currently_waiting_.load(std::memory_order_acquire)) {
     event_loop_.interrupt();
-    //}
   }
 }
 
 thread::thread(engine& parent_engine)
     : engine_proxy_(parent_engine),
       force_next_loop_immediate_exit_{false},
-      loop_currently_waiting_{false},
       event_loop_(*this),
       engine_queue_{} {
   engine_proxy_.set_id();  // Tells the engine which thread id we got
@@ -301,8 +297,6 @@ bool thread::execute_scheduled_routines() {
         }
         return false;
       } else {
-        //blocker_flag_ = true;
-        //event_loop_.interrupt();
         force_next_loop_immediate_exit_ = true;
         return true;
       }
@@ -339,35 +333,14 @@ void thread::loop() {
       }
     }
     
-    //auto status = std::cv_status::no_timeout;
-    //if (timeout_ms != 0) 
-    //{
-      //std::unique_lock<std::mutex> lock(blocker_mutex_);
-      //if (timeout_ms == -1)
-        //blocker_.wait(lock, [this]() {
-          //return this->blocker_flag_;
-        //});
-      //else
-        //status = blocker_.wait_for(lock, std::chrono::milliseconds(timeout_ms), [this]() {
-          //return this->blocker_flag_;
-        //}) ?  std::cv_status::no_timeout : std::cv_status::timeout;
-      //blocker_flag_ = false;
-    //}
-    
+    loop_mutex_.lock();
     if (force_next_loop_immediate_exit_)
       timeout_ms = 0;
     auto status = event_loop_.wait(timeout_ms);
+    loop_mutex_.unlock();
     if (0 < nb_pending_commands_.load(std::memory_order_acquire)) {
       handle_engine_event();
     }
-
-    //switch (status) {
-      //case std::cv_status::no_timeout:
-        //break;
-      //case std::cv_status::timeout:
-        //fire_timed_out_routines = true;
-        //break;
-    //}
     
     switch(status) {
       case io_loop_end_reason::max_iter_reached:

@@ -23,8 +23,12 @@ size_t io_event_loop::get_max_fds() {
 io_event_loop::io_event_loop(io_event_handler& handler, int nprocs)
     : handler_{handler},
       loop_fd_{epoll_create1(0)},
-      loop_breaker_event_{::eventfd(0,0)}
+      loop_breaker_event_{}
 {
+  loop_breaker_event_ = ::eventfd(0,0);
+  if (loop_breaker_event_ < 0) {
+    throw exception(std::string("Syscall error (eventfd): ") + ::strerror(errno));
+  }
   epoll_event_t new_event{ EPOLLIN | EPOLLET | EPOLLRDHUP, {}};
   new_event.data.fd = loop_breaker_event_;
   int return_code = ::epoll_ctl(loop_fd_, EPOLL_CTL_ADD, loop_breaker_event_, &new_event);
