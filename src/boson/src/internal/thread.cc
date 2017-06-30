@@ -58,7 +58,7 @@ void thread::handle_engine_event() {
     nb_pending_commands_.fetch_sub(1);
     switch (received_command->type) {
       case thread_command_type::add_routine:
-        scheduled_routines_.emplace_back(
+        schedule_routine(
                 routine_slot{std::move(received_command->data.get<routine_ptr_t>()), 0});
         break;
       case thread_command_type::schedule_waiting_routine: {
@@ -90,8 +90,7 @@ void thread::handle_engine_event() {
           this->write(fd,std::get<0>(data), std::get<2>(data));
         }
         //blocker_flag_ = true;
-        //event_loop_.interrupt();
-        force_next_loop_immediate_exit_ = true;
+        event_loop_.interrupt();
       } break;
     }
     //delete received_command;
@@ -149,21 +148,11 @@ void thread::unregister_fd(int fd) {
 }
 
 void thread::wakeUp() {
-  if (current_thread() && current_thread()->id() == engine_proxy_.get_id()) {
-    force_next_loop_immediate_exit_ = true;
-  }
-  else if (loop_mutex_.try_lock()) {
-    force_next_loop_immediate_exit_ = true;
-    loop_mutex_.unlock();
-  }
-  else {
-    event_loop_.interrupt();
-  }
+  event_loop_.interrupt();
 }
 
 thread::thread(engine& parent_engine)
     : engine_proxy_(parent_engine),
-      force_next_loop_immediate_exit_{false},
       event_loop_(*this),
       engine_queue_{} {
   engine_proxy_.set_id();  // Tells the engine which thread id we got
@@ -222,6 +211,10 @@ bool thread::execute_scheduled_routines() {
 
       bool run_routine = true;
       // Try to get a semaphore ticket, if relevant
+
+      assert(slot.ptr->get()->status() == routine_status::yielding ||
+             slot.ptr->get()->status() == routine_status::is_new ||
+             slot.ptr->get()->status() == routine_status::sema_event_candidate);
       if (routine->status() == routine_status::sema_event_candidate) {
         run_routine = routine->event_happened(slot.event_index);
         // If success, get back the unique ownership of the routine
@@ -230,6 +223,9 @@ bool thread::execute_scheduled_routines() {
         }
       }
 
+      assert(slot.ptr->get()->status() == routine_status::yielding ||
+             slot.ptr->get()->status() == routine_status::is_new ||
+             slot.ptr->get()->status() == routine_status::sema_event_candidate);
       if (run_routine) routine->resume(this);
       switch (routine->status()) {
         case routine_status::is_new:
@@ -297,7 +293,7 @@ bool thread::execute_scheduled_routines() {
         }
         return false;
       } else {
-        force_next_loop_immediate_exit_ = true;
+        event_loop_.interrupt();
         return true;
       }
     } else {
@@ -333,11 +329,7 @@ void thread::loop() {
       }
     }
     
-    loop_mutex_.lock();
-    if (force_next_loop_immediate_exit_)
-      timeout_ms = 0;
     auto status = event_loop_.wait(timeout_ms);
-    loop_mutex_.unlock();
     if (0 < nb_pending_commands_.load(std::memory_order_acquire)) {
       handle_engine_event();
     }
@@ -388,6 +380,15 @@ char* thread::get_shared_buffer(std::size_t minimum_size) {
         shared_buffers_.emplace(minimum_size, minimum_size);
   }
   return buffer_it->second.buffer;
+}
+
+void thread::signal_fd_closed(fd_t fd) {
+  event_loop_.signal_fd_closed(fd);
+}
+
+void thread::schedule_routine(routine_slot&& slot) {
+  assert(slot.ptr->get()->status() == routine_status::yielding || slot.ptr->get()->status() == routine_status::is_new || slot.ptr->get()->status() == routine_status::sema_event_candidate);
+  scheduled_routines_.emplace_back(std::move(slot));
 }
 
 }  // namespace internal

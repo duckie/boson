@@ -45,6 +45,7 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   net_event_handler<Data>& handler_;
 
   struct fd_data {
+    std::mutex lock;
     bool registered = false;
     bool read_enabled = false;
     bool write_enabled = false;
@@ -59,6 +60,10 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    * kind must be used
    */
   std::vector<fd_data> waiters_;
+
+  queues::mpsc<fd_t> close_queue_;
+  std::mutex loop_mutex_;
+  bool force_next_loop_immediate_exit_;
 
   void dispatchRead(fd_t fd, event_status status) {
     auto& current_data = waiters_[fd];
@@ -80,7 +85,11 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   netpoller(net_event_handler<Data>& handler)
       : netpoller_platform_impl{static_cast<io_event_handler&>(*this)},
         handler_{handler},
-        waiters_(netpoller_platform_impl::get_max_fds()) {
+        waiters_(netpoller_platform_impl::get_max_fds()),
+        close_queue_{},
+        loop_mutex_{},
+        force_next_loop_immediate_exit_{false}
+  {
   }
 
   void read(fd_t fd, event_status status) override {
@@ -97,7 +106,13 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
   }
 
   void interrupt() {
-    netpoller_platform_impl::interrupt();
+    if (loop_mutex_.try_lock()) {
+      force_next_loop_immediate_exit_ = true;
+      loop_mutex_.unlock();
+    }
+    else {
+      netpoller_platform_impl::interrupt();
+    }
   }
 
   /**
@@ -106,6 +121,7 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    * Can be called from any thread
    */
   void signal_new_fd(fd_t fd) {
+    std::lock_guard<std::mutex> guard(waiters_[fd].lock);
     netpoller_platform_impl::register_fd(fd);
     waiters_[fd].registered = true;
   }
@@ -116,12 +132,11 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    * Can be called from any thread
    */
   void signal_fd_closed(fd_t fd) {
-    netpoller_platform_impl::unregister(fd);
-    if (waiters_[fd].read_enabled || waiters_[fd].write_enabled) {
-      netpoller_platform_impl::interrupt();
+    std::lock_guard<std::mutex> guard(waiters_[fd].lock);
+    if (waiters_[fd].registered) {
       waiters_[fd].registered = false;
-      waiters_[fd].read_enabled = false;
-      waiters_[fd].write_enabled = false;
+      netpoller_platform_impl::unregister(fd);
+      netpoller_platform_impl::interrupt();
     }
   }
 
@@ -181,7 +196,12 @@ class netpoller : public io_event_handler, private netpoller_platform_impl {
    */
   io_loop_end_reason wait(int timeout_ms = -1) {
     // Loop once
+    loop_mutex_.lock();
+    if (force_next_loop_immediate_exit_)
+      timeout_ms = 0;
+    force_next_loop_immediate_exit_ = false;
     auto end_reason = netpoller_platform_impl::wait(timeout_ms);
+    loop_mutex_.unlock();
 
     // Tells the handler we looped
     handler_.callback();

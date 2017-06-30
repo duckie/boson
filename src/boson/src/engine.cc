@@ -130,4 +130,11 @@ engine::~engine() {
     thread->std_thread.join();
   }
 };
+
+void engine::signal_fd_closed(fd_t fd) {
+  for(auto& thread_view : threads_) {
+    thread_view->thread.signal_fd_closed(fd);
+  }
+}
+
 }  // namespace boson

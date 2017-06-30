@@ -91,9 +91,6 @@ template <int SyscallId> struct boson_classic_syscall {
         return_code = syscall_callable<SyscallId>::call(fd, std::forward<Args>(args)...);
       }
     }
-    if (1 < nb_retry) {
-      debug::log("Syscall {} finished with {} retries.", SyscallId, nb_retry);
-    }
     return return_code;
   }
 };
@@ -217,11 +214,9 @@ int connect(socket_t sockfd, const sockaddr* addr, socklen_t addrlen, std::chron
 }
 
 int close(fd_t fd) {
-  //current_thread()->engine_proxy_.get_engine().event_loop().signal_fd_closed(fd);
-  current_thread()->event_loop_.signal_fd_closed(fd);
+  current_thread()->engine_proxy_.get_engine().signal_fd_closed(fd);
   int rc = syscall_callable<SYS_close>::call(fd);
   auto current_errno = errno;
-  //current_thread()->unregister_fd(fd);
   errno = current_errno;
   return rc;
 }

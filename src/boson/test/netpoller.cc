@@ -96,14 +96,15 @@ TEST_CASE("Netpoller - FD Read/Write same FD", "[netpoller][read/write]") {
   CHECK(handler_instance.last_write_fd == -1);
   CHECK(handler_instance.last_status == 0);
   
+  loop.register_read(sv[0], 1);
+  loop.register_write(sv[0], 2);
+
   loop.signal_fd_closed(sv[0]);
   ::shutdown(sv[0], SHUT_WR);
   ::shutdown(sv[1], SHUT_WR);
   ::close(sv[0]);
   ::close(sv[1]);
-
-  loop.register_read(sv[0], 1);
-  loop.register_write(sv[0], 2);
+  
   loop.wait(0);
   CHECK(handler_instance.last_read_fd == 1);
   CHECK(handler_instance.last_write_fd == 2);

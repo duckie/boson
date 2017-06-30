@@ -22,15 +22,15 @@ using namespace boson;
 using namespace std::chrono_literals;
 
 void listen_client(int fd, channel<std::string, 5> msg_chan) {
-  std::array<char, 2048> buffer;
+  boson::shared_buffer<std::array<char, 2048>> buffer;
   for (;;) {
-    ssize_t nread = boson::read(fd, buffer.data(), buffer.size());
+    ssize_t nread = boson::read(fd, buffer.get().data(), buffer.get().size());
     if (nread <= 1) {
       boson::close(fd);
       std::exit(1);
       return;
     }
-    std::string message(buffer.data(), nread);
+    std::string message(buffer.get().data(), nread);
     if (message == "quit") {
       boson::close(fd);
       return;
@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
   boson::debug::logger_instance(&std::cout);
   struct sigaction action {SIG_IGN,0,0};
   ::sigaction(SIGPIPE, &action, nullptr);
-  boson::run(1, []() {
+  boson::run(2, []() {
     channel<int, 5> new_connection;
     channel<std::string, 5> messages;
     std::atomic<uint64_t> counter {0};
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
     size_t cumulatedCounter = 0;
     std::vector<int> conns;
     std::minstd_rand rand(std::random_device{}());
-    while(cumulatedCounter < 1e6) {
+    while(cumulatedCounter < 1e7) {
       int conn = 0;
       int scheduler = 0;
       std::string message;

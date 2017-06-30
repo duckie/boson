@@ -109,9 +109,12 @@ class engine : public internal::net_event_handler<uint64_t> {
   void write(fd_t fd, uint64_t data, event_status status) override;
   void callback() override;
 
+  void signal_fd_closed(fd_t fd);
+
   inline internal::netpoller<uint64_t>& event_loop();
 
   inline size_t max_nb_cores() const;
+
 
   /***
    * Starts a routine into the given thread

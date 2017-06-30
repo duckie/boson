@@ -109,7 +109,7 @@ void routine::cancel_event_round() {
 
 void routine::set_as_semaphore_event_candidate(std::size_t index) {
   status_ = routine_status::sema_event_candidate;
-  thread_->scheduled_routines_.emplace_back(routine_slot{current_ptr_,index});
+  thread_->schedule_routine(routine_slot{current_ptr_,index});
 }
 
 bool routine::event_is_a_fd_wait(std::size_t index, int fd) {
@@ -214,10 +214,10 @@ bool routine::event_happened(std::size_t index, event_status status) {
     //if (happened_type_ == event_type::timer)
       //thread_->scheduled_routines_.emplace_front(routine_slot{routine_local_ptr_t(std::unique_ptr<routine>(current_ptr_->release())),0});
     //else
-    thread_->scheduled_routines_.emplace_back(routine_slot{routine_local_ptr_t(std::unique_ptr<routine>(current_ptr_->release())),0});
-    current_ptr_.invalidate_all();
     status_ = routine_status::yielding;
     happened_index_ = index;
+    thread_->schedule_routine(routine_slot{routine_local_ptr_t(std::unique_ptr<routine>(current_ptr_->release())),0});
+    current_ptr_.invalidate_all();
     return true;
   }
 
@@ -242,7 +242,7 @@ void routine::resume(thread* managing_thread) {
     }
     default:
       // Not supposed to happen
-      //boson::debug::log("Routine has status {}.", static_cast<int>(status_));
+      boson::debug::log("Routine has status {}.", static_cast<int>(status_));
       assert(false);
       break;
   }

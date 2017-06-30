@@ -150,8 +150,6 @@ class thread : public internal::net_event_handler<uint64_t> {
   /**
    * Event loop managing interruptions
    */
-  std::mutex loop_mutex_;
-  bool force_next_loop_immediate_exit_;
   netpoller<uint64_t> event_loop_;
 
   engine_queue_t engine_queue_;
@@ -309,6 +307,10 @@ class thread : public internal::net_event_handler<uint64_t> {
      * See documentation of boson::shared_buffer
      */
     char* get_shared_buffer(std::size_t minimum_size);
+
+    void signal_fd_closed(fd_t fd);
+
+    void schedule_routine(routine_slot&& slot);
 };
 
 /**
