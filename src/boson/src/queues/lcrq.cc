@@ -13,7 +13,10 @@ extern "C" {
 namespace boson {
 namespace queues {
 
+#ifndef BOSON_DISABLE_LOCKFREE
+
 namespace {
+
 inline int hzdptr_size(int nprocs, int nptrs) {
   return sizeof(void * [HZDPTR_THRESHOLD(nprocs) + nptrs]);
 }
@@ -436,5 +439,29 @@ void *lcrq::read(std::size_t proc_id) {
   void *result = dequeue(queue_, get_handle(proc_id));
   return reinterpret_cast<void *>(0xffffffffffffffff) == result ? nullptr : result;
 }
+
+#else  // ifndef BOSON_DISABLE_LOCKFREE
+
+
+lcrq::lcrq(int nprocs) {
+}
+
+void lcrq::write(std::size_t proc_id, void *data) {
+  std::lock_guard<std::mutex> guard{lock_};
+  queue_.emplace_back(data);
+}
+
+void *lcrq::read(std::size_t proc_id) {
+  void* data = nullptr;
+  std::lock_guard<std::mutex> guard{lock_};
+  if (!queue_.empty()) {
+    data = queue_.front();
+    queue_.pop_front();
+  }
+  return data;
+}
+
+#endif  // ifndef BOSON_DISABLE_LOCKFREE else
+
 }
 }

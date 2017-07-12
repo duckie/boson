@@ -61,6 +61,10 @@ if (BOSON_USE_VALGRIND)
   add_definitions(-DBOSON_USE_VALGRIND)
 endif()
 
+if (BOSON_DISABLE_LOCKFREE)
+  add_definitions(-DBOSON_DISABLE_LOCKFREE)
+endif()
+
 project_add_module(test)
 project_add_module(boson)
 project_add_module(examples)

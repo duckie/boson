@@ -39,13 +39,13 @@ TEST_CASE("Netpoller - FD Read/Write", "[netpoller][read/write]") {
   boson::internal::netpoller<int> loop(handler_instance);
 
   // Test 1
-  std::thread t1{[&loop]() { 
-    loop.wait();
-  }};
   loop.signal_new_fd(pipe_fds[0]);
   loop.signal_new_fd(pipe_fds[1]);
   loop.register_read(pipe_fds[0], 1);
   loop.register_write(pipe_fds[1], 2);
+  std::thread t1{[&loop]() { 
+    loop.wait();
+  }};
   t1.join();
   CHECK(handler_instance.last_write_fd == 2);
   CHECK(handler_instance.last_status == 0);

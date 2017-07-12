@@ -9,9 +9,14 @@
 #include <list>
 #include <type_traits>
 #include <utility>
+#ifdef BOSON_DISABLE_LOCKFREE
+#include <mutex>
+#endif
 
 namespace boson {
 namespace queues {
+
+#ifndef BOSON_DISABLE_LOCKFREE
 
 constexpr int HZDPTR_THRESHOLD(int nprocs) {
 return 2 * nprocs;
@@ -134,6 +139,25 @@ class lcrq {
   void write(std::size_t proc_id, void *data);
   void *read(std::size_t proc_id);
 };
+
+#else  // ifndef BOSON_DISABLE_LOCKFREE
+
+class lcrq {
+  std::mutex lock_;
+  std::list<void*> queue_;
+
+ public:
+  lcrq(int nprocs);
+  lcrq(lcrq const &) = delete;
+  lcrq(lcrq &&) = default;
+  lcrq &operator=(lcrq const &) = delete;
+  lcrq &operator=(lcrq &&) = default;
+  ~lcrq() = default;
+  void write(std::size_t proc_id, void *data);
+  void *read(std::size_t proc_id);
+};
+
+#endif  // ifndef BOSON_DISABLE_LOCKFREE else
 
 };  // namespace queues
 };  // namespace boson
