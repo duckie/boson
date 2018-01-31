@@ -13,6 +13,6 @@ else
   git clone ${CORE_REPO} ${CORE_DOWNLOAD}
 fi
 cd ${CORE_DOWNLOAD}
-git checkout "3.0.0"
+git checkout "4.1.0"
 mkdir -p ${SCRIPTPATH}/fmt
 rsync -avz --delete --files-from=${SCRIPTPATH}/file_list.txt ${CORE_DOWNLOAD}/fmt/ ${SCRIPTPATH}/fmt/
