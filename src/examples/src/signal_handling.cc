@@ -11,19 +11,20 @@ using sigfdinfo_t = signalfd_siginfo;
 static constexpr size_t nb_threads = 8;
 
 void handle_signals(int signal_fd, channel<bool, 1> stopper) {
-  sigfdinfo_t info{};
   bool stop = false;
   while (!stop) {
+    sigfdinfo_t info{};
     select_any(  //
         event_read(stopper, stop, [&stop](bool) { stop = true; }),
         event_read(signal_fd, &info, sizeof(sigfdinfo_t),
                    [&](ssize_t rc) {  //
-                     std::cout << "Received signal " << info.ssi_signo << "  in thread "
-                               << boson::internal::current_thread()->id() << std::endl;
+                     if (0 < rc) {    // Ignore rc <= 0
+                       std::cout << "Received signal " << info.ssi_signo << "  in thread "
+                                 << boson::internal::current_thread()->id() << std::endl;
 
-                     // Ignore rc <= 0
-                     if (info.ssi_signo == SIGTERM) {
-                       stopper.close();
+                       if (info.ssi_signo == SIGTERM) {
+                         stopper.close();
+                       }
                      }
                    }));
   }
