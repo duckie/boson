@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
   sigaddset(&mask, SIGTERM);
   sigaddset(&mask, SIGINT);
   pthread_sigmask(SIG_BLOCK, &mask, nullptr);
-  int signal_fd = signalfd(-1, &mask, 0);
+  int signal_fd = signalfd(-1, &mask, SFD_NONBLOCK);
 
   // Start a boson engine with signal handling
   boson::run(nb_threads, [signal_fd]() {
