@@ -30,3 +30,6 @@ add_example(frug_channel)
 add_example(frug_channel2)
 add_example(frug_mutex_loop)
 add_example(frug_select)
+
+add_example(signal_handling)
+add_example(signal_handling2)
